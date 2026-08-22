@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- [ ] 将 `planning-with-files-zh` skill（含 hooks、脚本和模板）复制到仓库根目录并提交；推送 `main` 前等待用户确认。
+- [ ] 已将 `planning-with-files-zh` skill（含 hooks、脚本和模板）复制并提交为 `8de6df5`；推送远端 `main` 前等待用户确认。
 
 ## 后续 Backlog
 
