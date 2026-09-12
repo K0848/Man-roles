@@ -1,0 +1,14 @@
+{
+  "legacyIds": [
+    "曾国藩"
+  ],
+  "displayName": "曾国藩",
+  "content": {
+    "anecdotes": "anecdotes.json",
+    "blacklist": "blacklist.json",
+    "prompt": "persona.md",
+    "quotes": "quotes.json"
+  },
+  "id": "zeng-guofan",
+  "status": "active"
+}

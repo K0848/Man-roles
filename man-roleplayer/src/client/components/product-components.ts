@@ -1,0 +1,5 @@
+export const ProductConversationList = (items: unknown[]) => ({ type: 'conversation-list', items })
+export const ManRolesComposer = (state: { conversationId: string; draft: string }) => ({ type: 'composer', ...state })
+export const PersonaSwitcher = (activePersona: string, personas: string[]) => ({ type: 'persona-switcher', activePersona, personas })
+export const CandidateControls = (candidateId: string) => ({ type: 'candidate-controls', candidateId })
+export const ResultPanel = (result: unknown) => ({ type: 'result-panel', result })

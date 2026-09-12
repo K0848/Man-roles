@@ -1,0 +1,11 @@
+{
+  "knowledgeEvents": [
+    { "type": "assistant/message", "data": { "message": { "content": [{ "type": "text", "text": "REDACTED_PREAMBLE" }, { "type": "tool-call", "name": "submit_actor_reply" }] } } },
+    { "type": "tool/call", "data": { "name": "submit_actor_reply", "callId": "submit-1" } },
+    { "type": "tool/result", "data": { "message": { "source": { "callId": "submit-1" }, "content": [{ "type": "text", "text": "{\"diagnostics\":{\"attempt\":1,\"accepted\":false,\"errorCode\":\"missing-evidence-ids\",\"repairable\":true,\"fallback\":false,\"concluded\":false,\"violations\":[{\"code\":\"missing-current-grant\",\"segmentIndex\":2}]}}" }] } } },
+    { "type": "tool/call", "data": { "name": "submit_actor_reply", "callId": "submit-2" } },
+    { "type": "tool/result", "data": { "message": { "source": { "callId": "submit-2" }, "content": [{ "type": "text", "text": "{\"diagnostics\":{\"attempt\":2,\"accepted\":false,\"errorCode\":\"fixed-fallback\",\"repairable\":false,\"fallback\":true,\"concluded\":true,\"violations\":[{\"code\":\"quote-text-mismatch\",\"segmentIndex\":4}]}}" }] } } }
+  ],
+  "dilemma": { "observed": 2168, "nextEstimate": 2600, "providerCallsAfterBlock": 0 },
+  "review": { "turnPolicy": { "intent": "reflect", "maxQuestions": 1, "allowedControls": ["continue", "correct", "end"] }, "questions": 1 }
+}

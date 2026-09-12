@@ -1,0 +1,34 @@
+[
+  {
+    "personaId": "wang-yangming",
+    "text": "此心不动，随机而动。",
+    "kind": "quote",
+    "credibility": "❌",
+    "mode": "always",
+    "reason": "未见于王阳明原书，系后人将其\"此心不动\"思想拟成八字（调研成果-王阳明 D 节 3：网络广为流传，标 ❌ 误传，不可作为阳明原话收录）"
+  },
+  {
+    "personaId": "wang-yangming",
+    "text": "吾心即是宇宙，宇宙便是吾心。",
+    "kind": "quote",
+    "credibility": "❌",
+    "mode": "always",
+    "reason": "此语为陆九渊（象山）所言，出自《象山先生全集》，不是王阳明的话；同属心学脉络但属张冠李戴（调研成果-王阳明 D 节 6）"
+  },
+  {
+    "personaId": "wang-yangming",
+    "text": "一生俯首拜阳明",
+    "kind": "quote",
+    "credibility": "⚠️",
+    "mode": "always",
+    "reason": "东乡平八郎刻章\"一生俯首拜阳明\"说法缺乏可靠一手史料佐证，学界多视为后世附会/文学化叙述，不能当作史实/原话使用（调研成果-王阳明 D 节 7）"
+  },
+  {
+    "personaId": "wang-yangming",
+    "text": "阳明学是明治维新原动力",
+    "kind": "quote",
+    "credibility": "⚠️",
+    "mode": "always",
+    "reason": "学界视为过度简化，录入时勿作为定论史实（调研成果-王阳明 D 节 7）"
+  }
+]

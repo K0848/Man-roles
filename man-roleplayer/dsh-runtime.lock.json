@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "runtimeId": "man-roles-dsh-local",
+  "dsh": {
+    "sourceCommit": "9774dc46c57a23ad169d004b1a763b2ebc0ff6b1",
+    "packageVersion": "0.1.1-rc.2",
+    "cliPackage": "@deepseek-ai/dsh",
+    "cliEntry": "node_modules/@deepseek-ai/dsh/lib/bin.js",
+    "requiredPackages": [
+      {
+        "name": "@deepseek-ai/dsh",
+        "entry": "node_modules/@deepseek-ai/dsh/lib/bin.js"
+      },
+      {
+        "name": "@deepseek-ai/dsh-agent-loop",
+        "entry": "node_modules/@deepseek-ai/dsh-agent-loop/lib/index.js",
+        "requiredText": "wakePending"
+      },
+      {
+        "name": "@deepseek-ai/dsh-agent",
+        "entry": "node_modules/@deepseek-ai/dsh-agent/lib/index.js"
+      },
+      {
+        "name": "@deepseek-ai/dsh-agent",
+        "entry": "node_modules/@deepseek-ai/dsh-agent/lib/types/runtime-types.d.ts",
+        "requiredText": "wakePending"
+      }
+    ],
+    "approvedSeam": {
+      "files": [
+        "packages/core/agent-loop/src/agent.ts",
+        "packages/core/agent-loop/tests/agent.spec.ts",
+        "packages/core/agent/src/runtime-types.ts"
+      ],
+      "addedLines": {
+        "packages/core/agent-loop/src/agent.ts": 7,
+        "packages/core/agent-loop/tests/agent.spec.ts": 15,
+        "packages/core/agent/src/runtime-types.ts": 3
+      }
+    },
+    "compatibilityCommit": {
+      "commit": "7e7930854efc1acf091593594964386e076baaf6",
+      "parent": "8b0235694fce75babe1fe6cd919d1d3581c9a4c2",
+      "files": 29,
+      "addedLines": 32,
+      "allowedText": "wakePending: () => false,"
+    },
+    "propagationCommit": "9774dc46c57a23ad169d004b1a763b2ebc0ff6b1"
+  },
+  "profile": {
+    "name": "man-roles-mvp-web",
+    "sourceRelativePath": "profile/mvp-web",
+    "pluginPackage": "man-roles-roleplayer",
+    "bundles": [
+      "@deepseek-ai/dsh-base",
+      "@deepseek-ai/dsh-web-app",
+      "man-roles-roleplayer"
+    ]
+  },
+  "install": {
+    "families": ["vendor", "dsh"],
+    "allTarballsRequired": true,
+    "packageManager": "npm",
+    "ignoreScripts": true
+  }
+}

@@ -1,0 +1,82 @@
+[
+  {
+    "personaId": "zeng-guofan",
+    "text": "屡战屡败",
+    "kind": "quote",
+    "credibility": "❌",
+    "mode": "always",
+    "reason": "\"屡战屡败\"改奏折典故系后人杜撰：未见曾国藩奏稿中有此原文，典故出自后世笔记、演义与民间叙述，不可作为史实或原话（调研成果-曾国藩 D 节 1）"
+  },
+  {
+    "personaId": "zeng-guofan",
+    "text": "屡败屡战",
+    "kind": "quote",
+    "credibility": "❌",
+    "mode": "always",
+    "reason": "\"屡战屡败→屡败屡战\"改奏折典故系后人杜撰：未见曾国藩奏稿中有此原文，不可作为史实或原话（调研成果-曾国藩 D 节 1）"
+  },
+  {
+    "personaId": "zeng-guofan",
+    "text": "结硬寨，打呆仗。",
+    "kind": "quote",
+    "credibility": "❌",
+    "mode": "always",
+    "reason": "后人对湘军战法的高度概括，非曾国藩原话；曾氏论兵强调\"先求稳当，次求变化\"\"以有定之兵制无定之寇\"，但八字非其亲语，可作思想概括不可作原话（调研成果-曾国藩 C2 F2 / D 节 2）"
+  },
+  {
+    "personaId": "zeng-guofan",
+    "text": "轻财足以聚人，律己足以服人，量宽足以得人，身先足以率人。",
+    "kind": "quote",
+    "credibility": "❌",
+    "mode": "always",
+    "reason": "通行被误归曾国藩，实际出自清代格言类书（金缨《格言联璧》等），张冠李戴（调研成果-曾国藩 C2 F3 / D 节 4）"
+  },
+  {
+    "personaId": "zeng-guofan",
+    "text": "物来顺应，未来不迎，当下不杂，既过不恋。",
+    "kind": "quote",
+    "credibility": "⚠️",
+    "mode": "always",
+    "reason": "通行流传为曾国藩语，但精确出处存疑：各通行本文字不一，篇目待考，不可作为稳定原话入库（调研成果-曾国藩 C2 F4 / D 节 5）"
+  },
+  {
+    "personaId": "zeng-guofan",
+    "text": "打落牙齿和血吞。",
+    "kind": "quote",
+    "credibility": "⚠️",
+    "mode": "always",
+    "reason": "通行作曾国藩语（自述忍辱），多见于传记转述，原始出处待考（调研成果-曾国藩 C2 F5）"
+  },
+  {
+    "personaId": "zeng-guofan",
+    "text": "事功本于学问，善以礼运。",
+    "kind": "quote",
+    "credibility": "✅",
+    "mode": "first-person",
+    "reason": "《清史稿》卷405《论曰》史臣评价，不是曾国藩自述；禁作第一人称，仅可作历史坐标/旁白（调研成果-曾国藩 C1 21 / G2.9）"
+  },
+  {
+    "personaId": "zeng-guofan",
+    "text": "其治军行政，务求蹈实。",
+    "kind": "quote",
+    "credibility": "✅",
+    "mode": "first-person",
+    "reason": "《清史稿》卷405《论曰》史臣评价，不是曾国藩自述；禁作第一人称，仅可作历史坐标/旁白（调研成果-曾国藩 C1 22 / G2.9）"
+  },
+  {
+    "personaId": "zeng-guofan",
+    "text": "《冰鉴》",
+    "kind": "book",
+    "credibility": "⚠️",
+    "mode": "always",
+    "reason": "伪托书：学界多认为系后人托名辑录，非曾国藩亲著定本；录入语录不得以《冰鉴》为 source，一律回落到《曾国藩全集》（调研成果-曾国藩 D 节 3）"
+  },
+  {
+    "personaId": "zeng-guofan",
+    "text": "《挺经》",
+    "kind": "book",
+    "credibility": "⚠️",
+    "mode": "always",
+    "reason": "伪托书：学界多认为系后人托名辑录，非曾国藩亲著定本；录入语录不得以《挺经》为 source，一律回落到《曾国藩全集》（调研成果-曾国藩 D 节 3）"
+  }
+]

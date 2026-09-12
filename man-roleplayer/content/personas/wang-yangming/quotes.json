@@ -1,0 +1,149 @@
+[
+  {
+    "id": "wang-yangming-q01",
+    "personaId": "wang-yangming",
+    "text": "\"知是行的主意，行是知的功夫；知是行之始，行是知之成。\"",
+    "source": "《传习录》卷上·徐爱引言",
+    "keywords": ["知行合一"],
+    "credibility": "✅",
+    "note": "可靠"
+  },
+  {
+    "id": "wang-yangming-q02",
+    "personaId": "wang-yangming",
+    "text": "\"人须在事上磨，方立得住，方能静亦定、动亦定。\"",
+    "source": "《传习录》卷上·陆澄录",
+    "keywords": ["事上磨", "修养"],
+    "credibility": "✅",
+    "note": "可靠"
+  },
+  {
+    "id": "wang-yangming-q03",
+    "personaId": "wang-yangming",
+    "text": "\"破山中贼易，破心中贼难。\"",
+    "source": "《王阳明全集·与杨仕德薛尚谦书》（⚠️ 常被误标为《传习录》）",
+    "keywords": ["克己", "心性"],
+    "credibility": "✅",
+    "note": "可靠（出处为书信）"
+  },
+  {
+    "id": "wang-yangming-q04",
+    "personaId": "wang-yangming",
+    "text": "\"此心光明，亦复何言。\"",
+    "source": "《阳明先生集要·年谱》临终条",
+    "keywords": ["临终", "境界"],
+    "credibility": "⚠️",
+    "note": "待核"
+  },
+  {
+    "id": "wang-yangming-q05",
+    "personaId": "wang-yangming",
+    "text": "\"心即理也，天下又有心外之事、心外之理乎？\"",
+    "source": "《传习录》卷上·徐爱录",
+    "keywords": ["心即理"],
+    "credibility": "✅",
+    "note": "可靠"
+  },
+  {
+    "id": "wang-yangming-q06",
+    "personaId": "wang-yangming",
+    "text": "\"致吾心之良知于事事物物，则事事物物皆得其理矣。\"",
+    "source": "《传习录》卷中·答顾东桥书",
+    "keywords": ["致良知", "格物"],
+    "credibility": "✅",
+    "note": "可靠"
+  },
+  {
+    "id": "wang-yangming-q07",
+    "personaId": "wang-yangming",
+    "text": "\"志不立，天下无可成之事。\"",
+    "source": "《教条示龙场诸生》（《王文成公全书》卷二十六）",
+    "keywords": ["立志"],
+    "credibility": "✅",
+    "note": "可靠"
+  },
+  {
+    "id": "wang-yangming-q08",
+    "personaId": "wang-yangming",
+    "text": "\"圣人之道，吾性自足，向之求理于事物者误也。\"",
+    "source": "《阳明先生集要·年谱》龙场悟道条",
+    "keywords": ["心即理", "悟道"],
+    "credibility": "⚠️",
+    "note": "待核"
+  },
+  {
+    "id": "wang-yangming-q09",
+    "personaId": "wang-yangming",
+    "text": "\"致良知三字，真圣门正法眼藏。\"",
+    "source": "《传习录》卷下及书信类",
+    "keywords": ["致良知"],
+    "credibility": "⚠️",
+    "note": "待核",
+    "textNote": "（晚年自述）"
+  },
+  {
+    "id": "wang-yangming-q10",
+    "personaId": "wang-yangming",
+    "text": "\"知行合一\"",
+    "source": "由《传习录》徐爱录论知行合一展开",
+    "keywords": ["知行合一"],
+    "credibility": "✅",
+    "note": "可靠",
+    "textNote": "（四字宗旨）"
+  },
+  {
+    "id": "wang-yangming-q11",
+    "personaId": "wang-yangming",
+    "text": "\"无善无恶心之体，有善有恶意之动，知善知恶是良知，为善去恶是格物。\"",
+    "source": "《传习录》卷下·天泉证道条（门人记录）",
+    "keywords": ["四句教", "致良知", "格物"],
+    "credibility": "✅",
+    "note": "可靠"
+  },
+  {
+    "id": "wang-yangming-q12",
+    "personaId": "wang-yangming",
+    "text": "\"你未看此花时，此花与汝同归于寂；你来看此花时，则此花颜色一时明白起来，便知此花不在你的心外。\"",
+    "source": "《传习录》卷下·黄省曾录（岩中花树，诸本文字略有差异）",
+    "keywords": ["心外无物", "心物"],
+    "credibility": "✅",
+    "note": "可靠"
+  },
+  {
+    "id": "wang-yangming-q13",
+    "personaId": "wang-yangming",
+    "text": "\"个个人心有仲尼，自将闻见苦遮迷。\"",
+    "source": "《王阳明全集》卷二十《咏良知四首示诸生》",
+    "keywords": ["良知", "自足"],
+    "credibility": "✅",
+    "note": "可靠",
+    "textNote": "（咏良知诗）"
+  },
+  {
+    "id": "wang-yangming-q14",
+    "personaId": "wang-yangming",
+    "text": "\"千圣皆过影，良知乃吾师。\"",
+    "source": "《王阳明全集·长生》（诗）——已考据确认：此句出自王阳明《长生》诗（\"长生徒有慕，苦乏大药资……千圣皆过影，良知乃吾师\"），通行收录于《王文成公全书》卷二十（外集·诗）／《王阳明全集》诗集；纠正此前主稿/补充稿分别误挂《咏良知四首示诸生》与《答人问良知二首·其一》的篇名冲突",
+    "keywords": ["良知", "师承"],
+    "credibility": "⚠️",
+    "note": "待核（诗篇名已确认《长生》，卷次级定位待核）"
+  },
+  {
+    "id": "wang-yangming-q15",
+    "personaId": "wang-yangming",
+    "text": "\"持志如心痛，一心在痛上，岂有工夫说闲话、管闲事。\"",
+    "source": "《传习录》卷上·门人薛侃录（维基文库本确认\"以下门人薛侃录\"）",
+    "keywords": ["立志", "持志"],
+    "credibility": "✅",
+    "note": "可靠（记录人已确认薛侃）"
+  },
+  {
+    "id": "wang-yangming-q16",
+    "personaId": "wang-yangming",
+    "text": "\"攻吾之短者是吾师，攻吾之短者非吾仇。\"",
+    "source": "《传习录》卷中·答周道通书（通行白话本及《答周道通书》均见；文本诸本略有出入）",
+    "keywords": ["待人", "自省"],
+    "credibility": "⚠️",
+    "note": "待核（篇目已确认答周道通书，文字版本待核）"
+  }
+]

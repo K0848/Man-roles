@@ -1,0 +1,30 @@
+[
+  {
+    "legacyIds": [
+      "王阳明"
+    ],
+    "displayName": "王阳明",
+    "content": {
+      "anecdotes": "anecdotes.json",
+      "blacklist": "blacklist.json",
+      "prompt": "persona.md",
+      "quotes": "quotes.json"
+    },
+    "id": "wang-yangming",
+    "status": "active"
+  },
+  {
+    "legacyIds": [
+      "曾国藩"
+    ],
+    "displayName": "曾国藩",
+    "content": {
+      "anecdotes": "anecdotes.json",
+      "blacklist": "blacklist.json",
+      "prompt": "persona.md",
+      "quotes": "quotes.json"
+    },
+    "id": "zeng-guofan",
+    "status": "active"
+  }
+]

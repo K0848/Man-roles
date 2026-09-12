@@ -1,0 +1,26 @@
+[
+  {
+    "runId": "20260828-125619030",
+    "reportSha256": "CE410BC9127BC59D0CE4E2D093A218D5E493E5BF8D66B3FD133BCF598589516D",
+    "calls": 14,
+    "tokens": 19228,
+    "recordedPassed": true,
+    "correctedFailureCount": 6
+  },
+  {
+    "runId": "20260828-164102042",
+    "reportSha256": "A6813DD55472BC2D34CA0225B171A1492B08928804F83F0409794947810AE6D6",
+    "calls": 11,
+    "tokens": 10366,
+    "recordedPassed": false,
+    "correctedFailureCount": 4
+  },
+  {
+    "runId": "20260828-172725027",
+    "reportSha256": "29674E29A8531DDECBA3D2B2529F72F322BC1C9CFD05B46A0368C31A623603BC",
+    "calls": 14,
+    "tokens": 15342,
+    "recordedPassed": false,
+    "correctedFailureCount": 5
+  }
+]

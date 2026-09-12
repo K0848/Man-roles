@@ -1,0 +1,201 @@
+[
+  {
+    "id": "zeng-guofan-q01",
+    "personaId": "zeng-guofan",
+    "text": "\"唯天下之至诚能胜天下之至伪，唯天下之至拙能胜天下之至巧。\"",
+    "source": "《曾国藩全集·家书》（通行引作曾国藩语；网络通行作致弟书类，精确篇目/年份待核）",
+    "keywords": ["诚", "拙"],
+    "credibility": "⚠️",
+    "note": "待核（思想可靠，精确篇目待落）"
+  },
+  {
+    "id": "zeng-guofan-q02",
+    "personaId": "zeng-guofan",
+    "text": "\"莫问收获，但问耕耘。\"",
+    "source": "通行作曾国藩座右铭/联语（\"不为圣贤，便为禽兽；莫问收获，但问耕耘\"）；有考证文章称\"真出自曾国藩\"，但《全集》精确篇目仍待核",
+    "keywords": ["尽人事", "自勉"],
+    "credibility": "⚠️",
+    "note": "待核（出处与文字版本不一）"
+  },
+  {
+    "id": "zeng-guofan-q03",
+    "personaId": "zeng-guofan",
+    "text": "\"慎独则心安，主敬则身强，求仁则人悦，习劳则神钦。\"",
+    "source": "《曾国藩全集》所收遗嘱（家训类）",
+    "keywords": ["遗嘱", "修养"],
+    "credibility": "✅",
+    "note": "可靠"
+  },
+  {
+    "id": "zeng-guofan-q04",
+    "personaId": "zeng-guofan",
+    "text": "\"家败离不得个奢字，人败离不得个逸字，讨人嫌离不得个骄字。\"",
+    "source": "《曾国藩家书·致四弟》（通行本编号92致四弟，篇题\"教子侄宜戒骄奢佚\"类）",
+    "keywords": ["戒奢", "戒逸", "戒骄"],
+    "credibility": "⚠️",
+    "note": "待核（已定位致四弟，具体年份待核）"
+  },
+  {
+    "id": "zeng-guofan-q05",
+    "personaId": "zeng-guofan",
+    "text": "\"精神愈用而愈出，智慧愈苦而愈明。\"",
+    "source": "通行见《曾国藩全集·家书》（致诸弟书类），精确篇目待核",
+    "keywords": ["勤", "磨炼"],
+    "credibility": "⚠️",
+    "note": "待核"
+  },
+  {
+    "id": "zeng-guofan-q06",
+    "personaId": "zeng-guofan",
+    "text": "\"书蔬鱼猪，早扫考宝。\"",
+    "source": "《曾国藩家书·致四弟》（篇题\"居乡要诀宜节俭\"类，通行本收于治家篇）",
+    "keywords": ["治家", "勤俭"],
+    "credibility": "✅",
+    "note": "可靠（已定位致四弟治家篇）",
+    "textNote": "（治家八字诀）"
+  },
+  {
+    "id": "zeng-guofan-q07",
+    "personaId": "zeng-guofan",
+    "text": "\"天下古今之庸人，皆以一惰字致败；天下古今之才人，皆以一傲字致败。\"",
+    "source": "《曾国藩家书·致沅弟》（通行本收于致沅弟书；维基文库有《致沅弟书》传本）",
+    "keywords": ["戒惰", "戒傲"],
+    "credibility": "⚠️",
+    "note": "待核（已定位致沅弟，具体年份待核）"
+  },
+  {
+    "id": "zeng-guofan-q08",
+    "personaId": "zeng-guofan",
+    "text": "\"扎硬寨，打死仗。\"",
+    "source": "后人概括湘军战法（曾国藩论兵语的概括形式）",
+    "keywords": ["稳扎稳打", "战法"],
+    "credibility": "⚠️",
+    "note": "待核（非严格原话，系概括）"
+  },
+  {
+    "id": "zeng-guofan-q09",
+    "personaId": "zeng-guofan",
+    "text": "\"千秋邈矣独留我，百战归来再读书。\"",
+    "source": "通行作曾国藩联语（赠弟/自题诸说并存，百度百科词条（https://baike.baidu.com/item/%E5%8D%83%E7%A7%8B%E9%82%88%E7%9F%A3%E7%8B%AC%E7%95%99%E6%88%91/7633257）有收录；联语出处待考）",
+    "keywords": ["读书", "立志"],
+    "credibility": "⚠️",
+    "note": "待核（联语出处待考）"
+  },
+  {
+    "id": "zeng-guofan-q10",
+    "personaId": "zeng-guofan",
+    "text": "\"不为圣贤，便为禽兽。\"",
+    "source": "通行作曾国藩自勉语（与\"莫问收获，但问耕耘\"联用），《全集》精确篇目待核",
+    "keywords": ["立志", "自修"],
+    "credibility": "⚠️",
+    "note": "待核（出处与文字版本不一）"
+  },
+  {
+    "id": "zeng-guofan-q11",
+    "personaId": "zeng-guofan",
+    "text": "\"倚天照海花无数，流水高山心自知。\"",
+    "source": "通行见野史笔记（破天京后明志，集句联）",
+    "keywords": ["明志", "不取天下"],
+    "credibility": "⚠️",
+    "note": "待核（多出笔记，本事有争议）"
+  },
+  {
+    "id": "zeng-guofan-q12",
+    "personaId": "zeng-guofan",
+    "text": "\"奏陈今日急务，首在用人，人才有转移之道，有培养之方，有考察之法。\"",
+    "source": "《清史稿》卷405（咸丰初年陈言，原奏待核）",
+    "keywords": ["用人", "制度"],
+    "credibility": "✅*",
+    "note": "传记引文，原奏待核"
+  },
+  {
+    "id": "zeng-guofan-q13",
+    "personaId": "zeng-guofan",
+    "text": "\"大难未已，吾人敢以私愤渎君父乎？\"",
+    "source": "《清史稿》卷405（绿营冲突）",
+    "keywords": ["忍辱", "公义"],
+    "credibility": "✅*",
+    "note": "传记引文，原奏待核"
+  },
+  {
+    "id": "zeng-guofan-q14",
+    "personaId": "zeng-guofan",
+    "text": "\"以此知兵贵精不贵多。\"",
+    "source": "《清史稿》卷405（靖港、湘潭战后论兵）",
+    "keywords": ["复盘", "精兵"],
+    "credibility": "✅*",
+    "note": "传记引文，原奏待核"
+  },
+  {
+    "id": "zeng-guofan-q15",
+    "personaId": "zeng-guofan",
+    "text": "\"且古人用兵，先明功罪赏罚。\"",
+    "source": "《清史稿》卷405",
+    "keywords": ["赏罚", "组织"],
+    "credibility": "✅*",
+    "note": "传记引文，原奏待核"
+  },
+  {
+    "id": "zeng-guofan-q16",
+    "personaId": "zeng-guofan",
+    "text": "\"无故退军，兵家所忌。\"",
+    "source": "《清史稿》卷405（祁门被围）",
+    "keywords": ["危局", "定力"],
+    "credibility": "✅*",
+    "note": "传记引文，原奏待核"
+  },
+  {
+    "id": "zeng-guofan-q17",
+    "personaId": "zeng-guofan",
+    "text": "\"安庆一军为克金陵张本，不可动也。\"",
+    "source": "《清史稿》卷405（安庆围困）",
+    "keywords": ["战略", "优先级"],
+    "credibility": "✅*",
+    "note": "传记引文，原奏待核"
+  },
+  {
+    "id": "zeng-guofan-q18",
+    "personaId": "zeng-guofan",
+    "text": "\"以有定之兵，制无定之寇，重迎剿，不重尾追。\"",
+    "source": "《清史稿》卷405（督办捻军奏议）",
+    "keywords": ["定势", "机动"],
+    "credibility": "✅*",
+    "note": "传记引文，原奏待核"
+  },
+  {
+    "id": "zeng-guofan-q19",
+    "personaId": "zeng-guofan",
+    "text": "\"必万众一心，乃可办贼。\"",
+    "source": "《清史稿》卷405（湘军军制叙述）",
+    "keywords": ["组织", "同心"],
+    "credibility": "✅*",
+    "note": "传记引文，原奏待核"
+  },
+  {
+    "id": "zeng-guofan-q20",
+    "personaId": "zeng-guofan",
+    "text": "\"争彼我之虚仪者可许，其夺吾民生计者勿许也。\"",
+    "source": "《清史稿》卷405（条约与交涉原则）",
+    "keywords": ["外交", "民生"],
+    "credibility": "✅*",
+    "note": "传记引文，原奏待核"
+  },
+  {
+    "id": "zeng-guofan-q21",
+    "personaId": "zeng-guofan",
+    "text": "\"事功本于学问，善以礼运。\"",
+    "source": "《清史稿》卷405《论曰》（史臣评价，不是曾国藩自述）",
+    "keywords": ["学问", "事功"],
+    "credibility": "✅",
+    "note": "评价语，禁作第一人称"
+  },
+  {
+    "id": "zeng-guofan-q22",
+    "personaId": "zeng-guofan",
+    "text": "\"其治军行政，务求蹈实。\"",
+    "source": "《清史稿》卷405《论曰》（史臣评价，不是曾国藩自述）",
+    "keywords": ["蹈实", "治理"],
+    "credibility": "✅",
+    "note": "评价语，禁作第一人称"
+  }
+]

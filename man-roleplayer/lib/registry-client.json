@@ -1,0 +1,18 @@
+[
+  {
+    "id": "wang-yangming",
+    "displayName": "王阳明",
+    "status": "active",
+    "legacyIds": [
+      "王阳明"
+    ]
+  },
+  {
+    "id": "zeng-guofan",
+    "displayName": "曾国藩",
+    "status": "active",
+    "legacyIds": [
+      "曾国藩"
+    ]
+  }
+]

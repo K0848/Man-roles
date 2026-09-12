@@ -1,0 +1,12 @@
+{
+  "name": "dsh-profile-man-roles-mvp-web",
+  "private": true,
+  "dependencies": {
+    "man-roles-roleplayer": "link:../../"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "man-roles-roleplayer"]
+    }
+  }
+}
