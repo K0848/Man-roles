@@ -1,1 +1,0 @@
-$ErrorActionPreference='Stop'; Push-Location (Join-Path $PSScriptRoot '..'); try { npm run build; if($LASTEXITCODE -ne 0){throw 'build failed'}; node --test tests/mvp-report.test.mjs; if($LASTEXITCODE -ne 0){throw 'MVP report failed'} } finally { Pop-Location }
