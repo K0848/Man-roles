@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-24-man-roleplayer-explicit-choice.md
+2026-10-24-man-roleplayer-explicit-choice.md: b1eeb92bea71cc85f4a51022e27055127257b931
+2026-10-24-man-roleplayer-explicit-choice.zh.md: 858b3394f0963a37707cd404789c3750b78bd286

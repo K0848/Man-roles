@@ -1,0 +1,44 @@
+# Local state and credentials: never publish.
+.local/
+.env
+.env.*
+!.env.example
+!.env.template
+**/credentials.patch.yml
+**/credentials.local.*
+**/auth.json
+*.pem
+*.key
+# Private working materials and captured conversations.
+.claude/
+**/.claude/
+.validation/
+**/.validation/
+.delivery/
+playwright-temp/
+design-demos/
+experiments/
+面试准备文档.md
+**/.sessions/
+**/.storages/
+# Build/dependency outputs.
+node_modules/
+.pnpm-store/
+lib/
+dist/
+coverage/
+.cache/
+.artifacts/
+.dsh-build/
+*.tsbuildinfo
+*.log
+__pycache__/
+.pytest_cache/
+# Product-local acceptance configs and captured demo documents.
+deepseek-harness/packages/extensions/man-roleplayer/h3/
+deepseek-harness/man-roleplayer/
+# Local editor/OS state.
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

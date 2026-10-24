@@ -1,0 +1,108 @@
+# Independent product profile overlay. Compose this after dsh-base and
+# dsh-web-app; ordinary `web` and `headless` profiles never apply this layer.
+# Research and preset paths are explicit deployment bindings, not cwd fallbacks.
+
+- id: agent-presets
+  config:
+    default: wang-yangming
+    roots:
+      - path: !!js process.env.DSH_MAN_ROLEPLAYER_PRESET_ROOT
+        trust: system
+    includeUserRoot: false
+
+- insert:
+    - id: man-roleplayer
+      name: '@deepseek-ai/dsh-man-roleplayer'
+      config:
+        personas: !!js process.env.DSH_MAN_ROLEPLAYER_PERSONAS_JSON
+        # Legacy test overlays may still bind the original pair while the product launcher uses personas.
+        research:
+          wangYangmingPath: !!js process.env.DSH_MAN_ROLEPLAYER_WANG_PATH
+          zengGuofanPath: !!js process.env.DSH_MAN_ROLEPLAYER_ZENG_PATH
+        presets:
+          wangYangming: wang-yangming
+          zengGuofan: zeng-guofan
+        agentOptions:
+          # Product profiles must bind a provider/model explicitly. Test
+          # profiles provide them in their own overlay; no silent mock fallback.
+          provider: !!js process.env.DSH_MAN_ROLEPLAYER_PROVIDER
+          model: !!js process.env.DSH_MAN_ROLEPLAYER_MODEL
+          # Prevent a short product turn from inheriting the DeepSeek adapter's
+          # 256k output ceiling. This is an output cap, not a context limit.
+          maxTokens: 8192
+        requireExplicitModel: true
+        stateAnalysis: true
+        turnBudget:
+          maxModelRequests: 8
+          maxToolCalls: 12
+          activeTimeoutMs: 120000
+          requestTimeoutMs: 60000
+          noProgressLimit: 2
+          stopTimeoutMs: 5000
+
+# Product titles are owned by man-roleplayer. Disable the generic private
+# Session title model to avoid a duplicate, invisible Provider call.
+- id: session-title-llm
+  disabled: true
+
+- id: ui-layout
+  disabled: true
+- id: ui-sidebar
+  disabled: true
+- id: ui-conversation
+  disabled: true
+# Keep the settings domain service mounted so locale/theme and other
+# dependency-only client rows can activate; generic settings navigation is
+# disabled below without removing that shared service owner.
+- id: ui-settings-general
+  disabled: true
+- id: ui-settings-models
+  disabled: true
+- id: ui-settings-plugin-inventory
+  disabled: true
+- id: ui-settings-plugins
+  disabled: true
+- id: ui-tool
+  disabled: true
+- id: ui-cordis
+  disabled: true
+- id: ui-input-trigger
+  disabled: true
+- id: ui-commands
+  disabled: true
+- id: ui-skill
+  disabled: true
+- id: ui-subagent
+  disabled: true
+- id: ui-reference
+  disabled: true
+- id: ui-jobs
+  disabled: true
+- id: ui-goal
+  disabled: true
+- id: ui-message-feedback
+  disabled: true
+- id: ui-model-selection
+  disabled: true
+- id: ui-agent-preset
+  disabled: true
+- id: ui-permission
+  disabled: true
+- id: ui-plan
+  disabled: true
+- id: ui-user-questions
+  disabled: true
+- id: ui-trajectory
+  disabled: true
+- id: ui-workspace
+  disabled: true
+- id: ui-brand-official
+  disabled: true
+- id: ui-attachment
+  disabled: true
+- id: ui-deliverables
+  disabled: true
+
+- insert:
+    - id: man-roleplayer-client
+      name: '@deepseek-ai/dsh-client-ui-man-roleplayer'

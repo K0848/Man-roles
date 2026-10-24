@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-10-24-roleplayer-persona-cards-and-reading-layout.md
+2026-10-24-roleplayer-persona-cards-and-reading-layout.md: 6dfcd9ed0729eeea3d9b02b7dc4061e444d6db01
+2026-10-24-roleplayer-persona-cards-and-reading-layout.zh.md: 5b34f80081e4b172bb7c48b58a935a93e4c7c30a
