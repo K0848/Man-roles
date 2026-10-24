@@ -1,31 +1,34 @@
-# Local state and credentials: never publish.
+# Local runtime state and secrets.
 .local/
 .env
 .env.*
 !.env.example
 !.env.template
-**/credentials.patch.yml
-**/credentials.local.*
-**/auth.json
+credentials.patch.yml
+credentials.local.*
+auth.json
 *.pem
 *.key
-# Private working materials and captured conversations.
+.sessions/
+.storages/
+
+# Private working materials and acceptance captures.
 .claude/
-**/.claude/
 .validation/
-**/.validation/
 .delivery/
-playwright-temp/
-design-demos/
-experiments/
-面试准备文档.md
-**/.sessions/
-**/.storages/
-# Build/dependency outputs.
+/playwright-temp/
+/design-demos/
+/experiments/
+/面试准备文档.md
+/packages/extensions/man-roleplayer/h3/
+/man-roleplayer/
+
+# Dependencies, builds, caches, and generated test workspaces.
 node_modules/
 .pnpm-store/
 lib/
 dist/
+dist-exe/
 coverage/
 .cache/
 .artifacts/
@@ -34,11 +37,26 @@ coverage/
 *.log
 __pycache__/
 .pytest_cache/
-# Product-local acceptance configs and captured demo documents.
-deepseek-harness/packages/extensions/man-roleplayer/h3/
-deepseek-harness/man-roleplayer/
-# Local editor/OS state.
+.doc-typecheck-*/
+.node-next-types-*/
+.oxlint-contract-*/
+.oxlintrc.contract-*.json
+oxlint-contract-*.ts
+.humanize/
+/tmp/
+.playwright-mcp/
+.orig
+.worktrees/
+worktrees/
+.agents/worktrees/
+.typert-*/
+/python/sdk-runtime/src/deepseek_harness_runtime/runtime/dsh-jsonrpc-agent-*
+/python/sdk-runtime/src/deepseek_harness_runtime/runtime/node/
+
+# Machine-local editor and tool settings.
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+CLAUDE.local.md
+/mise.toml

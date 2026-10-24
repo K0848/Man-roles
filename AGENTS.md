@@ -1,5 +1,11 @@
 # AGENTS.md
 
+## Man-roles product workspace
+
+This repository root is the development, build and Git root for Man-roles. Product code lives in `packages/extensions/man-roleplayer`, `packages/client/ui-man-roleplayer`, and `packages/bundle/man-roleplayer-app`; `research/` contains the five shipped persona sources. Keep upstream package identities for compatibility while preserving this repository's product metadata and upstream licenses.
+
+Run `node scripts/verify-publish-ignore.mjs` before publishing changes to file layout or ignore rules. Never add `.local/` runtime data, credentials, private working notes or captured user conversations. A passing ignore check does not replace review of file contents.
+
 DeepSeek Harness is a plugin-based agent harness on vendored Cordis: **everything is a plugin**. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; follow [docs/AGENTS.md](docs/AGENTS.md) for documentation.
 
 ## Pre-release stance: foundation over blast radius

@@ -10,7 +10,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
-$dshSource = Join-Path $projectRoot 'deepseek-harness'
+$dshSource = $projectRoot
 $cli = Join-Path $dshSource 'apps\cli\src\bin.ts'
 $presetRoot = Join-Path $dshSource 'packages\extensions\man-roleplayer\presets'
 if ([string]::IsNullOrWhiteSpace($DshHome)) {
@@ -29,7 +29,7 @@ foreach ($requiredPath in @($cli, $presetRoot) + @($personas.researchPath)) {
 }
 $node = Get-Command node -ErrorAction Stop
 if (-not (Test-Path -LiteralPath (Join-Path $dshSource 'node_modules\tsx'))) {
-  throw '请先在 deepseek-harness 目录运行 pnpm install --frozen-lockfile，并完成 README 中的构建步骤。'
+  throw '请先在仓库根目录运行 pnpm install --frozen-lockfile，并完成 README 中的构建步骤。'
 }
 if (-not $DumpConfig) {
   if ([string]::IsNullOrWhiteSpace($env:DEEPSEEK_API_KEY)) {
