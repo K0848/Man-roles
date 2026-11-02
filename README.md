@@ -39,10 +39,11 @@ $env:DEEPSEEK_API_KEY = '<YOUR_DEEPSEEK_API_KEY>'
 
 `start-man-roles.cmd` also works from a shell that already has the environment variable. Never commit real keys. The default provider is `deepseek-official` and model is `deepseek-v4-flash`; the account must support the model, and API calls may incur charges. Use `-Model` for another supported model. The provider adapter also reads optional `DEEPSEEK_BASE_URL`.
 
-The launcher binds to `http://127.0.0.1:3085/` and runs in the foreground. Press Ctrl+C to stop. An occupied port produces an error; the launcher does not stop another process.
+The launcher binds to `http://127.0.0.1:3085/` and runs in the foreground. Press Ctrl+C to stop. A normal launch reuses a verified running instance of this product; an unrelated process on the port produces an error. `-Update` builds first, then rechecks and restarts only the same verified product process. A failed build leaves the running instance in place.
 
 ```powershell
 .\start-man-roles.ps1 -NoOpen
+.\start-man-roles.ps1 -Update -NoOpen
 .\start-man-roles.ps1 -Port 3086 -Model 'deepseek-v4-flash'
 ```
 
@@ -52,6 +53,8 @@ Source, presets and research are resolved relative to this root. On first launch
 
 The default data directory is `.local/dsh-home/`, containing generated profiles, sessions and settings. Keep `.local/` ignored by Git. `-DshHome 'another local directory'` selects a separate location; ensure your custom directory is also excluded from version control. The launcher does not persist the API key, but runtime credential/settings features and files you create require your own care.
 
+Optional `.local/launch.json` stores machine-local bindings for `Port`, `Provider`, `Model`, `DshHome` and `CredentialPatch`. Explicit parameters override this file, which overrides defaults. Paths in this file are relative to the engineering root unless absolute. `CredentialPatch` selects a local credentials patch; an empty value disables it. Keep the file and the real patch out of source delivery. A recipient supplies their own credentials and data. `.private/` holds internal working documents; `.claude/` holds local task ledgers. Both are excluded from Git and source delivery.
+
 Conversation text and required persona context are sent to the configured model service. Exclude sensitive information you should not share with that service. `.gitignore` protects matching untracked paths, not tracked contents or past commits. Review new fixtures and screenshots for private content. Original credentials, browser state, backups and private working notes are not included.
 
 ## Checks and development
@@ -59,7 +62,7 @@ Conversation text and required persona context are sent to the configured model 
 A configuration check does not listen on a port or call the model, but initializes a profile in the chosen data directory:
 
 ```powershell
-.\start-man-roles.ps1 -DumpConfig -DshHome "$env:TEMP\man-roles-config-check"
+.\start-man-roles.ps1 -DumpConfig -DshHome "$env:TEMP\man-roles-config-check" -CredentialPatch ''
 ```
 
 This establishes configuration assembly only. Review output before sharing because later personal settings may appear in it. After changing product or runtime code, rebuild at this root and restart the same acceptance port.

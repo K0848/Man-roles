@@ -8,4 +8,6 @@ Before publishing an update, inspect `git status --short` and `git diff --cached
 
 CI workflows are not enabled in this source delivery. Runtime configuration is created on first launch under the ignored `.local/` directory. The build and targeted tests can be run locally without publishing anything.
 
+Optional `.local/launch.json` binds the single root launcher to machine-local settings and credential-patch paths; explicit parameters take priority. `.private/`, `.claude/`, `.validation/` and `.local/` are outside the public file set. The same root `research/` files feed local operation and source delivery. Source delivery is assembled from the reviewed version-control file set, not by copying the entire local working directory.
+
 The product domain is `packages/extensions/man-roleplayer/`, the browser UI is `packages/client/ui-man-roleplayer/`, and product assembly is `packages/bundle/man-roleplayer-app/`. Existing package names and dependency identities are retained for workspace compatibility. Start with an empty data directory and your own credentials; no original user profiles, conversations, settings or runtime database are shipped. A custom `-DshHome` requires its own version-control exclusion. Original copyright notices, the root MIT `LICENSE`, and `vendor/` notices remain applicable.

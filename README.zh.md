@@ -39,10 +39,11 @@ $env:DEEPSEEK_API_KEY = '<YOUR_DEEPSEEK_API_KEY>'
 
 也可在已设置环境变量的命令行执行 `start-man-roles.cmd`。不要提交真实密钥。默认 Provider 为 `deepseek-official`，模型为 `deepseek-v4-flash`；账户须支持所选模型，API 调用可能产生费用。可通过 `-Model` 选择其他受支持模型，底座适配器还读取可选的 `DEEPSEEK_BASE_URL`。
 
-启动器绑定 `http://127.0.0.1:3085/`，前台运行，按 Ctrl+C 停止。端口占用会报错，不会停止其他进程。
+启动器绑定 `http://127.0.0.1:3085/`，前台运行，按 Ctrl+C 停止。普通启动复用已核验的同产品服务；其他进程占用端口时会报错。`-Update` 先构建，成功后再次核验并仅重启原产品进程；构建失败时保留正在运行的服务。
 
 ```powershell
 .\start-man-roles.ps1 -NoOpen
+.\start-man-roles.ps1 -Update -NoOpen
 .\start-man-roles.ps1 -Port 3086 -Model 'deepseek-v4-flash'
 ```
 
@@ -52,6 +53,8 @@ $env:DEEPSEEK_API_KEY = '<YOUR_DEEPSEEK_API_KEY>'
 
 默认数据目录为 `.local/dsh-home/`，保存生成的 profile、会话和设置。保持 `.local/` 在 Git 忽略范围内。`-DshHome '其他本地目录'` 可选择独立位置；自定义目录须另外确保不进入版本控制。启动器不持久化 API key；底座凭据、设置功能和自行创建的文件仍须妥善保管。
 
+可选的 `.local/launch.json` 保存本机 `Port`、`Provider`、`Model`、`DshHome` 和 `CredentialPatch` 绑定；显式参数优先于本地文件，本地文件优先于默认值。文件中的相对路径以工程根为起点。`CredentialPatch` 指向本机凭据补丁，空值可禁用补丁。本地配置和真实补丁不进入源码交付，接收者使用自己的凭据与数据。`.private/` 保存内部工作资料，`.claude/` 保存本地任务台账，两者均排除 Git 和源码交付。
+
 对话文本和所需人物上下文会发送给配置的模型服务，不要输入不应提供给该服务的敏感内容。`.gitignore` 只保护匹配的未跟踪路径，无法清除已跟踪内容或历史提交；新 fixture 和截图仍须审查隐私内容。本仓库不携带原环境的凭据、浏览器状态、备份或私人工作记录。
 
 ## 检查与开发
@@ -59,7 +62,7 @@ $env:DEEPSEEK_API_KEY = '<YOUR_DEEPSEEK_API_KEY>'
 配置检查不监听端口、不调用模型，但会在指定数据目录初始化 profile：
 
 ```powershell
-.\start-man-roles.ps1 -DumpConfig -DshHome "$env:TEMP\man-roles-config-check"
+.\start-man-roles.ps1 -DumpConfig -DshHome "$env:TEMP\man-roles-config-check" -CredentialPatch ''
 ```
 
 这只能证明配置可装配。后续个人设置可能出现在输出中，分享前须检查。修改产品或底座代码后，在本根目录重新构建，再重启原验收端口。

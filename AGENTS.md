@@ -4,6 +4,8 @@
 
 This repository root is the development, build and Git root for Man-roles. Product code lives in `packages/extensions/man-roleplayer`, `packages/client/ui-man-roleplayer`, and `packages/bundle/man-roleplayer-app`; `research/` contains the five shipped persona sources. Keep upstream package identities for compatibility while preserving this repository's product metadata and upstream licenses.
 
+When local `.claude/task_plan.md` exists, restore the plan, progress and findings before project work. `.claude/`, `.private/`, `.validation/` and `.local/` are private local material excluded from source delivery. The shipped `research/` files are the authoritative runtime persona sources.
+
 Run `node scripts/verify-publish-ignore.mjs` before publishing changes to file layout or ignore rules. Never add `.local/` runtime data, credentials, private working notes or captured user conversations. A passing ignore check does not replace review of file contents.
 
 DeepSeek Harness is a plugin-based agent harness on vendored Cordis: **everything is a plugin**. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; follow [docs/AGENTS.md](docs/AGENTS.md) for documentation.
@@ -15,50 +17,16 @@ DeepSeek Harness is a plugin-based agent harness on vendored Cordis: **everythin
 ## Repository layout
 
 ```
-vendor/      Vendored Cordis source — manifest + sync procedure in vendor/README.md
-packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
-  core/        product API spine: session, system-prompt, tools, agent, agent-loop
-  api/         Remote BFF assembly and Typert RPC gateway
-  typert/      type graph generator, loader, and runtime registry
-  llm/         LLM capability: Service Definition/Consumer + DeepSeek providers
-  e2b/         E2B POC: sandbox + FS/subprocess adapters
-  shell/        bash capability: Service Definition + local/pwsh providers + shell Consumers
-  subprocess/  subprocess capability + local process-tree provider
-  terminal/         persistent sessions
-  fs/          filesystem capability + policy
-  lsp/         language-server capability
-  skill/       skill provider registry + local impl + catalog/loader tool
-  web/         web capability: Service Definition + search/fetch providers + tool Consumer
-  compaction/     compaction capability + basic provider
-  context/     request-context plugins
-  subagent/    subagent capability: Service Definition + providers + delegation Consumers
-  bundle/      installable dsh --profile patch-layer bundles
-  workflow/    workflow capability + worker-thread provider + tool Consumer
-  todo/        todo_write tool
-  plan/        plan mode as logged state
-  preset/      per-session agent composition from preset cordis.yml files
-  guard/       loop-hygiene + tool-timeout plugins
-  self-modification/  the agent inspects/mounts its own plugins
-  hooks/       Claude Code/Codex hook bridges + wire-protocol library
-  session/     durable session data: persistence, projection, titles, telemetry
-  identity/    anonymous identity
-  settings/    user-settings capability + file provider
-  credentials/ credential/authorization capabilities + env/.env provider
-  acp/         automation-only Agent Client Protocol server
-  interaction/ approval/interaction capabilities, permission, commands, ask-user
-  boot/        shared app-bin glue
-  sdk/         JSON-RPC protocol, server, and TypeScript client
-  examples/    demo bundles (agent-spine + CLI/ACP/JSON-RPC bins)
-  experimental/ private prototypes excluded from official releases
-  support/     dev/test infrastructure
-  util/        zero-dependency utilities
-python/      Python SDK and bundled runtime (see python/README.md)
-native/      @deepseek-ai/node-addon-landlock-run source of record (see native/README.md)
-examples/    Runnable cordis.yml leaves over packages/examples bundles (see examples/AGENTS.md)
-.agents/     Agent workflows and Agent Notes (`notes/`)
-docs/        architecture, generated catalogs, postmortems, cookbook (see docs/AGENTS.md)
-scripts/     repo gates and generators
-website/     VitePress projection of selected bilingual docs/ sources
+apps/       CLI and web applications
+packages/   DSH capabilities and product packages; groups in packages/README.md
+vendor/     Pinned Cordis sources and sync procedure
+python/     Python SDK and bundled runtime
+native/     Native package sources
+examples/   Runnable plugin compositions
+.agents/    Agent workflows and decision notes
+docs/       Architecture, references, catalogs and development guidance
+scripts/    Builds, checks and generators
+website/    VitePress documentation site
 ```
 
 Package groups: [packages/README.md](packages/README.md).
