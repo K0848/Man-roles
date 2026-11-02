@@ -16,28 +16,15 @@ Normal persona generation and its submission finalizer share the configured acti
 
 Client-visible product types obtain Session identity through `@deepseek-ai/dsh-session/types`; importing the Host root would merge its `SessionStore` context into the browser compiler.
 
-## Model Experience
+## Product operations
 
-Indirectly, through `ctx.manRoleplayer`, which selects one or more persona-specific DSH Session owners from the audited roster. The Host loads only explicitly configured formal research files and exposes a persona-bound `evidence_lookup` capability with bounded per-turn claims. Exact acknowledgement phrases create durable relations containing only source references; safety-blocked input remains excluded across turns. This package records no assistant answer text and never copies a persona answer into its product timeline.
-
-An Agent without an active product capability receives the typed `{ status: 'unauthorized', evidence: [] }` lookup result. That refusal carries no evidence body or source and creates no product claim/activity, so an ordinary Session cannot create an unowned product association.
-
-#### KV Cache effect
-
-None: the package owns deterministic product facts only and does not change a model request.
-
-After an accepted persona turn, a configured product profile starts at most one detached state-analysis operation for that turn. The operation accepts only a strict object containing candidates and a persona-bound snapshot sourced from the completed turn and allowed product projection. Its claimed/running/completed/failed/stale facts recover without replaying the persona turn. Candidates remain `candidate` until a user confirms, rejects, modifies, withdraws, or resolves them through the versioned Remote; modifications supersede the old item and all transitions retain request ids and source references.
+After an accepted persona turn, a configured product profile starts at most one detached state-analysis operation for that turn. The operation accepts only a strict object containing candidates and a persona-bound snapshot sourced from the completed turn and allowed product projection. Its claimed/running/completed/failed/stale facts recover without replaying the persona turn. Inferred candidates remain `candidate` until a user confirms, rejects, modifies, withdraws, or resolves them through the versioned Remote; modifications supersede the old item and all transitions retain request ids and source references.
 
 Evidence details are derived at read time from the configured formal research indexes. The wire projection may include a stable evidence id, persona, lifecycle status, type, trust level, title, bounded text, and source, plus redacted lookup activity statuses (`completed-with-results`, `completed-zero-hit`, `budget-exhausted`, `cancelled`, or `failed`). Evidence events persist only lifecycle metadata and stable provenance; challenged evidence leaves the current allow-list until explicit review, while withdrawn evidence cannot be restored by review.
 
 The H2.6.1 product Remote also owns active-only rename, discussion pause/resume/stage-end, product-scoped structured choices, and retry of a failed persona answer. Rename increments a title revision and marks the title user-owned; a late automatic title result is recorded as stale or suppressed and cannot overwrite it or trigger another provider call. Choice handles are opaque product operations: pending questions, answers, cancellation, reconnect, and cold recovery never expose a raw DSH Session or tool-call id, and an answer remains a user expression until explicitly confirmed as state.
 
 Each persona turn receives a logged communication policy that prioritizes the user’s explicit response scope, style, and length while retaining the persona’s perspective and evidence requirements. Listening or a requested historical example does not call for an unsolicited action plan. A requested single short text ends with that text, without self-reported counts, explanations, historical examples, or extra advice; evidence lookup serves historical claims needed in the current answer, rather than adding historical backing merely to display persona identity. The policy separates stated facts from tentative interpretations and forbids treating unknown motives or circumstances as facts. It leaves preset composition identities and historical branches intact; advice admission requires relevant modern guidance and rejects validation filler, without imposing a fixed minimum answer length. These structural checks do not precisely judge semantic usefulness or enforce user-specified character limits; actual quality requires conversation evaluation.
-
-## Known Limitations and Deferred Work
-
-- State analysis is enabled by the independent product profile; plain library compositions keep it opt-in through Host configuration so existing callers can choose their model budget. A failed or stale analysis never replays a persona turn.
-- The product snapshot intentionally contains only the current persona's structured understanding, core view, optional advice, and stable source references. It does not copy private Session assistant text into product events.
 
 ## H2.8 production projection contract
 
@@ -46,3 +33,64 @@ The browser projection exposes `activeTurn` while a persisted delivery/turn or u
 H3 evidence lookup declares a string topic and integer `requestedCount` with model-visible JSON Schema bounds `minimum: 1` and `maximum: 3`, enforced again at runtime. The per-turn budget counts completed lookup claims, while the activity summary reports cumulative distinct evidence; if a turn received usable evidence, the accepted structured answer must cite at least one returned evidence id. Each turn has one durable activity id whose redacted milestones (`received`, `thinking`, `researching`, `evidence-check`, and terminal status) retain real timestamps and are attached to the matching question while running and to the matching answer after completion. Raw reasoning is not copied into product events: the Host resolves the exact attempt through its product turn, delivery operation, persona branch, Session user message, and enclosing DSH turn, then projects only reasoning text, persona, product turn, and terminal status. Settled steps use their assembled assistant message; only an unsettled step uses reasoning deltas. The UI updates this value while running and keeps it collapsed by default; cancelled and failed prefixes remain inspectable, while providers with no reasoning produce no row. Prompt text, tool parameters, credentials, Session identity, and the other persona's private content remain excluded. The Remote acknowledges after durable delivery/turn claims while the Agent continues in the background. Short identity questions receive a per-turn product policy naming the active persona and must explain both identity and available help rather than returning a bare greeting; this does not change the persisted preset composition identity. State analysis deduplicates authority events by stable id, persists both the Host authority projection and the exact alias-redacted projection supplied to the model, and includes JSON Schema derived from the same Zod contract in the model request. Model outputs may reference only those aliases, while the Host fixes the target turn and maps aliases back before allow-list validation; recovery and retry normalize and reuse the persisted authority input. Failures persist a non-sensitive category (`provider`, `parse`, or `context`). Generated titles accept one plain-text candidate: Markdown and explanatory alternatives are removed, and invalid output falls back to the first user message. State analysis accepts an outer fenced JSON wrapper before strict schema and source validation.
 
 State analysis uses only the latest confirmed version of each shared-state item. Verbatim spans already represented by state history are removed from their original user-message input; user corrections remain available through their current confirmed state. Candidate admission deduplicates matching kind, normalized wording, and overlapping event-source lineage, including rejected, withdrawn, and superseded items. Fresh user-message sources remain eligible, and reused model item ids receive operation-scoped ids rather than overwriting user decisions. Auto-confirmation validates wording against the effective analysis input; model inference still requires confirmation.
+
+## Model Experience
+
+### Persona turn context
+
+#### What the model sees
+
+Each product-owned persona Session receives the delivered user messages, latest confirmed shared state, explicit choice answers, and permitted acknowledgement references selected for that persona. Private answers from other persona branches and safety-blocked input are excluded. The Host replaces its logged context snapshot before each step and appends the submission instructions and communication policy below per submitted turn; narrow conditional instructions handle low-information openings, identity questions, and advice requests. Accepted final answers use ordered segments whose UTF-16 claim ranges are computed by the Host.
+
+##### Submission instructions
+
+```markdown
+当前 persona_turn_submit 只接收顺序 segments：每段分别提供 text、kind、evidenceIds；不要提供 textRange，也不要手算字符位置。Host 会按 segments 顺序拼接最终正文并生成连续范围。
+```
+
+##### Communication policy
+
+```markdown
+本轮沟通契约：优先遵守用户明确要求的回应方式、范围和长度；人物口吻与思考方式服务于本轮需求，不必每次走完辨析、史例和现实行动。用户只想被倾听时先承接感受，不主动展开方案；只要一个有出处的例子时给出例子及必要出处后停止，不追加长篇建议。用户只要一句话、一条开场白或其他单条短文本时，直接输出所要的内容并停止，不附字数自报、解释、史例或额外建议。只有本轮回答确实需要史实断言时才查找并附必要证据；不得仅为体现人物身份或给短文本补充底气而主动检索和添加史例。区分用户已陈述的事实、史料支持的内容与自己的暂时理解；不得凭一句话断言用户或第三方的动机、性格、现实条件，不把历史遭遇与现实处境的相似当成动机相同的证据。信息不足时保留不确定性，必要时再问，不以安慰为由替任何人下定论。保持当前人物的视角与表达，不把所有人物写成同一种现代说教口吻；仍须遵守安全规则和证据归属要求。
+```
+
+#### Token effect
+
+User messages and recorded instructions add retained Session tokens. The derived context snapshot is replaced rather than appended on each step; its size depends on admitted user/state/choice facts. Persona-specific evidence results and tool calls add further tokens only when requested, under the configured model-request, tool-call, active-time, and per-request limits.
+
+#### KV Cache effect
+
+Appending the current turn's messages can preserve the preceding request prefix. Replacing an earlier context snapshot can invalidate reuse from that position; changes to confirmed state, permitted acknowledgements, or persona-specific admission change that snapshot. The package does not guarantee provider cache availability or retention.
+
+### Product tools
+
+#### What the model sees
+
+Only an Agent with an active product capability receives the tools defined in [the scoped tool definitions](src/tools.ts): `persona_turn_submit`, `evidence_lookup`, and the product-owned `ask_user_question`. The submission result renders accepted answer text; evidence lookup returns persona-bound entries with stable ids, source/voice permissions and provenance, or a typed status with an empty evidence list. An Agent without authority receives `{ status: 'unauthorized', evidence: [] }` and creates no product claim/activity. Choice answers remain user expressions until separately admitted as state.
+
+#### Token effect
+
+The three tool definitions add fixed tool-definition tokens only to their registered Agent scope. Evidence lookup requests one to three entries, with two successful/in-flight calls and 4,800 reserved evidence bytes per turn; answer and choice results depend on user/model content. These evidence reservations bound research content rather than the entire serialized tool result.
+
+#### KV Cache effect
+
+The registered definitions remain stable for one product Agent. Tool calls and results append to its history; evidence lifecycle changes alter later allowed results and context without mutating prior tool results. Ordinary Sessions do not acquire these scoped definitions through the product plugin.
+
+### State analysis and automatic titles
+
+#### What the model sees
+
+When state analysis is enabled, a separate request receives the completed target turn and permitted product facts as an alias-redacted projection plus JSON Schema derived from the validated output type. Outputs must cite supplied aliases; the Host maps them back before source validation. Automatic titling uses the first user message and admits one sanitized plain-text title, falling back to bounded user wording when no valid title is available. Neither operation replays a persona turn or copies private answer bodies into product events.
+
+#### Token effect
+
+Each accepted persona turn starts at most one automatic state-analysis operation when enabled. Analysis and title generation spend separate request tokens; explicit state retry reuses persisted input and a stable retry id. Terminal operation ids recover persisted outcomes without issuing another request. Inferred state remains a candidate until user confirmation; exact direct user statements can be Host-confirmed against their admitted source text.
+
+#### KV Cache effect
+
+These are independent model requests. Repeated instruction prefixes may be reusable, while the target turn, alias-redacted facts, and first-message title input determine the varying suffix. Persisted retry input preserves the original authority projection; provider cache policy remains outside this package.
+
+## Known Limitations and Deferred Work
+
+- State analysis is enabled by the independent product profile; plain library compositions keep it opt-in through Host configuration so existing callers can choose their model budget. A failed or stale analysis never replays a persona turn.
+- The product snapshot intentionally contains only the current persona's structured understanding, core view, optional advice, and stable source references. It does not copy private Session assistant text into product events.

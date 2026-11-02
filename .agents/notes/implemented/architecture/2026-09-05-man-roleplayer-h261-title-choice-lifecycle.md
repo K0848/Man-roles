@@ -12,6 +12,10 @@ The product browser surface needed lifecycle operations without exposing ordinar
 
 The product Remote owns active-only rename, discussion pause/resume/stage-end, opaque structured-choice operations, and failed-turn retry. Choice facts are persisted in the product event stream and the Agent-scope adapter resolves or cancels one waiter; cold recovery closes a pending waiter as failed without replaying the persona turn. Rename increments a title revision and marks the title user-owned. Title claims capture that revision, and late success/fallback results settle as stale or suppressed without changing the title or invoking the Provider again.
 
+## Alternatives considered
+
+The retained implementation record does not identify a contemporaneous alternatives comparison. Replaying a persona turn after a cold recovery would repeat model execution; the recorded decision closes the pending choice as failed instead. A late automatic title cannot replace a user-owned title because the title revision and ownership checks suppress it.
+
 ## Verification
 
 Focused product, repository, client-store, and Loader-composition tests pass (72 tests); the package and client TypeScript projects pass with `--noEmit`. Existing accepted-only projection and ordinary DSH paths remain covered by their prior suites.

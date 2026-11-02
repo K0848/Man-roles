@@ -1,8 +1,12 @@
-# Agent Note：man-roleplayer H3 真实体验防护
+# Agent Note: man-roleplayer H3 真实体验防护
 
-状态：已实现
+Status: implemented
 
 [English](2026-09-06-man-roleplayer-h3-real-experience.md) | 中文
+
+## 问题
+
+证据引用、活动归属、自动标题和状态分析需要在真实模型输出、重试和恢复中保留严格的来源与轮次校验，同时不泄露人物私有上下文。
 
 ## 决策
 
@@ -12,9 +16,13 @@
 
 状态分析同时持久化 Host 权威投影和实际发给模型的别名脱敏投影。模型看到由同一份 Zod 契约生成的 JSON Schema，只能引用已提供的短别名，也不能决定目标轮次。初次分析、重试和 claimed 恢复均在重建别名前按权威事件去重。自动标题只接受一个纯文本候选；生成说明、备选和 Markdown 会被移除，不合法输出降级为首条用户原话。
 
-## 边界
+## 影响
 
 产品继续保持 accepted-only 回答、人物/Session 隔离、证据所有权和普通 DSH 隔离。非法检索参数产生有界失败，不创建成功证据 claim。fenced 解析和模型可见 JSON Schema 都不会放宽 Host 的严格 schema、别名、来源、当前轮次或生命周期校验。按轮次注入的身份规则不改变持久 preset 组合身份。
+
+## 考虑过的替代方案
+
+现存实现记录未保存当时的替代方案比较。记录中的设计将原始 reasoning 保留在人物 Session 中，并按精确产品 attempt 派生展示，不复制到产品事件。模型可见 JSON Schema 与 Host 严格校验并存，不能替代校验；检索返回的资料仍须被引用后，回答才能被接受。
 
 ## 验证
 

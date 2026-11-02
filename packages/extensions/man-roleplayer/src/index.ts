@@ -21,18 +21,33 @@ export const inject = ['agents', 'llm', 'sessionPersistence', 'storageDomain', '
 
 /** One explicit deployment binding for an audited persona. */
 export interface PersonaBindingConfig {
+  /** Registered persona id; each deployment binding must select a distinct persona. */
   readonly id: PersonaId
+  /** Absolute path to that persona's audited, registry-named research Markdown file. */
   readonly researchPath: string
+  /** Registered preset id whose composition and research fingerprint are persisted on the branch. */
   readonly presetId: string
 }
 
 /** Host-owned bindings for the audited persona roster. */
 export interface Config {
+  /** Distinct audited persona bindings as an array or JSON array string; takes precedence over legacy fields. */
   readonly personas?: readonly PersonaBindingConfig[] | string
   /** Legacy two-person test/deployment shape. New product profiles use `personas`. */
-  readonly research?: { readonly wangYangmingPath?: string; readonly zengGuofanPath?: string }
+  readonly research?: {
+    /** Absolute path to the audited Wang Yangming research document. */
+    readonly wangYangmingPath?: string
+    /** Absolute path to the audited Zeng Guofan research document. */
+    readonly zengGuofanPath?: string
+  }
   /** Legacy two-person test/deployment shape. New product profiles use `personas`. */
-  readonly presets?: { readonly wangYangming?: string; readonly zengGuofan?: string }
+  readonly presets?: {
+    /** Wang Yangming preset id, configured together with the legacy research paths. */
+    readonly wangYangming?: string
+    /** Zeng Guofan preset id, configured together with the legacy research paths. */
+    readonly zengGuofan?: string
+  }
+  /** Default provider/model options for product-owned Agents and automatic cold recovery. */
   readonly agentOptions?: AgentOptions
   /** Product profile enables one asynchronous state analysis per completed turn. */
   readonly stateAnalysis?: boolean

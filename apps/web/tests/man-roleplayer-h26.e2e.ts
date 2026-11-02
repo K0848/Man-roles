@@ -12,7 +12,8 @@ import { composeEntries, loadOverlayPatches } from '@deepseek-ai/dsh-app-boot'
 import { launchWebScaffold, type WebScaffold } from './scaffold.ts'
 import { newEnglishPage } from './support.ts'
 import { textResponse, toolCallResponse } from '../../../packages/core/agent-loop/tests/mock-adapter.ts'
-import { operationId, requestId, turnOperationId } from '../../../packages/extensions/man-roleplayer/src/product/index.ts'
+import { deliveryOperationId, messageId, operationId, requestId, turnOperationId } from '../../../packages/extensions/man-roleplayer/src/product/index.ts'
+import type { ProductConversationRepository } from '../../../packages/extensions/man-roleplayer/src/repository.ts'
 
 const ROOT = process.cwd()
 const PRODUCT_PATCH = join(ROOT, 'packages/bundle/man-roleplayer-app/cordis.patch.yml')
@@ -124,6 +125,30 @@ describe('H2.6 independent man-roleplayer product profile', () => {
   let unavailablePage: Page
   let unavailableHome: string
 
+  async function createDilemma(): Promise<void> {
+    await page.getByRole('button', { name: '新建困惑', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: '选择一位人物', exact: true })
+    await dialog.getByRole('button', { name: '选择王阳明', exact: true }).click()
+    await dialog.getByRole('button', { name: '开始这份困惑', exact: true }).click()
+    await dialog.waitFor({ state: 'detached', timeout: 30_000 })
+    // 首位人物创建困惑后再邀请第二位，仍验证两份独立私有会话。
+    await page.getByRole('button', { name: /邀请人物/u }).click()
+    const invitation = page.getByRole('dialog', { name: '邀请一位人物', exact: true })
+    await invitation.getByRole('button', { name: '邀请曾国藩', exact: true }).click()
+    await invitation.getByRole('button', { name: '邀请曾国藩入座', exact: true }).click()
+    await invitation.waitFor({ state: 'detached', timeout: 30_000 })
+    await page.getByRole('group', { name: '选择人物' }).getByRole('button', { name: '王阳明', exact: true }).click()
+    await page.locator('[data-roleplayer-persona="wang-yangming"]').waitFor({ timeout: 30_000 })
+    await page.getByRole('tab', { name: '当前状态', exact: true }).click()
+  }
+
+  async function renameDilemma(title: string): Promise<void> {
+    await page.getByRole('button', { name: '重命名', exact: true }).click()
+    await page.getByRole('textbox', { name: '困惑标题' }).fill(title)
+    await page.getByRole('button', { name: '保存标题', exact: true }).click()
+    await page.getByRole('button', { name: title, exact: true }).waitFor({ timeout: 30_000 })
+  }
+
   beforeAll(async () => {
     researchRoot = await mkdtemp(join(ROOT, 'tmp-man-roleplayer-h26-research-'))
     harnessHome = await mkdtemp(join(ROOT, 'tmp-man-roleplayer-h26-home-'))
@@ -199,7 +224,8 @@ describe('H2.6 independent man-roleplayer product profile', () => {
         else process.env[key] = value
       }
     }
-    unavailableBrowser = await chromium.launch(installedChromium() === undefined ? {} : { executablePath: installedChromium() })
+    const unavailableExecutablePath = installedChromium()
+    unavailableBrowser = await chromium.launch(unavailableExecutablePath === undefined ? {} : { executablePath: unavailableExecutablePath })
     unavailablePage = await newEnglishPage(unavailableBrowser)
     await unavailablePage.goto(unavailableScaffold.baseUrl, { waitUntil: 'load' })
     await unavailablePage.locator('[data-roleplayer-unavailable="true"]').waitFor({ timeout: 30_000 })
@@ -218,8 +244,7 @@ describe('H2.6 independent man-roleplayer product profile', () => {
   })
 
   it('creates a blank dilemma, keeps two sessions private, and renders only accepted structured text', async () => {
-    await page.getByRole('button', { name: '新建困惑' }).click()
-    await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click()
+    await createDilemma()
     const createdButton = page.getByRole('button', { name: '未命名困惑' })
     await createdButton.waitFor({ state: 'visible', timeout: 30_000 })
     expect(await createdButton.count()).toBe(1)
@@ -230,7 +255,9 @@ describe('H2.6 independent man-roleplayer product profile', () => {
     expect(created.branches).toHaveLength(2)
     expect(new Set(created.branches.map(branch => String(branch.sessionId))).size).toBe(2)
     expect(scaffold.ctx.agents.list()).toHaveLength(2)
-    const submitSchema = scaffold.ctx.tools.schemas(scaffold.ctx.agents.get(created.branches[0].sessionId))
+    const [firstBranch, secondBranch] = created.branches
+    if (firstBranch === undefined || secondBranch === undefined) throw new Error('product dilemma is missing a persona branch')
+    const submitSchema = scaffold.ctx.tools.schemas(scaffold.ctx.agents.get(firstBranch.sessionId))
       .find(tool => tool.name === 'persona_turn_submit')
     expect(submitSchema?.parameters).toMatchObject({
       type: 'object', properties: { segments: { type: 'array', minItems: 1, items: {
@@ -274,7 +301,7 @@ describe('H2.6 independent man-roleplayer product profile', () => {
     await page.getByRole('button', { name: '发送' }).click()
     const secondAnswer = page.locator('[data-roleplayer-kind="persona-message"][data-roleplayer-status="completed"]')
     await page.waitForFunction(() => document.querySelectorAll('[data-roleplayer-kind="persona-message"][data-roleplayer-status="completed"]').length === 2, undefined, { timeout: 30_000 })
-    const secondAgent = scaffold.ctx.agents.get(created.branches[1].sessionId)
+    const secondAgent = scaffold.ctx.agents.get(secondBranch.sessionId)
     expect(await secondAnswer.count()).toBe(2)
     expect(secondAgent?.session.events.some(event => event.type === 'user/message'
       && event.data.source.kind === 'user'
@@ -282,15 +309,13 @@ describe('H2.6 independent man-roleplayer product profile', () => {
   })
 
   it('projects evidence lookup details and keeps challenge, review, withdraw stable after reload', async () => {
-    await page.getByRole('button', { name: '新建困惑' }).click()
-    await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click()
-    const blank = page.getByRole('button', { name: '未命名困惑' }).last()
-    await blank.waitFor({ state: 'visible', timeout: 30_000 })
-    await blank.click()
+    await createDilemma()
+    await renameDilemma('浏览器资料状态')
     await page.getByRole('textbox', { name: '输入困惑' }).fill('请结合事上磨练谈谈我的选择')
     await page.getByRole('button', { name: '发送' }).click()
     await page.locator('[data-roleplayer-kind="persona-message"][data-roleplayer-status="completed"]')
       .filter({ hasText: '人须在事上磨练' }).waitFor({ timeout: 30_000 })
+    await page.getByRole('tab', { name: '资料依据', exact: true }).click()
     const available = page.locator('[data-roleplayer-evidence="available"]').last()
     await available.waitFor({ state: 'visible', timeout: 30_000 })
     expect(await available.textContent()).toContain('人须在事上磨')
@@ -309,18 +334,18 @@ describe('H2.6 independent man-roleplayer product profile', () => {
     expect(await withdrawn.textContent()).toContain('已撤回')
     await page.reload({ waitUntil: 'load' })
     await page.locator('[data-roleplayer-view="true"]').waitFor({ timeout: 30_000 })
-    await page.getByRole('button', { name: '产品标题' }).last().click()
+    await page.getByRole('button', { name: '浏览器资料状态', exact: true }).click()
+    await page.getByRole('tab', { name: '资料依据', exact: true }).click()
     await page.locator('[data-roleplayer-evidence="withdrawn"]').last().waitFor({ timeout: 30_000 })
     expect(await page.locator('[data-roleplayer-evidence="withdrawn"]').count()).toBeGreaterThan(0)
     expect(await page.locator('[data-roleplayer-evidence="withdrawn"]').last().textContent()).toContain('已撤回')
-    await page.getByRole('button', { name: '新建困惑' }).click()
-    await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click()
-    const zeroBlank = page.getByRole('button', { name: '未命名困惑' }).last()
-    await zeroBlank.waitFor({ state: 'visible', timeout: 30_000 }); await zeroBlank.click()
+    await createDilemma()
+    await renameDilemma('浏览器无匹配资料')
     await page.getByRole('textbox', { name: '输入困惑' }).fill('无匹配')
     await page.getByRole('button', { name: '发送' }).click()
+    await page.getByRole('tab', { name: '资料依据', exact: true }).click()
     await page.locator('[aria-label="证据检索活动"]').getByText('未找到匹配资料', { exact: true }).waitFor({ timeout: 30_000 })
-    const zeroConversation = (await scaffold.ctx.manRoleplayer.list(true)).at(-1)
+    const zeroConversation = (await scaffold.ctx.manRoleplayer.list(true)).find(item => item.title === '浏览器无匹配资料')
     if (zeroConversation === undefined) throw new Error('zero-hit browser dilemma was not persisted')
     const repository = (scaffold.ctx.manRoleplayer as unknown as {
       repository: { append: (id: unknown, event: unknown) => Promise<unknown> }
@@ -340,16 +365,16 @@ describe('H2.6 independent man-roleplayer product profile', () => {
     }
     await page.reload({ waitUntil: 'load' })
     await page.locator('[data-roleplayer-view="true"]').waitFor({ timeout: 30_000 })
-    await page.getByRole('button', { name: '产品标题' }).last().click()
+    await page.getByRole('button', { name: '浏览器无匹配资料', exact: true }).click()
+    await page.getByRole('tab', { name: '资料依据', exact: true }).click()
     const activity = page.locator('[aria-label="证据检索活动"]')
     await activity.getByText('检索失败', { exact: true }).waitFor({ timeout: 30_000 })
     await activity.getByText('检索已取消', { exact: true }).waitFor({ timeout: 30_000 })
     await activity.getByText('本轮检索次数已用完', { exact: true }).waitFor({ timeout: 30_000 })
   })
 
-  it('maps an accepted claim textRange to its evidence drawer and preserves the answer when evidence becomes stale', async () => {
-    await page.getByRole('button', { name: '新建困惑' }).click()
-    await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click()
+  it('maps an accepted claim textRange to its evidence panel and drawer and preserves the answer when evidence becomes stale', async () => {
+    await createDilemma()
     const blank = page.getByRole('button', { name: '未命名困惑' }).last()
     await blank.waitFor({ state: 'visible', timeout: 30_000 }); await blank.click()
     const prompt = '请结合事上磨练谈谈我的选择'
@@ -364,13 +389,18 @@ describe('H2.6 independent man-roleplayer product profile', () => {
     const triggerText = await claim.textContent()
     expect(triggerText).toContain('查看史实依据')
     await claim.click()
+    const evidence = page.locator('[data-roleplayer-evidence="available"]').last()
+    await evidence.waitFor({ state: 'visible', timeout: 30_000 })
+    await expect.poll(() => evidence.evaluate(element => element === document.activeElement)).toBe(true)
+    const evidenceDetails = evidence.getByRole('button', { name: '证据详情', exact: true })
+    await evidenceDetails.click()
     const drawer = page.getByRole('dialog', { name: '证据详情' })
     await drawer.waitFor({ state: 'visible', timeout: 30_000 })
     expect(await drawer.getAttribute('aria-modal')).toBe('true')
     await expect.poll(() => drawer.evaluate(element => element.contains(document.activeElement))).toBe(true)
     await page.keyboard.press('Escape')
     await drawer.waitFor({ state: 'detached', timeout: 30_000 })
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-claim-text-range'))).toBe(claimRange.range)
+    expect(await evidenceDetails.evaluate(element => element === document.activeElement)).toBe(true)
     await page.getByRole('button', { name: '质疑', exact: true }).last().click()
     const staleClaim = answer.locator('[data-claim-status="stale"][data-claim-text-range]')
     await staleClaim.waitFor({ timeout: 30_000 })
@@ -380,8 +410,7 @@ describe('H2.6 independent man-roleplayer product profile', () => {
   })
 
   it('recovers a persisted deletion checkpoint as read-only and retries the same operation identity', async () => {
-    await page.getByRole('button', { name: '新建困惑' }).click()
-    await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click()
+    await createDilemma()
     const blank = page.getByRole('button', { name: '未命名困惑' }).last()
     await blank.waitFor({ timeout: 30_000 })
     await blank.click()
@@ -389,7 +418,7 @@ describe('H2.6 independent man-roleplayer product profile', () => {
     await page.getByRole('textbox', { name: '困惑标题' }).fill('浏览器删除检查点')
     await page.getByRole('button', { name: '保存标题' }).click()
     await page.getByRole('button', { name: '浏览器删除检查点', exact: true }).waitFor({ timeout: 30_000 })
-    const conversation = (await scaffold.ctx.manRoleplayer.list(true)).at(-1); if (conversation === undefined) throw new Error('checkpoint dilemma missing')
+    const conversation = (await scaffold.ctx.manRoleplayer.list(true)).find(item => item.title === '浏览器删除检查点'); if (conversation === undefined) throw new Error('checkpoint dilemma missing')
     const repository = (scaffold.ctx.manRoleplayer as unknown as {
       repository: { append: (id: unknown, event: unknown) => Promise<unknown> }
     }).repository
@@ -404,7 +433,7 @@ describe('H2.6 independent man-roleplayer product profile', () => {
   })
 
   it('resumes an irreversible failed deletion checkpoint after refresh with the same operation', async () => {
-    await page.getByRole('button', { name: '新建困惑' }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click(); const blank = page.getByRole('button', { name: '未命名困惑' }).last(); await blank.waitFor({ timeout: 30_000 }); await blank.click(); await page.getByRole('button', { name: '重命名' }).click(); await page.getByRole('textbox', { name: '困惑标题' }).fill('浏览器不可逆删除'); await page.getByRole('button', { name: '保存标题' }).click(); await page.getByRole('button', { name: '浏览器不可逆删除', exact: true }).waitFor({ timeout: 30_000 })
+    await createDilemma(); const blank = page.getByRole('button', { name: '未命名困惑' }).last(); await blank.waitFor({ timeout: 30_000 }); await blank.click(); await page.getByRole('button', { name: '重命名' }).click(); await page.getByRole('textbox', { name: '困惑标题' }).fill('浏览器不可逆删除'); await page.getByRole('button', { name: '保存标题' }).click(); await page.getByRole('button', { name: '浏览器不可逆删除', exact: true }).waitFor({ timeout: 30_000 })
     const product = scaffold.ctx.manRoleplayer as unknown as { persistence: { delete: (id: string) => Promise<void> } }; const originalDelete = product.persistence.delete.bind(product.persistence); let calls = 0; product.persistence.delete = async (id: string): Promise<void> => { calls += 1; if (calls === 2) throw new Error('injected second session delete failure'); await originalDelete(id) }
     try {
       const firstRequest = page.waitForRequest(item => item.method() === 'POST' && new URL(item.url()).pathname.endsWith('/manRoleplayerRemote/delete')); await page.getByRole('button', { name: '删除', exact: true }).click(); await page.getByRole('dialog', { name: '确认删除' }).getByRole('button', { name: '确认删除' }).click(); const first = await firstRequest; const firstBody = first.postData() ?? ''; const firstOperation = JSON.parse(firstBody) as { payload?: { args?: { request?: { operationId?: string } } } }; const operation = firstOperation.payload?.args?.request?.operationId; if (typeof operation !== 'string') throw new Error(`delete operation missing: ${firstBody}`)
@@ -414,9 +443,9 @@ describe('H2.6 independent man-roleplayer product profile', () => {
   })
 
   it('recovers a pending delivery after refresh and cancels only the owning dilemma', async () => {
-    await page.getByRole('button', { name: '新建困惑' }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click(); const first = page.getByRole('button', { name: '未命名困惑' }).last(); await first.waitFor({ timeout: 30_000 }); await first.click(); await page.getByRole('button', { name: '重命名' }).click(); await page.getByRole('textbox', { name: '困惑标题' }).fill('浏览器待取消A'); await page.getByRole('button', { name: '保存标题' }).click(); await page.getByRole('button', { name: '浏览器待取消A', exact: true }).waitFor({ timeout: 30_000 })
-    const conversation = (await scaffold.ctx.manRoleplayer.list(true)).at(-1); if (conversation === undefined) throw new Error('pending dilemma missing'); const repository = (scaffold.ctx.manRoleplayer as unknown as { repository: { append: (id: unknown, event: unknown) => Promise<unknown> } }).repository
-    const message = 'browser-pending-message'; const delivery = operationId('browser-pending-delivery'); const turn = operationId('browser-pending-turn')
+    await createDilemma(); const first = page.getByRole('button', { name: '未命名困惑' }).last(); await first.waitFor({ timeout: 30_000 }); await first.click(); await page.getByRole('button', { name: '重命名' }).click(); await page.getByRole('textbox', { name: '困惑标题' }).fill('浏览器待取消A'); await page.getByRole('button', { name: '保存标题' }).click(); await page.getByRole('button', { name: '浏览器待取消A', exact: true }).waitFor({ timeout: 30_000 })
+    const conversation = (await scaffold.ctx.manRoleplayer.list(true)).find(item => item.title === '浏览器待取消A'); if (conversation === undefined) throw new Error('pending dilemma missing'); const repository = (scaffold.ctx.manRoleplayer as unknown as { repository: Pick<ProductConversationRepository, 'append' | 'readEvents'> }).repository
+    const message = messageId('browser-pending-message'); const delivery = deliveryOperationId('browser-pending-delivery'); const turn = turnOperationId('browser-pending-turn')
     await repository.append(conversation.id, { type: 'user-message', id: message, messageId: message, deliveryOperationId: delivery, status: 'pending', content: '待取消问题', persona: 'wang-yangming', requestId: requestId('browser-pending-message') })
     await repository.append(conversation.id, { type: 'message-delivery', messageId: message, deliveryOperationId: delivery, persona: 'wang-yangming', status: 'claimed', sessionMessageId: 'private-session', requestId: requestId('browser-pending-delivery') })
     await repository.append(conversation.id, { type: 'turn', turnOperationId: turn, messageId: message, persona: 'wang-yangming', status: 'running', requestId: requestId('browser-pending-turn') })
@@ -428,32 +457,21 @@ describe('H2.6 independent man-roleplayer product profile', () => {
     const draft = page.getByRole('textbox', { name: '输入困惑' })
     await draft.fill('保留的草稿')
 
-    await page.locator('main header').getByRole('button', { name: '曾国藩', exact: true }).click()
-    let switchDialog = page.getByRole('dialog', { name: '停止当前对话？' })
-    await switchDialog.waitFor({ timeout: 30_000 })
-    await switchDialog.getByRole('button', { name: '继续当前对话' }).click()
-    await switchDialog.waitFor({ state: 'detached', timeout: 30_000 })
+    const switchPersona = page.getByRole('group', { name: '选择人物' }).getByRole('button', { name: '曾国藩', exact: true })
+    expect(await switchPersona.isDisabled()).toBe(true)
     expect(await page.locator('[data-roleplayer-persona="wang-yangming"]').count()).toBe(1)
     expect(await draft.inputValue()).toBe('保留的草稿')
 
-    await page.locator('main header').getByRole('button', { name: '曾国藩', exact: true }).click()
-    switchDialog = page.getByRole('dialog', { name: '停止当前对话？' })
-    await switchDialog.waitFor({ timeout: 30_000 })
     await page.keyboard.press('Escape')
-    await switchDialog.waitFor({ state: 'detached', timeout: 30_000 })
     expect(await draft.inputValue()).toBe('保留的草稿')
 
-    await page.locator('main header').getByRole('button', { name: '曾国藩', exact: true }).click()
-    switchDialog = page.getByRole('dialog', { name: '停止当前对话？' })
-    await switchDialog.getByRole('button', { name: '停止并切换' }).click()
-    await page.getByText('操作暂时失败，请重试', { exact: true }).waitFor({ timeout: 30_000 })
+    // MVP需求“正常切换”：等待完整回答；显式取消后也须先确认停止，不提供“切换并自动停止”。
+    expect(await switchPersona.isDisabled()).toBe(true)
+    expect(await page.getByRole('button', { name: /邀请人物/u }).isDisabled()).toBe(true)
     expect(await page.locator('[data-roleplayer-persona="wang-yangming"]').count()).toBe(1)
     expect(await draft.inputValue()).toBe('保留的草稿')
-    await page.keyboard.press('Escape')
-    await switchDialog.waitFor({ state: 'detached', timeout: 30_000 })
 
-    await page.getByRole('button', { name: '新建困惑' }).click()
-    await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click()
+    await createDilemma()
     const second = page.getByRole('button', { name: '未命名困惑', exact: true }).last()
     await second.waitFor({ timeout: 30_000 }); await second.click()
     expect(await page.getByRole('button', { name: '取消', exact: true }).count()).toBe(0)
@@ -461,8 +479,7 @@ describe('H2.6 independent man-roleplayer product profile', () => {
   })
 
   it('retries a failed state analysis without duplicating the accepted conversation timeline', async () => {
-    await page.getByRole('button', { name: '新建困惑' }).click()
-    await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click()
+    await createDilemma()
     const blank = page.getByRole('button', { name: '未命名困惑' }).last()
     await blank.waitFor({ timeout: 30_000 }); await blank.click()
     await page.getByRole('button', { name: '重命名' }).click()
@@ -534,8 +551,7 @@ describe('H2.6 independent man-roleplayer product profile', () => {
 
   it('keeps malformed, ordinary, and cancelled late answers out of the product timeline', async () => {
     for (const text of ['普通文本失败', '格式错误']) {
-      await page.getByRole('button', { name: '新建困惑' }).click()
-      await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click()
+      await createDilemma()
       const blank = page.getByRole('button', { name: '未命名困惑' }).last()
       await blank.waitFor({ state: 'visible', timeout: 30_000 }); await blank.click()
       await page.getByRole('textbox', { name: '输入困惑' }).fill(text)
@@ -543,8 +559,7 @@ describe('H2.6 independent man-roleplayer product profile', () => {
       await page.locator('[data-roleplayer-status="failed"]').last().waitFor({ state: 'visible', timeout: 30_000 })
       expect(await page.locator('[data-roleplayer-view="true"]').textContent()).not.toContain('未校验的普通回答')
     }
-    await page.getByRole('button', { name: '新建困惑' }).click()
-    await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click()
+    await createDilemma()
     const blank = page.getByRole('button', { name: '未命名困惑' }).last()
     await blank.waitFor({ state: 'visible', timeout: 30_000 }); await blank.click()
     await page.getByRole('textbox', { name: '输入困惑' }).fill('取消测试')
@@ -556,8 +571,7 @@ describe('H2.6 independent man-roleplayer product profile', () => {
   })
 
   it('requires local delete confirmation and preserves the projection when cancelled', async () => {
-    await page.getByRole('button', { name: '新建困惑' }).click()
-    await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '王阳明', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '曾国藩', exact: true }).click(); await page.getByRole('dialog', { name: '选择两位人物' }).getByRole('button', { name: '开始这份困惑', exact: true }).click()
+    await createDilemma()
     const blank = page.getByRole('button', { name: '未命名困惑' }).last()
     await blank.waitFor({ state: 'visible', timeout: 30_000 }); await blank.click()
     await page.getByRole('button', { name: '删除', exact: true }).click()

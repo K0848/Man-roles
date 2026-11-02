@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-06-man-roleplayer-h3-real-experience.md
-2026-09-06-man-roleplayer-h3-real-experience.md: af054e4fd7beca278c75ba9576166b32af1d97a4
-2026-09-06-man-roleplayer-h3-real-experience.zh.md: 2121dee050b5d4faabe93ce98ee1af865d016795
+2026-09-06-man-roleplayer-h3-real-experience.md: fef638309165d7cd220e683e9c327382a4df1d12
+2026-09-06-man-roleplayer-h3-real-experience.zh.md: 10ea600cf9492b351456a924b4ad5396c8cbd723

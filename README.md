@@ -17,6 +17,8 @@ This repository is the unified engineering root. Continue development directly h
 | `apps/`, other `packages/`, `scripts/` | Shared DSH runtime, tooling and tests |
 | `start-man-roles.ps1` / `.cmd` | Windows local launcher |
 
+<a id="run-from-source"></a>
+
 ## Install and build
 
 Use Windows PowerShell, Node.js `^22.19.0 || >=24.0.0` and pnpm `11.7.0`, as specified in the root `package.json`. Dependency installation needs network access. Run at the repository root and wait for each command to succeed:

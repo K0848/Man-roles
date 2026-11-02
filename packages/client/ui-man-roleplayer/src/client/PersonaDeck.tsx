@@ -8,6 +8,13 @@ import { getPersonaPresentation } from './persona-presentation.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    /**
+     * Register one controlled persona picker receiving the available roster,
+     * joined identities, selection mode and owner callbacks. A replacement
+     * owns card rendering in place of the bundled PersonaDeck and invokes
+     * onConfirm only for the selected persona; the owner keeps creation/invitation
+     * authority. With no occupant this declared slot has no picker renderer.
+     */
     'manRoleplayer.personaDeck': {
       kind: 'single'
       scope: 'root'

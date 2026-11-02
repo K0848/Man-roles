@@ -188,7 +188,7 @@ describe('H3 real product browser gate', () => {
     const card = page.getByRole('region', { name: '结构化选择' })
     await card.waitFor({ timeout: 30_000 })
     const responses: string[] = []
-    page.on('response', async response => { if (response.url().endsWith('/manRoleplayerRemote/answerChoice')) responses.push(await response.text()) })
+    page.on('response', async (response) => { if (response.url().endsWith('/manRoleplayerRemote/answerChoice')) responses.push(await response.text()) })
     const before = calls.filter(call => call.path.endsWith('/manRoleplayerRemote/answerChoice')).length
     await card.getByRole('button', { name: '提交选择', exact: true }).click()
     await card.getByRole('alert').waitFor()
@@ -196,10 +196,10 @@ describe('H3 real product browser gate', () => {
     expect(calls.filter(call => call.path.endsWith('/manRoleplayerRemote/answerChoice'))).toHaveLength(before)
     expect(await card.isVisible()).toBe(true)
     await card.getByRole('button', { name: '跳过此问', exact: true }).click()
-    await card.waitFor({ state: 'detached', timeout: 10_000 }).catch(async error => { throw new Error(String(error) + '\n' + JSON.stringify({ responses, calls: calls.filter(call => call.path.endsWith('/manRoleplayerRemote/answerChoice')) }) + '\n' + await card.innerText()) })
+    await card.waitFor({ state: 'detached', timeout: 10_000 }).catch(async (error: unknown) => { throw new Error(String(error) + '\n' + JSON.stringify({ responses, calls: calls.filter(call => call.path.endsWith('/manRoleplayerRemote/answerChoice')) }) + '\n' + await card.innerText()) })
     expect(await page.getByText('等待你选择', { exact: true }).count()).toBe(0)
     const answer = page.locator('[data-roleplayer-kind="persona-message"][data-roleplayer-status="completed"]').filter({ hasText: 'H3 explicit skip accepted' })
-    await answer.waitFor({ timeout: 30_000 }).catch(async error => { throw new Error(String(error) + '\n' + JSON.stringify(responses) + '\n' + await page.locator('[data-roleplayer-view]').innerText()) })
+    await answer.waitFor({ timeout: 30_000 }).catch(async (error: unknown) => { throw new Error(String(error) + '\n' + JSON.stringify(responses) + '\n' + await page.locator('[data-roleplayer-view]').innerText()) })
     expect(await card.count()).toBe(0)
     const skipCall = calls.filter(call => call.path.endsWith('/manRoleplayerRemote/answerChoice')).at(-1)
     expect(skipCall?.body).toContain('"skipped":true')

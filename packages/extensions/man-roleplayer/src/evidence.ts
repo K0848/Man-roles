@@ -58,6 +58,7 @@ export const RESEARCH_EVIDENCE_KINDS = [
 ] as const
 export type ResearchEvidenceKind = typeof RESEARCH_EVIDENCE_KINDS[number]
 
+/** One parsed, persona-bound research entry with stable provenance and claim/voice permissions. */
 export interface ResearchEvidence {
   readonly id: string
   readonly persona: PersonaId
@@ -69,13 +70,20 @@ export interface ResearchEvidence {
   readonly firstPersonAllowed: boolean
 }
 
+/** UTF-16 range and evidence references for one segment of the complete accepted answer. */
 export interface ClaimSidecarInput {
   readonly textRange: { readonly start: number; readonly end: number }
   readonly kind: 'reliable-quote' | 'historical-fact' | 'attribution' | 'modern-inference' | 'insufficient-evidence'
   readonly evidenceIds: readonly string[]
 }
 
-/** Validate a complete Claim[] partition against the private assistant text and current tool results. */
+/**
+ * Validate a complete Claim[] partition against the private assistant text and current tool results.
+ * @param text - Complete private assistant answer whose UTF-16 positions are checked.
+ * @param claims - Ordered nonempty ranges partitioning the answer, with evidence requirements determined by claim kind.
+ * @param returnedEvidenceIds - Evidence ids actually returned to this turn and currently allowed.
+ * @returns Whether all ranges partition the answer and every claim uses permitted evidence references.
+ */
 export function validateClaimSidecar(
   text: string,
   claims: readonly ClaimSidecarInput[],
@@ -123,7 +131,12 @@ function researchPersonaMarkers(markdown: string): readonly string[] {
   return [...markdown.matchAll(/persona_id：`([^`]+)`/gu)].map(match => match[1] ?? '')
 }
 
-/** Parse numbered cards and quote rows from any registered audited persona document. */
+/**
+ * Parse numbered cards and quote rows from any registered audited persona document.
+ * @param markdown - Audited research Markdown with exactly one matching persona marker.
+ * @param persona - Registered owner of the requested research file.
+ * @returns Admitted numbered cards and quote rows; persona-marker mismatch or duplicate stable ids returns an empty list.
+ */
 export function parseResearchEvidence(markdown: string, persona: PersonaId): readonly ResearchEvidence[] {
   const definition = personaDefinition(persona)
   const markers = researchPersonaMarkers(markdown)

@@ -17,6 +17,8 @@
 | `apps/`、其他 `packages/`、`scripts/` | 共用的 DSH 底座、工具与测试 |
 | `start-man-roles.ps1` / `.cmd` | Windows 本地启动入口 |
 
+<a id="run-from-source"></a>
+
 ## 安装与构建
 
 需要 Windows PowerShell、Node.js `^22.19.0 || >=24.0.0` 和 pnpm `11.7.0`，以根目录 `package.json` 为准。依赖安装需要网络。在仓库根目录执行，并等待每一步成功：
@@ -27,6 +29,8 @@ pnpm run build
 ```
 
 安装或构建失败时先处理错误，再启动。锁文件固定依赖解析；平台与原生依赖支持仍须在自己的机器验证。
+
+<a id="run"></a>
 
 ## 启动
 

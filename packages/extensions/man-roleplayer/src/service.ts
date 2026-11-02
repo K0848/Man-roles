@@ -24,7 +24,7 @@ import type {
 import { PERSONA_DISPLAY_NAMES, PERSONA_IDS, LEGACY_PERSONAS } from './types.ts'
 import type { TurnBudget } from './types.ts'
 import { allowedContext, deliveredUserMessageIds, fallbackTitle, isActivePersonaAcknowledgement, operationId, project, safetyDecision, turnOperationId, visibleTurnStatus } from './product/index.ts'
-import type { DeliveryOperationId, MessageId, ProductEvent, TurnOperationId } from './product/index.ts'
+import type { DeliveryOperationId, MessageId as ProductMessageId, ProductEvent, TurnOperationId } from './product/index.ts'
 import { ProductConversationRepository } from './repository.ts'
 import type { ClaimSidecarInput, ResearchEvidence } from './evidence.ts'
 import { claimSegmentArraySchema, claimSidecarArraySchema, validateClaimSidecar } from './evidence.ts'
@@ -32,6 +32,7 @@ import { registerProductTools } from './tools.ts'
 
 /** The finite pre-delete wait. A timeout preserves the reversible checkpoint. */
 export const DEFAULT_STOP_TIMEOUT_MS = 5_000
+/** Default finite persona-turn limits, overridden by validated Host turnBudget configuration. */
 export const DEFAULT_TURN_BUDGET: TurnBudget = Object.freeze({
   maxModelRequests: 8, maxToolCalls: 12, activeTimeoutMs: 120_000,
   requestTimeoutMs: 60_000, noProgressLimit: 2, stopTimeoutMs: DEFAULT_STOP_TIMEOUT_MS,
@@ -73,7 +74,7 @@ function providerFailureDiagnostic(error: unknown): string {
 interface TurnBudgetRun {
   readonly dilemmaId: DilemmaId
   readonly turnOperationId: TurnOperationId
-  readonly messageId: MessageId
+  readonly messageId: ProductMessageId
   readonly persona: PersonaId
   readonly agent: Agent
   modelRequests: number
@@ -137,6 +138,7 @@ function usesUncitedBiographicalSelfClaim(text: string): boolean {
 
 /** Stable model-facing outcome; denial statuses never include research rows. */
 export type EvidenceLookupStatus = 'completed' | 'unauthorized' | 'budget-exhausted' | 'cancelled' | 'failed'
+/** Persona-scoped lookup outcome; denial/failure statuses never expose research rows. */
 export interface EvidenceLookupResult {
   readonly status: EvidenceLookupStatus
   readonly evidence: readonly ResearchEvidence[]
@@ -150,7 +152,13 @@ export class AgentStopTimeoutError extends Error {
   }
 }
 
-/** Await one owned disposal, keeping its promise available for a later recovery retry. */
+/**
+ * Await one owned disposal, keeping its promise available for a later recovery retry.
+ * @param operation - Owned cleanup/idle promise; a timeout leaves it running for later recovery.
+ * @param timeoutMs - Maximum milliseconds to await before rejecting.
+ * @returns The original operation result if it settles before the deadline.
+ * @throws AgentStopTimeoutError on timeout, or the original operation rejection.
+ */
 export async function awaitStopWithin<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
@@ -212,20 +220,20 @@ function isAdviceSeekingMessage(text: string): boolean {
 }
 
 function isDirectUserStateCandidate(candidate: StateCandidate, input: readonly Record<string, unknown>[]): boolean {
-  if (candidate.confirmation !== 'explicit' || candidate.sourceQuote === undefined
+  const sourceQuote = candidate.sourceQuote
+  if (candidate.confirmation !== 'explicit' || sourceQuote === undefined
     || (candidate.kind !== 'fact' && candidate.kind !== 'goal')
     || candidate.text !== candidate.sourceQuote || candidate.sourceEventIds.length !== 1) return false
   const source = input.find(event => event.type === 'user-message' && event.id === candidate.sourceEventIds[0])
   if (typeof source?.content === 'string') return source.content.includes(candidate.sourceQuote)
   return Array.isArray(source?.remainingFragments) && source.remainingFragments.some(fragment =>
-    typeof fragment === 'string' && fragment.includes(candidate.sourceQuote!))
+    typeof fragment === 'string' && fragment.includes(sourceQuote))
 }
 
 /** Resolve model references to the user/event sources retained by each state version. */
 function stateSourceIds(ids: readonly string[], items: ReadonlyMap<string, SharedStateItem>): Set<string> {
   const sources = new Set<string>(); const visited = new Set<string>(); const queue = [...ids]
-  for (let index = 0; index < queue.length; index += 1) {
-    const id = queue[index]!
+  for (const id of queue) {
     if (visited.has(id)) continue
     visited.add(id)
     const item = items.get(id)
@@ -427,7 +435,7 @@ export interface StateItemModifyOptions {
 
 /** Durable input accepted by {@link ManRoleplayer.submitMessage}. */
 export interface SubmitMessageOptions {
-  readonly messageId: MessageId
+  readonly messageId: ProductMessageId
   readonly deliveryOperationId: DeliveryOperationId
   readonly turnOperationId: TurnOperationId
   readonly text: string
@@ -442,7 +450,7 @@ export interface SubmitMessageOptions {
 
 /** Durable input for recovery of a previously claimed message. */
 export interface ReconcileMessageOptions {
-  readonly messageId: MessageId
+  readonly messageId: ProductMessageId
   readonly deliveryOperationId: DeliveryOperationId
   readonly turnOperationId: TurnOperationId
 }
@@ -454,7 +462,7 @@ interface LiveDilemma {
 
 interface MessageRunToken {
   readonly requestId: RequestId
-  readonly messageId: MessageId
+  readonly messageId: ProductMessageId
   readonly deliveryOperationId: DeliveryOperationId
   readonly turnOperationId: TurnOperationId
   readonly persona: PersonaId
@@ -502,7 +510,7 @@ interface ChoiceWaiter {
 
 interface TurnSubmissionLease extends Omit<PersonaTurnSubmission, 'submissionId' | 'text' | 'claims'> {
   readonly dilemmaId: DilemmaId
-  readonly messageId: MessageId
+  readonly messageId: ProductMessageId
   submission?: PersonaTurnSubmission
 }
 
@@ -603,7 +611,7 @@ export class ManRoleplayer {
       run.toolCalls += 1
       if (run.toolCalls > this.turnBudget.maxToolCalls) {
         run.exhausted = true
-        exec.agent !== undefined && this.cancelOwnedAgent(exec.agent, { kind: 'hook', reason: 'persona turn tool-call budget exhausted' })
+        if (exec.agent !== undefined) this.cancelOwnedAgent(exec.agent, { kind: 'hook', reason: 'persona turn tool-call budget exhausted' })
         return Promise.resolve({ kind: 'deny', reason: 'persona turn tool-call budget exhausted' })
       }
       return next()
@@ -618,7 +626,7 @@ export class ManRoleplayer {
       if (count > 1) run.noProgressCount += 1
       if (run.noProgressCount >= this.turnBudget.noProgressLimit) {
         run.exhausted = true
-        exec.agent !== undefined && this.cancelOwnedAgent(exec.agent, { kind: 'hook', reason: 'persona turn made no progress' })
+        if (exec.agent !== undefined) this.cancelOwnedAgent(exec.agent, { kind: 'hook', reason: 'persona turn made no progress' })
       }
       return undefined
     })
@@ -673,7 +681,12 @@ export class ManRoleplayer {
     }
   }
 
-  /** Create one Host-owned blank dilemma; request ids make retries return the same record. */
+  /**
+   * Create one Host-owned blank dilemma; request ids make retries return the same record.
+   * @param request - Idempotency key, initial active persona, and optional distinct persona roster; omission uses the legacy pair.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the persona roster is empty, duplicated, or excludes its active persona, or Agent creation fails.
+   */
   async createBlank(request: {
     readonly requestId: RequestId
     readonly activePersona: PersonaId
@@ -694,7 +707,12 @@ export class ManRoleplayer {
     })
   }
 
-  /** Create the requested isolated DSH agents, then commit their product relationship. */
+  /**
+   * Create the requested isolated DSH agents, then commit their product relationship.
+   * @param options - Dilemma identity, request id, isolated persona branches, and optional model options.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the identity already belongs to another request, branches conflict, or Agent/persistence setup fails.
+   */
   create(options: CreateDilemmaOptions): Promise<DilemmaConversation> {
     return this.serial(options.id, async () => {
       this.assertOpen()
@@ -732,7 +750,13 @@ export class ManRoleplayer {
     })
   }
 
-  /** Recreate both DSH agent owners around one non-deleting durable conversation. */
+  /**
+   * Recreate the configured persona Agent owners and reconcile interrupted operations without replaying a turn.
+   * @param id - Owning durable dilemma id.
+   * @param agentOptions - Model options for resumed Agents; omission leaves selection to the Agent registry.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the dilemma is missing/deleting, preset identity changed, or recovery fails.
+   */
   async resume(id: DilemmaId, agentOptions?: AgentOptions): Promise<DilemmaConversation> {
     let conversation: DilemmaConversation
     try {
@@ -755,7 +779,8 @@ export class ManRoleplayer {
           for (const event of recoveredEvents) if (event.type === 'turn-execution') executions.set(String(event.turnOperationId), event)
           for (const execution of executions.values()) {
             if (execution.state === 'stopped' || visibleTurnStatus(recoveredEvents, execution.turnOperationId) !== 'failed') continue
-            const agent = handles.find(handle => conversation.branches.some(branch => branch.persona === execution.persona && String(branch.sessionId) === String(handle.agent.id)))?.agent
+            const agent = handles.find(handle => conversation.branches.some(branch =>
+              branch.persona === execution.persona && String(branch.sessionId) === String(handle.agent.id)))?.agent
             if (agent === undefined || agent.status !== 'idle') continue
             await awaitStopWithin(agent.whenIdle(), this.stopTimeoutMs)
             await this.repository.append(id, {
@@ -817,7 +842,15 @@ export class ManRoleplayer {
     }
   }
 
-  /** Persist a reversible delete request. A repeated user request is deduplicated by its request id. */
+  /**
+   * Persist a reversible delete request. A repeated user request is deduplicated by its request id.
+   * @param id - Owning durable dilemma id.
+   * @param operation - Reversible requested deletion checkpoint; another active operation is rejected.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the dilemma is missing, its revision conflicts, or the deletion is not reversible and requested.
+   */
   requestDeletion(
     id: DilemmaId, operation: DeletionOperation, userRequestId: RequestId, expectedRevision?: number,
   ): Promise<DilemmaConversation> {
@@ -836,7 +869,14 @@ export class ManRoleplayer {
     })
   }
 
-  /** Cancel only the still-reversible deletion request, preserving append-only history. */
+  /**
+   * Cancel only the still-reversible deletion request, preserving append-only history.
+   * @param id - Owning durable dilemma id.
+   * @param operationId - Stable deletion operation id; retries must reuse the original id.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @returns The durable conversation after cancelling the matching still-requested checkpoint.
+   * @throws If the matching deletion is absent or execution already started.
+   */
   cancelDeletion(id: DilemmaId, operationId: OperationId, userRequestId: RequestId): Promise<DilemmaConversation> {
     return this.serial(id, async () => {
       this.assertOpen()
@@ -850,10 +890,16 @@ export class ManRoleplayer {
     })
   }
 
-  /** Execute or recover the one persisted deletion operation. The durable
+  /**
+   * Execute or recover the one persisted deletion operation. The durable
    * checkpoint is claimed under the dilemma serializer; stopping agents and
    * deleting sessions happen after that short critical section so lifecycle
-   * callers can observe and reject while deletion is in progress. */
+   * callers can observe and reject while deletion is in progress.
+   * @param id - Owning durable dilemma id.
+   * @param operationId - Stable deletion operation id; retries must reuse the original id.
+   * @returns The completed or failed checkpoint; concurrent calls for this operation share one execution.
+   * @throws If the operation or receipt does not belong to the dilemma, or persisting a checkpoint fails.
+   */
   delete(id: DilemmaId, operationId: OperationId): Promise<DeletionOperation> {
     const key = `${id}:${operationId}`
     const existingRun = this.deletionRuns.get(key)
@@ -935,12 +981,21 @@ export class ManRoleplayer {
     return run
   }
 
-  /** Read only the deletion proof needed to retry a lost remote response. */
+  /**
+   * Read only the deletion proof needed to retry a lost remote response.
+   * @param operationId - Stable deletion operation id; retries must reuse the original id.
+   * @returns The minimal retained deletion receipt, or undefined when none exists.
+   */
   readDeletionReceipt(operationId: OperationId): Promise<DeletionReceipt | undefined> {
     return this.repository.readDeletionReceipt(operationId)
   }
 
-  /** Promote a pending receipt only when its product conversation is already absent. */
+  /**
+   * Promote a pending receipt only when its product conversation is already absent.
+   * @param operationId - Stable deletion operation id; retries must reuse the original id.
+   * @param handleDigest - Digest of the opaque dilemma handle that must match the receipt.
+   * @returns True for an already completed receipt or one completed after proving the product record is absent.
+   */
   async recoverDeletionReceipt(operationId: OperationId, handleDigest: string): Promise<boolean> {
     const receipt = await this.repository.readDeletionReceipt(operationId)
     if (receipt === undefined || receipt.handleDigest !== handleDigest) return false
@@ -951,7 +1006,12 @@ export class ManRoleplayer {
     return true
   }
 
-  /** Read the durable projection; it never returns a live mutable cache. */
+  /**
+   * Read the durable projection; it never returns a live mutable cache.
+   * @param id - Owning durable dilemma id.
+   * @returns The replayed conversation after recoverable title/state/evidence/safety repairs, or undefined if absent.
+   * @throws If durable reads or recovery writes fail.
+   */
   read(id: DilemmaId): Promise<DilemmaConversation | undefined> {
     return this.recoverClaimedTitle(id)
       .then(() => this.recoverRunningState(id))
@@ -960,7 +1020,14 @@ export class ManRoleplayer {
       .then(() => this.repository.read(id))
   }
 
-  /** Archive a dilemma without deleting its product or private Session facts. */
+  /**
+   * Archive a dilemma without deleting its product or private Session facts.
+   * @param id - Owning durable dilemma id.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the dilemma is missing, deleting, or its expected revision conflicts.
+   */
   async archive(id: DilemmaId, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation> {
     return this.serial(id, async () => {
       const conversation = await this.requireConversation(id)
@@ -972,7 +1039,14 @@ export class ManRoleplayer {
     })
   }
 
-  /** Restore only an archived dilemma; deletion checkpoints cannot be resurrected. */
+  /**
+   * Restore only an archived dilemma; deletion checkpoints cannot be resurrected.
+   * @param id - Owning durable dilemma id.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the dilemma is missing, deleting, not archived, or its expected revision conflicts.
+   */
   async restore(id: DilemmaId, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation> {
     return this.serial(id, async () => {
       const conversation = await this.requireConversation(id)
@@ -986,18 +1060,32 @@ export class ManRoleplayer {
     })
   }
 
-  /** List active dilemmas by default; archived records remain available through read/restore. */
+  /**
+   * List active dilemmas by default; archived records remain available through read/restore.
+   * @param includeArchived - Include archived conversations when true; defaults to false.
+   * @returns Replayed durable conversations matching the archive filter.
+   */
   async list(includeArchived: boolean = false): Promise<readonly DilemmaConversation[]> {
     const conversations = await this.repository.list()
     return includeArchived ? conversations : conversations.filter(conversation => conversation.archived !== true)
   }
 
-  /** Read only the accepted structured answer referenced by one completed turn. */
+  /**
+   * Read only the accepted structured answer referenced by one completed turn.
+   * @param id - Owning durable dilemma id.
+   * @param timelineId - Completed product turn id used by the persona timeline entry.
+   * @returns Accepted answer text, or undefined if its completed turn, live Agent, or exact submission reference is unavailable.
+   */
   async acceptedAnswer(id: DilemmaId, timelineId: string): Promise<string | undefined> {
     return (await this.acceptedAnswerWithClaims(id, timelineId))?.text
   }
 
-  /** Return accepted answer text and the same-turn validated claim sidecars. */
+  /**
+   * Return accepted answer text and the same-turn validated claim sidecars.
+   * @param id - Owning durable dilemma id.
+   * @param timelineId - Completed product turn id used by the persona timeline entry.
+   * @returns Accepted text and still-accepted sidecars, or undefined if the exact completed submission cannot be resolved.
+   */
   async acceptedAnswerWithClaims(id: DilemmaId, timelineId: string): Promise<{
     readonly text: string
     readonly claims: readonly ClaimSidecarInput[]
@@ -1014,8 +1102,12 @@ export class ManRoleplayer {
     return { text: submitted.meta.text, claims: claims.map(({ textRange, kind, evidenceIds }) => ({ textRange, kind, evidenceIds })) }
   }
 
-  /** Reconstruct the currently live turn and its durable stop state. */
-  async activeTurn(id: DilemmaId): Promise<{ readonly messageId: MessageId; readonly deliveryOperationId: DeliveryOperationId; readonly turnOperationId: TurnOperationId; readonly persona: PersonaId; readonly status: 'running' | 'waiting-choice'; readonly executionState: ExecutionState } | undefined> {
+  /**
+   * Reconstruct the currently live turn and its durable stop state.
+   * @param id - Owning durable dilemma id.
+   * @returns The live delivery/turn or unresolved execution checkpoint, or undefined once no such operation remains.
+   */
+  async activeTurn(id: DilemmaId): Promise<{ readonly messageId: ProductMessageId; readonly deliveryOperationId: DeliveryOperationId; readonly turnOperationId: TurnOperationId; readonly persona: PersonaId; readonly status: 'running' | 'waiting-choice'; readonly executionState: ExecutionState } | undefined> {
     const events = await this.repository.readEvents(id) ?? []
     const latestDeliveries = new Map<string, Extract<ProductEvent, { type: 'message-delivery' }>>()
     for (const event of events) if (event.type === 'message-delivery') latestDeliveries.set(String(event.deliveryOperationId), event)
@@ -1049,6 +1141,9 @@ export class ManRoleplayer {
    * message in its persona branch, then use its enclosing DSH turn. This
    * prevents either persona branch (or an unrelated model turn) crossing into
    * the browser projection while keeping Session ids and raw tool metadata out.
+   * @param id - Owning durable dilemma id.
+   * @param requestedTurn - Exact product turn attempt, including a distinct retry turn when applicable.
+   * @returns Only that attempt's reasoning and status, or undefined when its Session references or reasoning are unavailable.
    */
   async reasoning(id: DilemmaId, requestedTurn: TurnOperationId): Promise<{
     readonly persona: PersonaId
@@ -1105,7 +1200,11 @@ export class ManRoleplayer {
     return { persona: turn.persona, turnOperationId: String(requestedTurn), status, text }
   }
 
-  /** Return only redacted evidence lifecycle metadata for product details. */
+  /**
+   * Derive current evidence details from durable lifecycle facts and the configured research index.
+   * @param id - Owning durable dilemma id.
+   * @returns Latest evidence lifecycle entries, with source text/details only when the configured index still contains the evidence.
+   */
   async evidenceStatus(id: DilemmaId): Promise<readonly {
     readonly id: string
     readonly persona: PersonaId
@@ -1134,7 +1233,11 @@ export class ManRoleplayer {
     })
   }
 
-  /** Project redacted, durable evidence lookup activity without exposing tool internals. */
+  /**
+   * Project redacted, durable evidence lookup activity without exposing tool internals.
+   * @param id - Owning durable dilemma id.
+   * @returns Settled evidence lookup statuses and result counts; pending tool claims are omitted.
+   */
   async evidenceActivity(id: DilemmaId): Promise<readonly {
     readonly operationId: string
     readonly status: 'completed-with-results' | 'completed-zero-hit' | 'budget-exhausted' | 'cancelled' | 'failed'
@@ -1153,7 +1256,11 @@ export class ManRoleplayer {
     }))
   }
 
-  /** Return the latest durable state-analysis status and validated candidates. */
+  /**
+   * Return the latest durable state-analysis status and validated candidates.
+   * @param id - Owning durable dilemma id.
+   * @returns Latest analysis status, current state items and active-persona snapshot, or undefined before any analysis.
+   */
   async stateStatus(id: DilemmaId): Promise<{
     readonly operationId: OperationId
     readonly retryable: boolean
@@ -1188,27 +1295,68 @@ export class ManRoleplayer {
     }
   }
 
-  /** Confirm a model candidate explicitly; model output never self-confirms. */
+  /**
+   * Confirm a model candidate explicitly; model output never self-confirms.
+   * @param id - Owning durable dilemma id.
+   * @param itemId - Stable shared-state item id to transition.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the item is not a candidate, the revision conflicts, or the dilemma is missing/deleting.
+   */
   confirmState(id: DilemmaId, itemId: string, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation> {
     return this.transitionSharedState(id, itemId, 'confirm', userRequestId, expectedRevision)
   }
 
-  /** Reject a candidate without deleting its append-only history. */
+  /**
+   * Reject a candidate without deleting its append-only history.
+   * @param id - Owning durable dilemma id.
+   * @param itemId - Stable shared-state item id to transition.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the item is not a candidate, the revision conflicts, or the dilemma is missing/deleting.
+   */
   rejectState(id: DilemmaId, itemId: string, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation> {
     return this.transitionSharedState(id, itemId, 'reject', userRequestId, expectedRevision)
   }
 
-  /** Withdraw a confirmed item from future context while retaining its history. */
+  /**
+   * Withdraw a confirmed item from future context while retaining its history.
+   * @param id - Owning durable dilemma id.
+   * @param itemId - Stable shared-state item id to transition.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the item is not confirmed, the revision conflicts, or the dilemma is missing/deleting.
+   */
   withdrawState(id: DilemmaId, itemId: string, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation> {
     return this.transitionSharedState(id, itemId, 'withdraw', userRequestId, expectedRevision)
   }
 
-  /** Resolve an unresolved item explicitly. */
+  /**
+   * Resolve an unresolved item explicitly.
+   * @param id - Owning durable dilemma id.
+   * @param itemId - Stable shared-state item id to transition.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the item is not an unresolved candidate, the revision conflicts, or the dilemma is missing/deleting.
+   */
   resolveState(id: DilemmaId, itemId: string, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation> {
     return this.transitionSharedState(id, itemId, 'resolve', userRequestId, expectedRevision)
   }
 
-  /** Modify a candidate or confirmed item; the old id becomes superseded. */
+  /**
+   * Modify a candidate or confirmed item; the old id becomes superseded.
+   * @param id - Owning durable dilemma id.
+   * @param itemId - Stable shared-state item id to transition.
+   * @param options - Nonblank replacement text and optional replacement kind; the new version is user-confirmed.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the item is not modifiable, the text is blank, the revision conflicts, or the dilemma is deleting.
+   */
   modifyState(
     id: DilemmaId, itemId: string, options: StateItemModifyOptions,
     userRequestId: RequestId, expectedRevision?: number,
@@ -1265,7 +1413,15 @@ export class ManRoleplayer {
     })
   }
 
-  /** Switch the active branch without exposing DSH Session identities to the product consumer. */
+  /**
+   * Switch the active branch without exposing DSH Session identities to the product consumer.
+   * @param id - Owning durable dilemma id.
+   * @param persona - Registered target persona; a missing branch is durably allocated before activation.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the dilemma is archived/deleting, any turn has not stopped, or branch allocation fails.
+   */
   async switchPersona(
     id: DilemmaId, persona: PersonaId, userRequestId: RequestId, expectedRevision?: number,
   ): Promise<DilemmaConversation> {
@@ -1326,7 +1482,15 @@ export class ManRoleplayer {
     })
   }
 
-  /** Replace the generated title with an explicit user-selected title. */
+  /**
+   * Replace the generated title with an explicit user-selected title.
+   * @param id - Owning durable dilemma id.
+   * @param title - Nonblank user-selected title; surrounding whitespace is removed.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the title is blank, the revision conflicts, or the dilemma is archived/deleting.
+   */
   async rename(id: DilemmaId, title: string, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation> {
     return this.serial(id, async () => {
       const conversation = await this.requireConversation(id)
@@ -1339,7 +1503,14 @@ export class ManRoleplayer {
     })
   }
 
-  /** Pause a discussion after cancelling its active persona turn, if any. */
+  /**
+   * Pause a discussion after cancelling its active persona turn, if any.
+   * @param id - Owning durable dilemma id.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The paused projection after requesting cancellation and awaiting the active run within the stop timeout.
+   * @throws If the revision conflicts or the dilemma is missing, deleting, or already stage-ended.
+   */
   async pause(id: DilemmaId, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation> {
     const active = this.messageRuns.get(id)
     let cancelledLease: MessageRunLease | undefined
@@ -1360,7 +1531,14 @@ export class ManRoleplayer {
     return result
   }
 
-  /** Resume a paused or stage-ended discussion without creating a new dilemma or turn. */
+  /**
+   * Resume a paused or stage-ended discussion without creating a new dilemma or turn.
+   * @param id - Owning durable dilemma id.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the revision conflicts or the dilemma is missing/deleting.
+   */
   async resumeDiscussion(id: DilemmaId, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation> {
     return this.serial(id, async () => {
       const conversation = await this.requireConversation(id)
@@ -1371,7 +1549,14 @@ export class ManRoleplayer {
     })
   }
 
-  /** Mark the current discussion stage ended; it remains readable and explicitly resumable. */
+  /**
+   * Mark the current discussion stage ended; it remains readable and explicitly resumable.
+   * @param id - Owning durable dilemma id.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The stage-ended projection after requesting cancellation and a bounded wait for the active run.
+   * @throws If the revision conflicts or the dilemma is missing/deleting.
+   */
   async endStage(id: DilemmaId, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation> {
     const active = this.messageRuns.get(id)
     let cancelledLease: MessageRunLease | undefined
@@ -1421,7 +1606,14 @@ export class ManRoleplayer {
     this.cancelOwnedAgent(agent, { kind: 'user' })
   }
 
-  /** Validate and wait for one product-owned structured choice from the active Agent turn. */
+  /**
+   * Validate and wait for one product-owned structured choice from the active Agent turn.
+   * @param agent - Actual live Agent identity owning the product turn; omission cannot acquire product authority.
+   * @param questions - Untrusted structured questions validated against the product choice schema.
+   * @param signal - Optional cancellation signal for the current tool call.
+   * @returns Validated user answers; repeated calls for the same pending operation share its waiter.
+   * @throws If no live product lease owns the Agent, questions are invalid, or the choice is closed/cancelled.
+   */
   async askChoice(agent: Agent | undefined, questions: unknown, signal?: AbortSignal): Promise<readonly ChoiceAnswer[]> {
     if (agent === undefined) throw new Error('product choice requires the live Agent execution identity')
     const lease = this.turnSubmissionLeases.get(agent)
@@ -1483,7 +1675,16 @@ export class ManRoleplayer {
     return promise
   }
 
-  /** Answer one pending product choice and wake its waiting Agent turn. */
+  /**
+   * Answer one pending product choice and wake its waiting Agent turn.
+   * @param id - Owning durable dilemma id.
+   * @param choiceOperationId - Pending product choice operation belonging to this dilemma.
+   * @param answers - Untrusted answers matched to the pending questions; explicit skip cannot contain answer content.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The conversation after the answer and resumed execution state are persisted.
+   * @throws If the choice is not pending, answers are invalid, or the expected revision conflicts.
+   */
   async answerChoice(
     id: DilemmaId,
     choiceOperationId: OperationId,
@@ -1511,7 +1712,15 @@ export class ManRoleplayer {
     })
   }
 
-  /** Cancel a pending product choice and stop the owning Agent turn. */
+  /**
+   * Cancel a pending product choice and stop the owning Agent turn.
+   * @param id - Owning durable dilemma id.
+   * @param choiceOperationId - Pending product choice operation belonging to this dilemma.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The current projection after cancelling a pending choice and a bounded wait for its owning run.
+   * @throws If the expected revision conflicts or the waiter does not belong to the claimed message lease.
+   */
   async cancelChoice(
     id: DilemmaId,
     choiceOperationId: OperationId,
@@ -1531,7 +1740,7 @@ export class ManRoleplayer {
         || lease.token.turnOperationId !== current.turnOperationId)) {
         throw new Error('cancel operation does not match the claimed choice lease')
       }
-      currentWaiter !== undefined && this.cancelOwnedAgent(currentWaiter.agent, { kind: 'user' })
+      if (currentWaiter !== undefined) this.cancelOwnedAgent(currentWaiter.agent, { kind: 'user' })
       await this.repository.append(id, {
         type: 'turn-execution', turnOperationId: current.turnOperationId, messageId: await this.requireTurnMessageId(id, current.turnOperationId),
         persona: current.persona, state: 'stopping', requestId: requestId(`turn-execution-stopping-choice:${choiceOperationId}`),
@@ -1544,7 +1753,14 @@ export class ManRoleplayer {
     return result
   }
 
-  /** Mark a derived evidence entry challenged; only an explicit review restores it. */
+  /**
+   * Mark a derived evidence entry challenged; only an explicit review restores it.
+   * @param id - Owning durable dilemma id.
+   * @param evidenceId - Stable evidence id from the configured research index.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @returns The conversation after persisting the challenge; a settled challenge cannot be submitted again directly.
+   * @throws If evidence is unknown or its recorded lifecycle is no longer available.
+   */
   async challengeEvidence(id: DilemmaId, evidenceId: string, userRequestId: RequestId): Promise<DilemmaConversation> {
     return this.serial(id, async () => {
       const evidence = this.evidence.find(item => item.id === evidenceId)
@@ -1556,7 +1772,14 @@ export class ManRoleplayer {
     })
   }
 
-  /** Withdraw evidence permanently from the current allow-list. */
+  /**
+   * Withdraw evidence permanently from the current allow-list.
+   * @param id - Owning durable dilemma id.
+   * @param evidenceId - Stable evidence id from the configured research index.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If evidence is unknown or a different request already withdrew it.
+   */
   async withdrawEvidence(id: DilemmaId, evidenceId: string, userRequestId: RequestId): Promise<DilemmaConversation> {
     return this.serial(id, async () => {
       const evidence = this.evidence.find(item => item.id === evidenceId)
@@ -1574,7 +1797,15 @@ export class ManRoleplayer {
     })
   }
 
-  /** Query only reliable available evidence through an Agent-bound capability. */
+  /**
+   * Query available persona evidence through an Agent-bound capability, retaining its source trust and voice permissions.
+   * @param agent - Actual live Agent identity owning the product turn; omission cannot acquire product authority.
+   * @param topic - Search topic ranked only within the owning persona's configured evidence.
+   * @param requestedCount - Requested result count; must be an integer from one to three.
+   * @param signal - Optional cancellation signal for the current tool call.
+   * @returns A bounded lookup outcome; unauthorized, exhausted, cancelled, and failed results contain no evidence.
+   * @throws If durable evidence-claim reads or writes fail.
+   */
   async lookupEvidence(
     agent: Agent | undefined,
     topic: string,
@@ -1668,7 +1899,14 @@ export class ManRoleplayer {
       : { status: 'failed', evidence: [] }
   }
 
-  /** Restore challenged evidence only through an explicit review action. */
+  /**
+   * Restore challenged evidence only through an explicit review action.
+   * @param id - Owning durable dilemma id.
+   * @param evidenceId - Stable evidence id from the configured research index.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @returns The conversation after restoring challenged evidence; direct replay requires it to be challenged again.
+   * @throws If the configured evidence is missing or its latest lifecycle is not challenged.
+   */
   async reviewEvidence(id: DilemmaId, evidenceId: string, userRequestId: RequestId): Promise<DilemmaConversation> {
     return this.serial(id, async () => {
       const evidence = this.evidence.find(item => item.id === evidenceId)
@@ -1679,7 +1917,13 @@ export class ManRoleplayer {
     })
   }
 
-  /** Analyze the durable conversation once; concurrent callers share one run. */
+  /**
+   * Analyze the durable conversation once; concurrent callers share one run.
+   * @param id - Owning durable dilemma id.
+   * @param stateOperationId - Stable state-analysis operation id.
+   * @returns The durable conversation after analysis settlement; late results remain stale and terminal ids do not rerun the provider.
+   * @throws If the dilemma/Agent is unavailable or claiming/persisting analysis fails; model/parse failures become durable failed facts.
+   */
   async analyzeState(id: DilemmaId, stateOperationId: OperationId = operationId(`state:${id}`)): Promise<DilemmaConversation> {
     const key = `${id}:${stateOperationId}`
     const existing = this.stateRuns.get(key)
@@ -1694,7 +1938,14 @@ export class ManRoleplayer {
     return run
   }
 
-  /** Retry only a failed state-analysis operation using its durable input watermark. */
+  /**
+   * Retry only a failed state-analysis operation using its durable input watermark.
+   * @param id - Owning durable dilemma id.
+   * @param stateOperationId - Stable state-analysis operation id.
+   * @param retryOperationId - New durable retry identity; repeated use returns that attempt without another provider request.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the source analysis is not failed or lacks the persisted persona/input needed for retry.
+   */
   async retryState(id: DilemmaId, stateOperationId: OperationId, retryOperationId: OperationId): Promise<DilemmaConversation> {
     await this.serial(id, async () => {
       const events = await this.repository.readEvents(id) ?? []
@@ -1900,7 +2151,15 @@ export class ManRoleplayer {
     })
   }
 
-  /** Validate and persist structured claims against the private assistant event for one turn. */
+  /**
+   * Validate and persist structured claims against the private assistant event for one turn.
+   * @param id - Owning durable dilemma id.
+   * @param turnId - Completed turn whose exact structured submission is still available.
+   * @param claims - Complete contiguous UTF-16 answer ranges with claim kinds and same-turn evidence ids.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the turn/submission, evidence permission, claim partition, or evidence revision is invalid.
+   */
   async submitClaims(
     id: DilemmaId,
     turnId: TurnOperationId,
@@ -1945,7 +2204,14 @@ export class ManRoleplayer {
     })
   }
 
-  /** Withdraw one active cross-persona acknowledgement without rewriting history. */
+  /**
+   * Withdraw one active cross-persona acknowledgement without rewriting history.
+   * @param id - Owning durable dilemma id.
+   * @param acknowledgementId - Active acknowledgement id whose cross-persona context permission is withdrawn.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @returns The conversation after withdrawing the active acknowledgement; repeating the transition directly is rejected.
+   * @throws If no active acknowledgement has that id.
+   */
   async withdrawPersonaAcknowledgement(id: DilemmaId, acknowledgementId: string, userRequestId: RequestId): Promise<DilemmaConversation> {
     return this.serial(id, async () => {
       const events = await this.repository.readEvents(id) ?? []
@@ -1955,7 +2221,13 @@ export class ManRoleplayer {
     })
   }
 
-  /** Accept one structured final answer from the actual Agent owning the live turn lease. */
+  /**
+   * Accept one structured final answer from the actual Agent owning the live turn lease.
+   * @param agent - Actual live Agent identity owning the product turn; omission cannot acquire product authority.
+   * @param input - Untrusted ordered answer segments; Host derives text ranges and validates same-turn evidence.
+   * @returns The accepted immutable in-memory submission; identical submissions reuse the existing value.
+   * @throws If the Agent lease is missing/closed, input or evidence is invalid, or a different submission was already accepted.
+   */
   async acceptPersonaTurnSubmission(agent: Agent | undefined, input: unknown): Promise<PersonaTurnSubmission> {
     if (agent === undefined) throw new Error('persona turn submission requires the live Agent execution identity')
     const lease = this.turnSubmissionLeases.get(agent)
@@ -2129,7 +2401,13 @@ export class ManRoleplayer {
     }
   }
 
-  /** Persist one user message, drive only its target Agent, then reconcile Session event ids. */
+  /**
+   * Persist one user message, drive only its target Agent, then reconcile Session event ids.
+   * @param id - Owning durable dilemma id.
+   * @param options - Stable message/delivery/turn/request ids, text, optional reply target, and optional durable-acknowledgement mode.
+   * @returns The durable claim projection when acknowledgeOnly is true; otherwise the settled persona-turn projection.
+   * @throws If lifecycle/revision/lease checks fail or execution fails; blocked safety input instead records a provider-free reply.
+   */
   async submitMessage(id: DilemmaId, options: SubmitMessageOptions): Promise<DilemmaConversation> {
     const leaseOrConversation = await this.serial(id, async (): Promise<MessageRunLease | DilemmaConversation> => {
       this.assertOpen()
@@ -2227,10 +2505,19 @@ export class ManRoleplayer {
     return options.acknowledgeOnly ? this.requireConversation(id) : lease.promise
   }
 
-  /** Retry one failed persona attempt without appending another product user message. */
+  /**
+   * Retry one failed persona attempt without appending another product user message.
+   * @param id - Owning durable dilemma id.
+   * @param message - Original product user message id; retry does not append another user message.
+   * @param failedTurn - Failed turn attempt to retry; the prior delivery must also have failed.
+   * @param userRequestId - Stable request id used to deduplicate the product mutation.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable conversation after the accepted mutation or an idempotent replay.
+   * @throws If the source attempt is not retryable, another run is active, or the dilemma is archived/deleting.
+   */
   async retryMessage(
     id: DilemmaId,
-    message: MessageId,
+    message: ProductMessageId,
     failedTurn: TurnOperationId,
     userRequestId: RequestId,
     expectedRevision?: number,
@@ -2454,7 +2741,7 @@ export class ManRoleplayer {
             if (this.messageRuns.get(id) === lease) this.messageRuns.delete(id)
             release()
           })
-        }).catch(error => { console.error('man-roleplayer: failed to record eventual turn stop', toCloseError(error)) })
+        }).catch((error: unknown) => { console.error('man-roleplayer: failed to record eventual turn stop', toCloseError(error)) })
       }
     }
     await this.maybeGenerateTitle(id, token.agent)
@@ -2482,7 +2769,7 @@ export class ManRoleplayer {
   private async awaitMessageIdle(agent: Agent, signal: AbortSignal): Promise<void> {
     const idle = agent.whenIdle()
     let onStop!: () => void
-    const stopped = new Promise<void>(resolve => { onStop = resolve })
+    const stopped = new Promise<void>((resolve) => { onStop = resolve })
     if (signal.aborted) onStop()
     else signal.addEventListener('abort', onStop, { once: true })
     try {
@@ -2633,10 +2920,19 @@ export class ManRoleplayer {
     }
   }
 
-  /** Cancel the active target Agent and publish the durable terminal turn state. */
+  /**
+   * Cancel the active target Agent and publish the durable terminal turn state.
+   * @param id - Owning durable dilemma id.
+   * @param messageId - Product message identity bound to the live operation.
+   * @param deliveryId - Matching delivery operation identity.
+   * @param turnId - Matching turn operation identity.
+   * @param expectedRevision - Optional expected lifecycle revision; a mismatch rejects the mutation.
+   * @returns The durable terminal projection after a bounded stop wait; stop-failed/unknown stays locked until actual quiescence.
+   * @throws If identities do not match the claimed lease, the turn is not cancellable, or the revision conflicts.
+   */
   async cancelMessage(
     id: DilemmaId,
-    messageId: MessageId,
+    messageId: ProductMessageId,
     deliveryId: DeliveryOperationId,
     turnId: TurnOperationId,
     expectedRevision?: number,
@@ -2692,7 +2988,13 @@ export class ManRoleplayer {
     return this.requireConversation(id)
   }
 
-  /** Reconcile a claimed operation from existing Session events without calling the model. */
+  /**
+   * Reconcile a claimed operation from existing Session events without calling the model.
+   * @param id - Owning durable dilemma id.
+   * @param options - Claimed message, delivery, and turn identities to recover from their existing Session facts.
+   * @returns The reconciled projection; absent Session user events leave it unchanged and invalid submissions settle as failed.
+   * @throws If the claimed message or owning live Agent is unavailable, or durable reconciliation fails.
+   */
   async reconcileMessage(id: DilemmaId, options: ReconcileMessageOptions): Promise<DilemmaConversation> {
     return this.serial(id, async () => {
       const conversation = await this.requireConversation(id)
@@ -2896,7 +3198,7 @@ export class ManRoleplayer {
   }
 
   /** Resolve the product message attached to a turn before writing execution facts. */
-  private async requireTurnMessageId(id: DilemmaId, turnOperationId: OperationId): Promise<MessageId> {
+  private async requireTurnMessageId(id: DilemmaId, turnOperationId: OperationId): Promise<ProductMessageId> {
     const event = (await this.repository.readEvents(id) ?? []).findLast(item => item.type === 'turn' && item.turnOperationId === turnOperationId)
     if (event?.type !== 'turn') throw new Error(`unknown turn '${turnOperationId}'`)
     return event.messageId

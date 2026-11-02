@@ -31,7 +31,10 @@ class StateAdapter extends LlmAdapter {
 }
 
 let composition: Awaited<ReturnType<typeof createT0Composition>> | undefined
-afterEach(async () => { if (composition !== undefined) await disposeT0Composition(composition.ctx, composition.root); composition = undefined })
+afterEach(async () => {
+  if (composition !== undefined) await disposeT0Composition(composition.ctx, composition.root)
+  composition = undefined
+})
 
 async function setup(adapter: StateAdapter) {
   composition = await createT0Composition()
@@ -94,7 +97,7 @@ describe('state correction authority', () => {
     expect((await ctx.manRoleplayer.stateStatus(id))?.personaSnapshot?.currentUnderstanding).toContain(correctedDeadline)
   })
 
-  it.each(['reject', 'withdraw'] as const)('does not reintroduce an old %s source but accepts an explicit later message', async action => {
+  it.each(['reject', 'withdraw'] as const)('does not reintroduce an old %s source but accepts an explicit later message', async (action) => {
     const adapter = new StateAdapter((input, call) => {
       const source = input.filter(item => item.type === 'user-message').at(-1)!.id
       const proposed = candidate('deadline', originalDeadline, source)

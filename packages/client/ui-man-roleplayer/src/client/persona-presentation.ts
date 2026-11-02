@@ -1,5 +1,6 @@
 import type { PersonaId } from '@deepseek-ai/dsh-man-roleplayer/types'
 
+/** Curated card copy and portrait metadata; these presentation fields are not historical evidence. */
 export interface PersonaPresentation {
   readonly portrait: string
   readonly era: string

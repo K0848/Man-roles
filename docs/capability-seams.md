@@ -64,6 +64,12 @@ flowchart LR
   svc_storageDomain["ctx.storageDomain<br/>Domain data facility"]
   pkg_workspace["workspace"]
   svc_messageFeedback["ctx.messageFeedback<br/>Lifecycle-bound message feedback"]
+  pkg_man_roleplayer["man-roleplayer"]
+  svc_manRoleplayer["ctx.manRoleplayer<br/>Historical-persona dilemma domain"]
+  pkg_man_roleplayer_app["man-roleplayer-app"]
+  svc_manRoleplayerRemote["ctx.manRoleplayerRemote<br/>Dilemma browser Remote facade"]
+  pkg_api_remotes["api-remotes"]
+  pkg_client_ui_man_roleplayer["client-ui-man-roleplayer"]
   svc_workspaceRegistry["ctx.workspaceRegistry<br/>Workspace entity registry"]
   svc_sessionQuery["ctx.sessionQuery<br/>Session reads, traces, filters, and search"]
   pkg_session_reference["session-reference"]
@@ -245,6 +251,8 @@ flowchart LR
   pkg_llm_replay --> svc_llm
   pkg_lsp --> svc_lsp
   pkg_lsp_local --> svc_lsp
+  pkg_man_roleplayer --> svc_manRoleplayer
+  pkg_man_roleplayer --> svc_manRoleplayerRemote
   pkg_message_feedback --> svc_messageFeedback
   pkg_modules --> svc_clientModules
   pkg_permission_presets --> svc_permissionPresets
@@ -342,6 +350,9 @@ flowchart LR
   svc_llm --> pkg_agent_loop
   svc_llm --> pkg_compaction_basic
   svc_lsp --> pkg_tool_lsp
+  svc_manRoleplayer --> pkg_man_roleplayer_app
+  svc_manRoleplayerRemote --> pkg_api_remotes
+  svc_manRoleplayerRemote --> pkg_client_ui_man_roleplayer
   svc_sandbox --> pkg_bash_sandbox
   svc_sandbox --> pkg_terminal_bash
   svc_sandboxPolicy --> pkg_bash_sandbox
@@ -441,6 +452,8 @@ flowchart LR
 | `ctx.storage` | `seam` | [`storage`](../packages/storage/storage) | [`storage-json`](../packages/storage/storage-json), [`storage-sqlite`](../packages/storage/storage-sqlite) | [`storage-domain`](../packages/storage/storage-domain) | - | Backends register side by side under names; data forms (domain first) mount on the hub and translate typed operations into opaque KV-unit primitives. |
 | `ctx.storageDomain` | `core` | [`storage-domain`](../packages/storage/storage-domain) | - | [`workspace`](../packages/workspace/workspace), [`message-feedback`](../packages/feedback/message-feedback) | - | Waits for every configured backend, then publishes the domain form as one lifecycle-bound service for typed durable state. |
 | `ctx.messageFeedback` | `core` | [`message-feedback`](../packages/feedback/message-feedback) | - | - | - | Owns local per-assistant-message feedback, lifecycle and target validation, per-item compare-and-set, and the Host unary Remote contract without entering Session history or telemetry. |
+| `ctx.manRoleplayer` | `core` | [`man-roleplayer`](../packages/extensions/man-roleplayer) | - | [`man-roleplayer-app`](../packages/bundle/man-roleplayer-app) | - | Owns durable product facts, private persona Agent execution, evidence acceptance and deletion checkpoints over the existing Session and persistence capabilities. |
+| `ctx.manRoleplayerRemote` | `core` | [`man-roleplayer`](../packages/extensions/man-roleplayer) | - | [`api-remotes`](../packages/api/remotes), [`client-ui-man-roleplayer`](../packages/client/ui-man-roleplayer) | - | Maps opaque browser handles and stable command identities to the product domain, returning redacted projections and typed business failures. |
 | `ctx.workspaceRegistry` | `core` | [`workspace`](../packages/workspace/workspace) | - | `apiproxy` | - | Owns WorkspaceId-branded records over the domain facility; stable sessionIds accounts drive Host RPC and GUI projections. |
 | `ctx.sessionQuery` | `seam` | [`session-query`](../packages/session-query/session-query) | [`session-query-sqlite`](../packages/session-query/session-query-sqlite) | [`session-reference`](../packages/context/session-reference), [`tool-session-query`](../packages/session-query/tool-session-query) | - | The interface supplies exact reads, filters, and traces; its concrete backend adds full-text reconciliation, ranking, snippets, and cursor generations, while the model consumer owns workspace authority and cursor-free rendering. |
 | `ctx.fileReferences` | `seam` | [`file-reference`](../packages/context/file-reference) | [`file-reference-local`](../packages/context/file-reference-local) | - | - | The interface returns path-only completion candidates within the addressed Agent cwd through its unary Remote contract; providers own namespace access and ranking without reading file contents. |

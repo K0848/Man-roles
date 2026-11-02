@@ -3,7 +3,7 @@
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
-import { createElement } from 'react'
+import { createElement, type ReactElement } from 'react'
 import { RoleplayerProjectionStore } from './store.ts'
 import { RoleplayerView } from './RoleplayerView.tsx'
 import { PersonaDeck } from './PersonaDeck.tsx'
@@ -24,8 +24,11 @@ export type {
   RoleplayerSidebarSelector, RoleplayerStoreStatus, RoleplayerStoreView,
 } from './store.ts'
 
-/** Fail-closed product root when the Remote namespace is not mounted. */
-export function RoleplayerUnavailableView() {
+/**
+ * Render the fail-closed product root when the Remote namespace is not mounted.
+ * @returns An unavailable notice without product controls or request handlers.
+ */
+export function RoleplayerUnavailableView(): ReactElement {
   return createElement('section', {
     'data-roleplayer-unavailable': 'true',
     'aria-label': '困惑产品暂不可用',

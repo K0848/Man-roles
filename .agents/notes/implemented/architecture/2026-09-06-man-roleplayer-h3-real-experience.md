@@ -4,6 +4,10 @@ Status: implemented
 
 English | [中文](2026-09-06-man-roleplayer-h3-real-experience.zh.md)
 
+## Problem
+
+Evidence citations, activity ownership, automatic titles and state analysis need strict source and turn validation through real-model output, retries and recovery without exposing private persona context.
+
 ## Decision
 
 The evidence lookup tool declares a string topic and integer requestedCount with a documented 1–3 bound, while runtime validation remains the final gate. A turn that received usable evidence must cite at least one returned evidence id before its structured answer can be accepted.
@@ -12,9 +16,13 @@ The product records non-sensitive thinking activity facts around each turn and p
 
 State analysis persists both the Host authority projection and the alias-redacted projection actually sent to the model. The model sees the JSON Schema derived from the same Zod contract used by the Host, may reference only the supplied short aliases, and does not choose the target turn. Initial analysis, retry, and claimed recovery deduplicate authority events before rebuilding aliases. Automatic titles accept one plain-text candidate; explanatory alternatives or Markdown are removed, and invalid output falls back to the first user message.
 
-## Boundaries
+## Consequences
 
 The product keeps accepted-only answers, persona/session isolation, evidence ownership, and ordinary DSH separation unchanged. Invalid lookup arguments produce a bounded failure and do not create a successful evidence claim. Fenced parsing and model-visible JSON Schema do not relax the Host's strict schema, alias, source, current-turn, or lifecycle validation. Per-turn identity guidance does not change persisted preset composition identity.
+
+## Alternatives considered
+
+The retained implementation record does not identify a contemporaneous alternatives comparison. The documented design keeps raw reasoning in the persona Session and derives its display for the exact product attempt instead of copying it into product events. Model-visible JSON Schema accompanies, rather than replaces, strict Host validation; evidence returned by a lookup must still be cited before answer acceptance.
 
 ## Verification
 

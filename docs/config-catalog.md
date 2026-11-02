@@ -1366,6 +1366,59 @@ export interface LspLocalServerConfig {
 
 Source: [`packages/lsp/lsp-stdio/src/index.ts:82`](../packages/lsp/lsp-stdio/src/index.ts)
 
+<a id="deepseek-aidsh-man-roleplayer"></a>
+
+## `@deepseek-ai/dsh-man-roleplayer`
+
+Requires: `agents` · `llm` · `sessionPersistence` · `storageDomain` · `tools`
+
+```ts config-catalog
+/** Host-owned bindings for the audited persona roster. */
+export interface Config {
+  /** Distinct audited persona bindings as an array or JSON array string; takes precedence over legacy fields. */
+  readonly personas?: readonly PersonaBindingConfig[] | string
+  /** Legacy two-person test/deployment shape. New product profiles use `personas`. */
+  readonly research?: {
+    /** Absolute path to the audited Wang Yangming research document. */
+    readonly wangYangmingPath?: string
+    /** Absolute path to the audited Zeng Guofan research document. */
+    readonly zengGuofanPath?: string
+  }
+  /** Legacy two-person test/deployment shape. New product profiles use `personas`. */
+  readonly presets?: {
+    /** Wang Yangming preset id, configured together with the legacy research paths. */
+    readonly wangYangming?: string
+    /** Zeng Guofan preset id, configured together with the legacy research paths. */
+    readonly zengGuofan?: string
+  }
+  /** Default provider/model options for product-owned Agents and automatic cold recovery. */
+  readonly agentOptions?: AgentOptions
+  /** Product profile enables one asynchronous state analysis per completed turn. */
+  readonly stateAnalysis?: boolean
+  /** Finite model/tool/active-time limits for one persona turn. */
+  readonly turnBudget?: Partial<import('./types.ts').TurnBudget>
+  /** Product bundles opt into fail-closed provider/model binding. */
+  readonly requireExplicitModel?: boolean
+}
+
+/** One explicit deployment binding for an audited persona. */
+export interface PersonaBindingConfig {
+  /** Registered persona id; each deployment binding must select a distinct persona. */
+  readonly id: PersonaId
+  /** Absolute path to that persona's audited, registry-named research Markdown file. */
+  readonly researchPath: string
+  /** Registered preset id whose composition and research fingerprint are persisted on the branch. */
+  readonly presetId: string
+}
+
+/** Client-safe persona vocabulary; no Host product imports cross this face. */
+export type PersonaId = typeof PERSONA_REGISTRY[number]['id']
+```
+
+Depends on: [`AgentOptions`](subsystems/core.md)
+
+Source: [`packages/extensions/man-roleplayer/src/index.ts:33`](../packages/extensions/man-roleplayer/src/index.ts)
+
 <a id="deepseek-aidsh-mcp-client"></a>
 
 ## `@deepseek-ai/dsh-mcp-client`
@@ -3242,6 +3295,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-client-ui-input-trigger` ([`packages/client/ui-input-trigger/src/index.ts`](../packages/client/ui-input-trigger/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-jobs` ([`packages/client/ui-jobs/src/index.ts`](../packages/client/ui-jobs/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-layout` ([`packages/client/ui-layout/src/index.ts`](../packages/client/ui-layout/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-man-roleplayer` ([`packages/client/ui-man-roleplayer/src/index.ts`](../packages/client/ui-man-roleplayer/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-message-feedback` ([`packages/client/ui-message-feedback/src/index.ts`](../packages/client/ui-message-feedback/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-model-selection` ([`packages/client/ui-model-selection/src/index.ts`](../packages/client/ui-model-selection/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-permission-presets` ([`packages/client/ui-permission-presets/src/index.ts`](../packages/client/ui-permission-presets/src/index.ts))
@@ -3336,6 +3390,7 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 - `@deepseek-ai/dsh-launch-environment` ([`packages/util/launch-environment/src/index.ts`](../packages/util/launch-environment/src/index.ts))
 - `@deepseek-ai/dsh-llm-mock-server` ([`packages/test-support/llm-mock-server/src/index.ts`](../packages/test-support/llm-mock-server/src/index.ts))
 - `@deepseek-ai/dsh-loader-smoke` ([`packages/test-support/loader-smoke/src/index.ts`](../packages/test-support/loader-smoke/src/index.ts))
+- `@deepseek-ai/dsh-man-roleplayer-app` ([`packages/bundle/man-roleplayer-app/src/index.ts`](../packages/bundle/man-roleplayer-app/src/index.ts))
 - `@deepseek-ai/dsh-native-command` ([`packages/util/native-command/src/index.ts`](../packages/util/native-command/src/index.ts))
 - `@deepseek-ai/dsh-output-retention` ([`packages/util/output-retention/src/index.ts`](../packages/util/output-retention/src/index.ts))
 - `@deepseek-ai/dsh-sandbox-windows-acl` ([`packages/sandbox/sandbox-windows-acl/src/index.ts`](../packages/sandbox/sandbox-windows-acl/src/index.ts))

@@ -232,6 +232,22 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Owns local per-assistant-message feedback, lifecycle and target validation, per-item compare-and-set, and the Host unary Remote contract without entering Session history or telemetry.',
   },
   {
+    key: 'manRoleplayer',
+    pkg: 'man-roleplayer',
+    title: 'Historical-persona dilemma domain',
+    mode: 'core',
+    consumers: ['man-roleplayer-app'],
+    note: 'Owns durable product facts, private persona Agent execution, evidence acceptance and deletion checkpoints over the existing Session and persistence capabilities.',
+  },
+  {
+    key: 'manRoleplayerRemote',
+    pkg: 'man-roleplayer',
+    title: 'Dilemma browser Remote facade',
+    mode: 'core',
+    consumers: ['api-remotes', 'client-ui-man-roleplayer'],
+    note: 'Maps opaque browser handles and stable command identities to the product domain, returning redacted projections and typed business failures.',
+  },
+  {
     key: 'workspaceRegistry',
     pkg: 'workspace',
     title: 'Workspace entity registry',

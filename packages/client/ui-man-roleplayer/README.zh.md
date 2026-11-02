@@ -20,22 +20,6 @@ details selector 也会显示最新的状态分析状态、当前人物 snapshot
 
 产品root通过已有主题令牌呈现已确认的浅色视觉，卸载时恢复此前的文档外观，不持久修改普通DSH的外观偏好。
 
-## Model Experience
-
-### 投影与生命周期操作
-
-#### What the model sees
-
-无。本包只负责浏览器投影，不参与模型 prompt 组装或 Agent 执行。
-
-#### Token effect
-
-无。
-
-#### KV Cache effect
-
-无。
-
 ## Profile 边界
 
 - 产品 bundle 会关闭通用 layout、侧栏和 composer，并拥有 root 界面。普通 Web 与 headless profile 不会加载此 package，除非操作员显式组合产品 bundle。
@@ -51,3 +35,24 @@ H3 将已发送消息的接收确认与下一条可编辑草稿分开。进度�
 待处理的结构化选择始终绑定 Host 操作 ID。浏览器按操作 ID 保存选项和自定义文字草稿；正常提交前要求每个问题至少包含一个选项或非空自定义文字。只有显式跳过操作才会为每个问题发送跳过标记。Host 轮次等待选择时，顶部和详情状态会明确提示等待，对话不会把该轮呈现为仍在思考。
 
 单选题的自定义文字和 radio 选项互为替代：输入自定义文字会清除 radio 选择；切回选项作答时，界面保留文字草稿，但不会将其一起提交。多选题仍可同时提交已选选项与自定义文字。
+
+## Model Experience
+
+### 投影与生命周期操作
+
+#### What the model sees
+
+`RoleplayerProjectionStore` 只负责浏览器投影，不参与模型 prompt 组装或 Agent 执行；本包不向模型发送内容。
+
+#### Token effect
+
+浏览器投影和本地交互不添加模型 token。
+
+#### KV Cache effect
+
+本包不修改模型请求前缀，也不控制缓存复用。
+
+## Known Limitations and Deferred Work
+
+- 远程控件需要可用的 Host 连接和最新投影；离线草稿保留在本地，不能完成生命周期变更。
+- 本浏览器包不能独立核验资料来源或接受人物回答；证据与 Claim 校验由 Host 负责。

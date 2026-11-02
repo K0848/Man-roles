@@ -1053,6 +1053,491 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'manRoleplayer',
+    summary: 'Host-owned service for product events and variable private DSH agent lifecycles.',
+    description: 'Host-owned service for product events and variable private DSH agent lifecycles.',
+    methods: [
+      {
+        signature: 'async open(): Promise<void>',
+        description: 'Open the product event medium before publishing the service.',
+        parameters: [],
+      },
+      {
+        signature: 'async createBlank(request: { readonly requestId: RequestId readonly activePersona: PersonaId readonly personas?: readonly PersonaId[] }): Promise<DilemmaConversation>',
+        description: 'Create one Host-owned blank dilemma; request ids make retries return the same record.',
+        parameters: [{ name: 'request', description: 'Idempotency key, initial active persona, and optional distinct persona roster; omission uses the legacy pair.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the persona roster is empty, duplicated, or excludes its active persona, or Agent creation fails.'],
+      },
+      {
+        signature: 'create(options: CreateDilemmaOptions): Promise<DilemmaConversation>',
+        description: 'Create the requested isolated DSH agents, then commit their product relationship.',
+        parameters: [{ name: 'options', description: 'Dilemma identity, request id, isolated persona branches, and optional model options.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the identity already belongs to another request, branches conflict, or Agent/persistence setup fails.'],
+      },
+      {
+        signature: 'async resume(id: DilemmaId, agentOptions?: AgentOptions): Promise<DilemmaConversation>',
+        description: 'Recreate the configured persona Agent owners and reconcile interrupted operations without replaying a turn.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'agentOptions', description: 'Model options for resumed Agents; omission leaves selection to the Agent registry.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the dilemma is missing/deleting, preset identity changed, or recovery fails.'],
+      },
+      {
+        signature: 'requestDeletion( id: DilemmaId, operation: DeletionOperation, userRequestId: RequestId, expectedRevision?: number, ): Promise<DilemmaConversation>',
+        description: 'Persist a reversible delete request. A repeated user request is deduplicated by its request id.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'operation', description: 'Reversible requested deletion checkpoint; another active operation is rejected.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the dilemma is missing, its revision conflicts, or the deletion is not reversible and requested.'],
+      },
+      {
+        signature: 'cancelDeletion(id: DilemmaId, operationId: OperationId, userRequestId: RequestId): Promise<DilemmaConversation>',
+        description: 'Cancel only the still-reversible deletion request, preserving append-only history.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'operationId', description: 'Stable deletion operation id; retries must reuse the original id.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }],
+        returns: 'The durable conversation after cancelling the matching still-requested checkpoint.',
+        throws: ['If the matching deletion is absent or execution already started.'],
+      },
+      {
+        signature: 'delete(id: DilemmaId, operationId: OperationId): Promise<DeletionOperation>',
+        description: 'Execute or recover the one persisted deletion operation. The durable checkpoint is claimed under the dilemma serializer; stopping agents and deleting sessions happen after that short critical section so lifecycle callers can observe and reject while deletion is in progress.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'operationId', description: 'Stable deletion operation id; retries must reuse the original id.' }],
+        returns: 'The completed or failed checkpoint; concurrent calls for this operation share one execution.',
+        throws: ['If the operation or receipt does not belong to the dilemma, or persisting a checkpoint fails.'],
+      },
+      {
+        signature: 'readDeletionReceipt(operationId: OperationId): Promise<DeletionReceipt | undefined>',
+        description: 'Read only the deletion proof needed to retry a lost remote response.',
+        parameters: [{ name: 'operationId', description: 'Stable deletion operation id; retries must reuse the original id.' }],
+        returns: 'The minimal retained deletion receipt, or undefined when none exists.',
+      },
+      {
+        signature: 'async recoverDeletionReceipt(operationId: OperationId, handleDigest: string): Promise<boolean>',
+        description: 'Promote a pending receipt only when its product conversation is already absent.',
+        parameters: [{ name: 'operationId', description: 'Stable deletion operation id; retries must reuse the original id.' }, { name: 'handleDigest', description: 'Digest of the opaque dilemma handle that must match the receipt.' }],
+        returns: 'True for an already completed receipt or one completed after proving the product record is absent.',
+      },
+      {
+        signature: 'read(id: DilemmaId): Promise<DilemmaConversation | undefined>',
+        description: 'Read the durable projection; it never returns a live mutable cache.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }],
+        returns: 'The replayed conversation after recoverable title/state/evidence/safety repairs, or undefined if absent.',
+        throws: ['If durable reads or recovery writes fail.'],
+      },
+      {
+        signature: 'async archive(id: DilemmaId, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation>',
+        description: 'Archive a dilemma without deleting its product or private Session facts.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the dilemma is missing, deleting, or its expected revision conflicts.'],
+      },
+      {
+        signature: 'async restore(id: DilemmaId, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation>',
+        description: 'Restore only an archived dilemma; deletion checkpoints cannot be resurrected.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the dilemma is missing, deleting, not archived, or its expected revision conflicts.'],
+      },
+      {
+        signature: 'async list(includeArchived: boolean = false): Promise<readonly DilemmaConversation[]>',
+        description: 'List active dilemmas by default; archived records remain available through read/restore.',
+        parameters: [{ name: 'includeArchived', description: 'Include archived conversations when true; defaults to false.' }],
+        returns: 'Replayed durable conversations matching the archive filter.',
+      },
+      {
+        signature: 'async acceptedAnswer(id: DilemmaId, timelineId: string): Promise<string | undefined>',
+        description: 'Read only the accepted structured answer referenced by one completed turn.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'timelineId', description: 'Completed product turn id used by the persona timeline entry.' }],
+        returns: 'Accepted answer text, or undefined if its completed turn, live Agent, or exact submission reference is unavailable.',
+      },
+      {
+        signature: 'async acceptedAnswerWithClaims(id: DilemmaId, timelineId: string): Promise<{ readonly text: string readonly claims: readonly ClaimSidecarInput[] } | undefined>',
+        description: 'Return accepted answer text and the same-turn validated claim sidecars.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'timelineId', description: 'Completed product turn id used by the persona timeline entry.' }],
+        returns: 'Accepted text and still-accepted sidecars, or undefined if the exact completed submission cannot be resolved.',
+      },
+      {
+        signature: 'async activeTurn(id: DilemmaId): Promise<{ readonly messageId: ProductMessageId; readonly deliveryOperationId: DeliveryOperationId; readonly turnOperationId: TurnOperationId; readonly persona: PersonaId; readonly status: \'running\' | \'waiting-choice\'; readonly executionState: ExecutionState } | undefined>',
+        description: 'Reconstruct the currently live turn and its durable stop state.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }],
+        returns: 'The live delivery/turn or unresolved execution checkpoint, or undefined once no such operation remains.',
+      },
+      {
+        signature: 'async reasoning(id: DilemmaId, requestedTurn: TurnOperationId): Promise<{ readonly persona: PersonaId readonly turnOperationId: string readonly status: \'running\' | \'completed\' | \'failed\' | \'cancelled\' readonly text: string } | undefined>',
+        description: 'Project only the reasoning belonging to one product turn. The delivery\'s sessionMessageId is the ownership fence: first locate that exact user message in its persona branch, then use its enclosing DSH turn. This prevents either persona branch (or an unrelated model turn) crossing into the browser projection while keeping Session ids and raw tool metadata out.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'requestedTurn', description: 'Exact product turn attempt, including a distinct retry turn when applicable.' }],
+        returns: 'Only that attempt\'s reasoning and status, or undefined when its Session references or reasoning are unavailable.',
+      },
+      {
+        signature: 'async evidenceStatus(id: DilemmaId): Promise<readonly { readonly id: string readonly persona: PersonaId readonly status: \'available\' | \'challenged\' | \'withdrawn\' readonly evidenceType?: string readonly trustLevel?: string readonly title?: string readonly text?: string readonly source?: string }[]>',
+        description: 'Derive current evidence details from durable lifecycle facts and the configured research index.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }],
+        returns: 'Latest evidence lifecycle entries, with source text/details only when the configured index still contains the evidence.',
+      },
+      {
+        signature: 'async evidenceActivity(id: DilemmaId): Promise<readonly { readonly operationId: string readonly status: \'completed-with-results\' | \'completed-zero-hit\' | \'budget-exhausted\' | \'cancelled\' | \'failed\' readonly returnedCount: number }[]>',
+        description: 'Project redacted, durable evidence lookup activity without exposing tool internals.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }],
+        returns: 'Settled evidence lookup statuses and result counts; pending tool claims are omitted.',
+      },
+      {
+        signature: 'async stateStatus(id: DilemmaId): Promise<{ readonly operationId: OperationId readonly retryable: boolean readonly failureCategory?: \'provider\' | \'parse\' | \'context\' | \'stale\' readonly status: \'claimed\' | \'running\' | \'completed\' | \'failed\' | \'stale\' readonly candidates?: readonly { readonly id: string; readonly kind: string; readonly text: string }[] readonly sharedStateItems?: readonly SharedStateItem[] readonly personaSnapshot?: PersonaSnapshot } | undefined>',
+        description: 'Return the latest durable state-analysis status and validated candidates.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }],
+        returns: 'Latest analysis status, current state items and active-persona snapshot, or undefined before any analysis.',
+      },
+      {
+        signature: 'confirmState(id: DilemmaId, itemId: string, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation>',
+        description: 'Confirm a model candidate explicitly; model output never self-confirms.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'itemId', description: 'Stable shared-state item id to transition.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the item is not a candidate, the revision conflicts, or the dilemma is missing/deleting.'],
+      },
+      {
+        signature: 'rejectState(id: DilemmaId, itemId: string, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation>',
+        description: 'Reject a candidate without deleting its append-only history.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'itemId', description: 'Stable shared-state item id to transition.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the item is not a candidate, the revision conflicts, or the dilemma is missing/deleting.'],
+      },
+      {
+        signature: 'withdrawState(id: DilemmaId, itemId: string, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation>',
+        description: 'Withdraw a confirmed item from future context while retaining its history.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'itemId', description: 'Stable shared-state item id to transition.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the item is not confirmed, the revision conflicts, or the dilemma is missing/deleting.'],
+      },
+      {
+        signature: 'resolveState(id: DilemmaId, itemId: string, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation>',
+        description: 'Resolve an unresolved item explicitly.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'itemId', description: 'Stable shared-state item id to transition.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the item is not an unresolved candidate, the revision conflicts, or the dilemma is missing/deleting.'],
+      },
+      {
+        signature: 'modifyState( id: DilemmaId, itemId: string, options: StateItemModifyOptions, userRequestId: RequestId, expectedRevision?: number, ): Promise<DilemmaConversation>',
+        description: 'Modify a candidate or confirmed item; the old id becomes superseded.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'itemId', description: 'Stable shared-state item id to transition.' }, { name: 'options', description: 'Nonblank replacement text and optional replacement kind; the new version is user-confirmed.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the item is not modifiable, the text is blank, the revision conflicts, or the dilemma is deleting.'],
+      },
+      {
+        signature: 'async switchPersona( id: DilemmaId, persona: PersonaId, userRequestId: RequestId, expectedRevision?: number, ): Promise<DilemmaConversation>',
+        description: 'Switch the active branch without exposing DSH Session identities to the product consumer.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'persona', description: 'Registered target persona; a missing branch is durably allocated before activation.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the dilemma is archived/deleting, any turn has not stopped, or branch allocation fails.'],
+      },
+      {
+        signature: 'async rename(id: DilemmaId, title: string, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation>',
+        description: 'Replace the generated title with an explicit user-selected title.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'title', description: 'Nonblank user-selected title; surrounding whitespace is removed.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the title is blank, the revision conflicts, or the dilemma is archived/deleting.'],
+      },
+      {
+        signature: 'async pause(id: DilemmaId, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation>',
+        description: 'Pause a discussion after cancelling its active persona turn, if any.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The paused projection after requesting cancellation and awaiting the active run within the stop timeout.',
+        throws: ['If the revision conflicts or the dilemma is missing, deleting, or already stage-ended.'],
+      },
+      {
+        signature: 'async resumeDiscussion(id: DilemmaId, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation>',
+        description: 'Resume a paused or stage-ended discussion without creating a new dilemma or turn.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the revision conflicts or the dilemma is missing/deleting.'],
+      },
+      {
+        signature: 'async endStage(id: DilemmaId, userRequestId: RequestId, expectedRevision?: number): Promise<DilemmaConversation>',
+        description: 'Mark the current discussion stage ended; it remains readable and explicitly resumable.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The stage-ended projection after requesting cancellation and a bounded wait for the active run.',
+        throws: ['If the revision conflicts or the dilemma is missing/deleting.'],
+      },
+      {
+        signature: 'async askChoice(agent: Agent | undefined, questions: unknown, signal?: AbortSignal): Promise<readonly ChoiceAnswer[]>',
+        description: 'Validate and wait for one product-owned structured choice from the active Agent turn.',
+        parameters: [{ name: 'agent', description: 'Actual live Agent identity owning the product turn; omission cannot acquire product authority.' }, { name: 'questions', description: 'Untrusted structured questions validated against the product choice schema.' }, { name: 'signal', description: 'Optional cancellation signal for the current tool call.' }],
+        returns: 'Validated user answers; repeated calls for the same pending operation share its waiter.',
+        throws: ['If no live product lease owns the Agent, questions are invalid, or the choice is closed/cancelled.'],
+      },
+      {
+        signature: 'async answerChoice( id: DilemmaId, choiceOperationId: OperationId, answers: unknown, userRequestId: RequestId, expectedRevision?: number, ): Promise<DilemmaConversation>',
+        description: 'Answer one pending product choice and wake its waiting Agent turn.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'choiceOperationId', description: 'Pending product choice operation belonging to this dilemma.' }, { name: 'answers', description: 'Untrusted answers matched to the pending questions; explicit skip cannot contain answer content.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The conversation after the answer and resumed execution state are persisted.',
+        throws: ['If the choice is not pending, answers are invalid, or the expected revision conflicts.'],
+      },
+      {
+        signature: 'async cancelChoice( id: DilemmaId, choiceOperationId: OperationId, userRequestId: RequestId, expectedRevision?: number, ): Promise<DilemmaConversation>',
+        description: 'Cancel a pending product choice and stop the owning Agent turn.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'choiceOperationId', description: 'Pending product choice operation belonging to this dilemma.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The current projection after cancelling a pending choice and a bounded wait for its owning run.',
+        throws: ['If the expected revision conflicts or the waiter does not belong to the claimed message lease.'],
+      },
+      {
+        signature: 'async challengeEvidence(id: DilemmaId, evidenceId: string, userRequestId: RequestId): Promise<DilemmaConversation>',
+        description: 'Mark a derived evidence entry challenged; only an explicit review restores it.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'evidenceId', description: 'Stable evidence id from the configured research index.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }],
+        returns: 'The conversation after persisting the challenge; a settled challenge cannot be submitted again directly.',
+        throws: ['If evidence is unknown or its recorded lifecycle is no longer available.'],
+      },
+      {
+        signature: 'async withdrawEvidence(id: DilemmaId, evidenceId: string, userRequestId: RequestId): Promise<DilemmaConversation>',
+        description: 'Withdraw evidence permanently from the current allow-list.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'evidenceId', description: 'Stable evidence id from the configured research index.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If evidence is unknown or a different request already withdrew it.'],
+      },
+      {
+        signature: 'async lookupEvidence( agent: Agent | undefined, topic: string, requestedCount: number, signal?: AbortSignal, ): Promise<EvidenceLookupResult>',
+        description: 'Query available persona evidence through an Agent-bound capability, retaining its source trust and voice permissions.',
+        parameters: [{ name: 'agent', description: 'Actual live Agent identity owning the product turn; omission cannot acquire product authority.' }, { name: 'topic', description: 'Search topic ranked only within the owning persona\'s configured evidence.' }, { name: 'requestedCount', description: 'Requested result count; must be an integer from one to three.' }, { name: 'signal', description: 'Optional cancellation signal for the current tool call.' }],
+        returns: 'A bounded lookup outcome; unauthorized, exhausted, cancelled, and failed results contain no evidence.',
+        throws: ['If durable evidence-claim reads or writes fail.'],
+      },
+      {
+        signature: 'async reviewEvidence(id: DilemmaId, evidenceId: string, userRequestId: RequestId): Promise<DilemmaConversation>',
+        description: 'Restore challenged evidence only through an explicit review action.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'evidenceId', description: 'Stable evidence id from the configured research index.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }],
+        returns: 'The conversation after restoring challenged evidence; direct replay requires it to be challenged again.',
+        throws: ['If the configured evidence is missing or its latest lifecycle is not challenged.'],
+      },
+      {
+        signature: 'async analyzeState(id: DilemmaId, stateOperationId: OperationId = operationId(`state:${id}`)): Promise<DilemmaConversation>',
+        description: 'Analyze the durable conversation once; concurrent callers share one run.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'stateOperationId', description: 'Stable state-analysis operation id.' }],
+        returns: 'The durable conversation after analysis settlement; late results remain stale and terminal ids do not rerun the provider.',
+        throws: ['If the dilemma/Agent is unavailable or claiming/persisting analysis fails; model/parse failures become durable failed facts.'],
+      },
+      {
+        signature: 'async retryState(id: DilemmaId, stateOperationId: OperationId, retryOperationId: OperationId): Promise<DilemmaConversation>',
+        description: 'Retry only a failed state-analysis operation using its durable input watermark.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'stateOperationId', description: 'Stable state-analysis operation id.' }, { name: 'retryOperationId', description: 'New durable retry identity; repeated use returns that attempt without another provider request.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the source analysis is not failed or lacks the persisted persona/input needed for retry.'],
+      },
+      {
+        signature: 'async submitClaims( id: DilemmaId, turnId: TurnOperationId, claims: readonly ClaimSidecarInput[], userRequestId: RequestId, ): Promise<DilemmaConversation>',
+        description: 'Validate and persist structured claims against the private assistant event for one turn.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'turnId', description: 'Completed turn whose exact structured submission is still available.' }, { name: 'claims', description: 'Complete contiguous UTF-16 answer ranges with claim kinds and same-turn evidence ids.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the turn/submission, evidence permission, claim partition, or evidence revision is invalid.'],
+      },
+      {
+        signature: 'async withdrawPersonaAcknowledgement(id: DilemmaId, acknowledgementId: string, userRequestId: RequestId): Promise<DilemmaConversation>',
+        description: 'Withdraw one active cross-persona acknowledgement without rewriting history.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'acknowledgementId', description: 'Active acknowledgement id whose cross-persona context permission is withdrawn.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }],
+        returns: 'The conversation after withdrawing the active acknowledgement; repeating the transition directly is rejected.',
+        throws: ['If no active acknowledgement has that id.'],
+      },
+      {
+        signature: 'async acceptPersonaTurnSubmission(agent: Agent | undefined, input: unknown): Promise<PersonaTurnSubmission>',
+        description: 'Accept one structured final answer from the actual Agent owning the live turn lease.',
+        parameters: [{ name: 'agent', description: 'Actual live Agent identity owning the product turn; omission cannot acquire product authority.' }, { name: 'input', description: 'Untrusted ordered answer segments; Host derives text ranges and validates same-turn evidence.' }],
+        returns: 'The accepted immutable in-memory submission; identical submissions reuse the existing value.',
+        throws: ['If the Agent lease is missing/closed, input or evidence is invalid, or a different submission was already accepted.'],
+      },
+      {
+        signature: 'async submitMessage(id: DilemmaId, options: SubmitMessageOptions): Promise<DilemmaConversation>',
+        description: 'Persist one user message, drive only its target Agent, then reconcile Session event ids.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'options', description: 'Stable message/delivery/turn/request ids, text, optional reply target, and optional durable-acknowledgement mode.' }],
+        returns: 'The durable claim projection when acknowledgeOnly is true; otherwise the settled persona-turn projection.',
+        throws: ['If lifecycle/revision/lease checks fail or execution fails; blocked safety input instead records a provider-free reply.'],
+      },
+      {
+        signature: 'async retryMessage( id: DilemmaId, message: ProductMessageId, failedTurn: TurnOperationId, userRequestId: RequestId, expectedRevision?: number, ): Promise<DilemmaConversation>',
+        description: 'Retry one failed persona attempt without appending another product user message.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'message', description: 'Original product user message id; retry does not append another user message.' }, { name: 'failedTurn', description: 'Failed turn attempt to retry; the prior delivery must also have failed.' }, { name: 'userRequestId', description: 'Stable request id used to deduplicate the product mutation.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable conversation after the accepted mutation or an idempotent replay.',
+        throws: ['If the source attempt is not retryable, another run is active, or the dilemma is archived/deleting.'],
+      },
+      {
+        signature: 'async cancelMessage( id: DilemmaId, messageId: ProductMessageId, deliveryId: DeliveryOperationId, turnId: TurnOperationId, expectedRevision?: number, ): Promise<DilemmaConversation>',
+        description: 'Cancel the active target Agent and publish the durable terminal turn state.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'messageId', description: 'Product message identity bound to the live operation.' }, { name: 'deliveryId', description: 'Matching delivery operation identity.' }, { name: 'turnId', description: 'Matching turn operation identity.' }, { name: 'expectedRevision', description: 'Optional expected lifecycle revision; a mismatch rejects the mutation.' }],
+        returns: 'The durable terminal projection after a bounded stop wait; stop-failed/unknown stays locked until actual quiescence.',
+        throws: ['If identities do not match the claimed lease, the turn is not cancellable, or the revision conflicts.'],
+      },
+      {
+        signature: 'async reconcileMessage(id: DilemmaId, options: ReconcileMessageOptions): Promise<DilemmaConversation>',
+        description: 'Reconcile a claimed operation from existing Session events without calling the model.',
+        parameters: [{ name: 'id', description: 'Owning durable dilemma id.' }, { name: 'options', description: 'Claimed message, delivery, and turn identities to recover from their existing Session facts.' }],
+        returns: 'The reconciled projection; absent Session user events leave it unchanged and invalid submissions settle as failed.',
+        throws: ['If the claimed message or owning live Agent is unavailable, or durable reconciliation fails.'],
+      },
+      {
+        signature: 'async close(): Promise<void>',
+        description: 'Stop owned agents and release the product medium during plugin teardown.',
+        parameters: [],
+      },
+    ],
+  },
+  {
+    key: 'manRoleplayerRemote',
+    summary: 'Remote service exposing only redacted product projections and handles.',
+    description: 'Remote service exposing only redacted product projections and handles. Request and operation failures are mapped to typed results; reads/projection failures outside the operation mapper can reject the returned promise and must be handled by the transport caller.',
+    methods: [
+      {
+        signature: '@Remote(\'listPersonas\') listPersonas(request: { readonly version: number }): Promise<RoleplayerRosterResult>',
+        description: 'List the audited persona roster without exposing deployment bindings.',
+        parameters: [{ name: 'request', description: 'Protocol version; only version 1 is accepted.' }],
+        returns: 'The persona roster, or invalid-request for an unsupported version.',
+      },
+      {
+        signature: '@Remote(\'list\') async list(request: RoleplayerListRequest): Promise<RoleplayerListResult>',
+        description: 'List redacted dilemma projections, excluding archived records unless requested.',
+        parameters: [{ name: 'request', description: 'Protocol version and optional archive inclusion.' }],
+        returns: 'Redacted projections or a typed request/Host failure.',
+      },
+      {
+        signature: '@Remote(\'create\') async create(request: RoleplayerCreateRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Create an idempotent blank dilemma with one explicitly selected persona or the omitted legacy pair.',
+        parameters: [{ name: 'request', description: 'Protocol version, request id, active persona, and optional single-persona selection.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'getProjection\') async getProjection(request: RoleplayerHandleRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Resolve an opaque handle to its current redacted product projection.',
+        parameters: [{ name: 'request', description: 'Protocol version and opaque dilemma handle.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'archive\') async archive(request: RoleplayerMutationRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Archive a dilemma while retaining its readable history.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'restore\') async restore(request: RoleplayerMutationRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Restore an archived dilemma for mutations.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'rename\') async rename(request: RoleplayerRenameRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Persist a user-owned title and suppress late automatic title replacement.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'pause\') async pause(request: RoleplayerMutationRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Pause the discussion and request cancellation of its active turn.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'resume\') async resume(request: RoleplayerMutationRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Resume a paused or ended discussion without replaying a persona turn.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'endStage\') async endStage(request: RoleplayerMutationRequest): Promise<RoleplayerProjectionResult>',
+        description: 'End the current stage and request cancellation of its active turn.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'switchPersona\') async switchPersona(request: RoleplayerSwitchRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Activate a persona after the current turn has stopped, allocating its branch when needed.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'answerChoice\') async answerChoice(request: RoleplayerChoiceAnswerRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Persist validated answers and wake the matching product choice waiter.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'cancelChoice\') async cancelChoice(request: RoleplayerChoiceCancelRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Cancel the matching pending choice and request its Agent to stop.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'confirmState\') async confirmState(request: RoleplayerStateRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Confirm a candidate for future shared context.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'modifyState\') async modifyState(request: RoleplayerStateModifyRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Supersede a candidate or confirmed item with a user-confirmed correction.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'rejectState\') async rejectState(request: RoleplayerStateRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Reject a candidate while retaining its durable history.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'withdrawState\') async withdrawState(request: RoleplayerStateRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Withdraw a confirmed item from future shared context.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'resolveState\') async resolveState(request: RoleplayerStateRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Resolve an unresolved candidate without deleting history.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'challengeEvidence\') async challengeEvidence(request: RoleplayerEvidenceRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Remove challenged evidence from the current allow-list.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'reviewEvidence\') async reviewEvidence(request: RoleplayerEvidenceRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Restore only explicitly challenged evidence after user review.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'withdrawEvidence\') async withdrawEvidence(request: RoleplayerEvidenceRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Withdraw evidence so review cannot restore it.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'submit\') async submit(request: RoleplayerSubmitRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Acknowledge durable delivery/turn claims while the persona answer continues in the background.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'retryMessage\') async retryMessage(request: RoleplayerRetryRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Retry one failed persona attempt without appending another product user message.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'retryState\') async retryState(request: RoleplayerStateRetryRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Retry failed analysis using its persisted input and a stable retry id.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'cancel\') async cancel(request: RoleplayerCancelRequest): Promise<RoleplayerProjectionResult>',
+        description: 'Cancel the matching live message lease without requiring the stale pre-submit revision.',
+        parameters: [{ name: 'request', description: 'Protocol version, handle, and matching live message/delivery/turn identities; expectedRevision is ignored.' }],
+        returns: 'The redacted product projection on success, or a typed request/lifecycle/Host failure.',
+      },
+      {
+        signature: '@Remote(\'delete\') async delete(request: RoleplayerDeleteRequest): Promise<RoleplayerDeleteResult>',
+        description: 'Delete all dilemma branch histories and product facts using a recoverable operation and minimal receipt.',
+        parameters: [{ name: 'request', description: 'Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.' }],
+        returns: 'A minimal deleted acknowledgement on completion/replay, or a typed failure with a retryable deletion checkpoint.',
+      },
+    ],
+  },
+  {
     key: 'messageFeedback',
     summary: 'Storage-domain sidecar service.',
     description: 'Storage-domain sidecar service. It inspects persisted Session history and never creates or resumes an Agent or Session.',
@@ -3020,12 +3505,40 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface BashEnvVariableInfo extends BashEnvVariable {\n    contributor: string;\n    key: DshEnvironmentKey;\n}',
   },
   {
+    name: 'BranchAllocation',
+    declaration: 'export interface BranchAllocation {\n    readonly operationId: OperationId;\n    readonly persona: PersonaId;\n    readonly sessionId: SessionId;\n    readonly presetIdentity?: PersonaPresetIdentity;\n    readonly expectedLifecycleRevision: number;\n    readonly status: \'claimed\' | \'ready\' | \'failed\';\n}',
+  },
+  {
     name: 'Branded',
     declaration: 'export type Branded<B extends string> = string & {\n    readonly [BRAND]: B;\n};',
   },
   {
     name: 'CancelOptions',
     declaration: 'export interface CancelOptions {\n    keepInbox?: boolean | undefined;\n}',
+  },
+  {
+    name: 'ChoiceAnswer',
+    declaration: 'export interface ChoiceAnswer {\n    readonly id: string;\n    readonly selected: readonly string[];\n    readonly custom?: string;\n    readonly skipped?: boolean;\n}',
+  },
+  {
+    name: 'ChoiceOption',
+    declaration: 'export interface ChoiceOption {\n    readonly label: string;\n    readonly description?: string;\n}',
+  },
+  {
+    name: 'ChoiceQuestion',
+    declaration: 'export interface ChoiceQuestion {\n    readonly id: string;\n    readonly question: string;\n    readonly header?: string;\n    readonly detail?: string;\n    readonly options?: readonly ChoiceOption[];\n    readonly multiSelect?: boolean;\n}',
+  },
+  {
+    name: 'ChoiceState',
+    declaration: 'export interface ChoiceState {\n    readonly operationId: OperationId;\n    readonly turnOperationId: TurnOperationId;\n    readonly persona: PersonaId;\n    readonly status: ChoiceStatus;\n    readonly questions?: readonly ChoiceQuestion[];\n    readonly answers?: readonly ChoiceAnswer[];\n}',
+  },
+  {
+    name: 'ChoiceStatus',
+    declaration: 'export type ChoiceStatus = \'pending\' | \'answered\' | \'cancelled\' | \'failed\';',
+  },
+  {
+    name: 'ClaimSidecarInput',
+    declaration: 'export interface ClaimSidecarInput {\n    readonly textRange: {\n        readonly start: number;\n        readonly end: number;\n    };\n    readonly kind: \'reliable-quote\' | \'historical-fact\' | \'attribution\' | \'modern-inference\' | \'insufficient-evidence\';\n    readonly evidenceIds: readonly string[];\n}',
   },
   {
     name: 'ClientResponse',
@@ -3192,6 +3705,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CreateAgentOptions {\n    readonly sessionId: SessionId;\n    readonly meta?: {\n        readonly cwd?: string;\n        readonly parentSession?: SessionId;\n        readonly seedLength?: number;\n        readonly origin?: \'subagent\';\n        readonly delegationDepth?: number;\n        readonly agentPreset?: string;\n    };\n    readonly seed?: readonly SessionEvent[];\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
   },
   {
+    name: 'CreateDilemmaOptions',
+    declaration: 'export interface CreateDilemmaOptions {\n    readonly id: DilemmaId;\n    readonly requestId: RequestId;\n    readonly branches: readonly PersonaBranch[];\n    readonly activePersona: PersonaId;\n    readonly agentOptions?: AgentOptions;\n}',
+  },
+  {
     name: 'CreateGoalRequest',
     declaration: 'export interface CreateGoalRequest {\n    readonly objective: string;\n    readonly maxGoalRounds?: number;\n}',
   },
@@ -3232,12 +3749,44 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type CredentialRef = Branded<\'CredentialRef\'>;',
   },
   {
+    name: 'DeletionOperation',
+    declaration: 'export interface DeletionOperation {\n    readonly operationId: OperationId;\n    readonly stage: DeletionStage;\n    readonly irreversible: boolean;\n    readonly error?: string;\n    readonly targets?: readonly PersonaBranch[];\n    readonly completedSessionIds?: readonly SessionId[];\n    readonly currentSessionId?: SessionId;\n    readonly resumeStage?: ResumeStage;\n}',
+  },
+  {
+    name: 'DeletionReceipt',
+    declaration: 'export type DeletionReceipt = {\n    readonly operationId: OperationId;\n    readonly handleDigest: string;\n    readonly status: \'pending\';\n    readonly deleted: true;\n} | {\n    readonly operationId: OperationId;\n    readonly handleDigest: string;\n    readonly status: \'completed\';\n    readonly completedAt: number;\n    readonly deleted: true;\n};',
+  },
+  {
+    name: 'DeletionStage',
+    declaration: 'export type DeletionStage = \'requested\' | \'stopping-agents\' | \'deleting-branch\' | \'deleting-first-branch\' | \'deleting-second-branch\' | \'deleting-wang\' | \'deleting-zeng\' | \'deleting-product\' | \'completed\' | \'failed\';',
+  },
+  {
+    name: 'DeliveryOperationId',
+    declaration: 'export type DeliveryOperationId = OperationId & {\n    readonly __deliveryOperationId: unique symbol;\n};',
+  },
+  {
+    name: 'DeliveryStatus',
+    declaration: 'export type DeliveryStatus = \'pending\' | \'claimed\' | \'delivered\' | \'failed\' | \'cancelled\';',
+  },
+  {
     name: 'DiffCallView',
     declaration: 'export interface DiffCallView {\n    card: \'diff\';\n    title: string;\n    diffs: FileDiff[];\n    locations?: FileLocation[];\n}',
   },
   {
     name: 'DiffResultView',
     declaration: 'export interface DiffResultView {\n    card: \'diff\';\n    title?: string;\n    diffs: FileDiff[];\n}',
+  },
+  {
+    name: 'DilemmaConversation',
+    declaration: 'export interface DilemmaConversation {\n    readonly id: DilemmaId;\n    readonly activePersona: PersonaId;\n    readonly discussionStatus: DiscussionStatus;\n    readonly branches: readonly PersonaBranch[];\n    readonly branchAllocations: readonly BranchAllocation[];\n    readonly timeline: readonly TimelineReference[];\n    readonly seenRequests: readonly RequestId[];\n    readonly deletion?: DeletionOperation;\n    readonly title?: string;\n    readonly titleRevision: number;\n    readonly titleUserOwned: boolean;\n    readonly archived?: boolean;\n    readonly revision: number;\n    readonly lifecycleRevision: number;\n    readonly sharedStateItems: readonly SharedStateItem[];\n    readonly personaSnapshots: readonly PersonaSnapshot[];\n    readonly choice?: ChoiceState;\n    readonly activities?: readonly (Extract<ProductEvent, {\n        type: \'activity\';\n    }> & {\n        readonly stages?: readonly {\n            readonly phase: Extract<ProductEvent, {\n                type: \'activity\';\n            }>[\'phase\'];\n            readonly startedAt: number;\n            readonly endedAt?: number;\n            readonly durationMs?: number;\n            readonly count?: number;\n        }[] | undefined;\n    })[];\n}',
+  },
+  {
+    name: 'DilemmaHandle',
+    declaration: 'export type DilemmaHandle = Branded<\'DilemmaHandle\'>;',
+  },
+  {
+    name: 'DilemmaId',
+    declaration: 'export type DilemmaId = string & {\n    readonly __dilemmaId: unique symbol;\n};',
   },
   {
     name: 'DirectoryPickerBrowseCapability',
@@ -3342,6 +3891,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'EpochHeader',
     declaration: 'export interface EpochHeader {\n    config: LlmCallConfig;\n    adapterDefaults?: LlmCallConfigAdapterDefaults;\n    system?: string;\n    tools?: ToolSchema[];\n}',
+  },
+  {
+    name: 'EvidenceLookupResult',
+    declaration: 'export interface EvidenceLookupResult {\n    readonly status: EvidenceLookupStatus;\n    readonly evidence: readonly ResearchEvidence[];\n}',
+  },
+  {
+    name: 'EvidenceLookupStatus',
+    declaration: 'export type EvidenceLookupStatus = \'completed\' | \'unauthorized\' | \'budget-exhausted\' | \'cancelled\' | \'failed\';',
+  },
+  {
+    name: 'ExecutionState',
+    declaration: 'export type ExecutionState = \'running\' | \'waiting-user\' | \'stopping\' | \'stopped\' | \'stop-failed\' | \'unknown\';',
   },
   {
     name: 'FileDiff',
@@ -3696,6 +4257,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface LspRange {\n    readonly start: LspPosition;\n    readonly end: LspPosition;\n}',
   },
   {
+    name: 'ManRoleplayerOperationId',
+    declaration: 'export type ManRoleplayerOperationId = Branded<\'ManRoleplayerOperationId\'>;',
+  },
+  {
+    name: 'ManRoleplayerProtocolVersion',
+    declaration: 'export type ManRoleplayerProtocolVersion = number;',
+  },
+  {
+    name: 'ManRoleplayerRequestId',
+    declaration: 'export type ManRoleplayerRequestId = Branded<\'ManRoleplayerRequestId\'>;',
+  },
+  {
     name: 'ManualCompactAgentContext',
     declaration: 'export interface ManualCompactAgentContext extends CompactionAgentContext {\n    runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>;\n}',
   },
@@ -3780,10 +4353,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface MessageFeedbackVersionConflict {\n    readonly code: \'version-conflict\';\n    readonly current: MessageFeedbackItem | null;\n}',
   },
   {
-    name: 'MessageId',
-    declaration: 'export type MessageId = Branded<\'MessageId\'>;',
-  },
-  {
     name: 'MessageSource',
     declaration: 'export type MessageSource = MessageSourceMap[keyof MessageSourceMap];',
   },
@@ -3812,8 +4381,28 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface OneShotSubagentDescriptorData extends SubagentDescriptorBase {\n    readonly mode: \'one-shot\';\n    readonly label?: string;\n}',
   },
   {
+    name: 'OperationId',
+    declaration: 'export type OperationId = string & {\n    readonly __operationId: unique symbol;\n};',
+  },
+  {
     name: 'PermissionSelect',
     declaration: 'export interface PermissionSelect {\n    options: PresetOption[];\n    currentValue: string;\n}',
+  },
+  {
+    name: 'PersonaBranch',
+    declaration: 'export interface PersonaBranch {\n    readonly persona: PersonaId;\n    readonly sessionId: SessionId;\n    readonly presetIdentity?: PersonaPresetIdentity;\n}',
+  },
+  {
+    name: 'PersonaId',
+    declaration: 'export type PersonaId = typeof PERSONA_REGISTRY[number][\'id\'];',
+  },
+  {
+    name: 'PersonaPresetIdentity',
+    declaration: 'export interface PersonaPresetIdentity {\n    readonly presetId: string;\n    readonly assemblyDigest: string;\n    readonly persona: PersonaId;\n    readonly researchFingerprint: string;\n}',
+  },
+  {
+    name: 'PersonaSnapshot',
+    declaration: 'export interface PersonaSnapshot {\n    readonly persona: PersonaId;\n    readonly sourceTurnOperationId: TurnOperationId;\n    readonly sourceEventIds: readonly string[];\n    readonly revision: number;\n    readonly currentUnderstanding: string;\n    readonly coreView: string;\n    readonly advice?: string;\n}',
   },
   {
     name: 'PostToolDecision',
@@ -3854,6 +4443,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PreToolDecision',
     declaration: 'export type PreToolDecision = {\n    kind: \'allow\';\n} | {\n    kind: \'deny\';\n    reason: string;\n} | {\n    kind: \'ask\';\n    reason?: string;\n};',
+  },
+  {
+    name: 'ProductEvent',
+    declaration: 'export type ProductEvent = {\n    readonly type: \'created\';\n    readonly id: DilemmaId;\n    readonly branches: readonly PersonaBranch[];\n    readonly activePersona: PersonaId;\n    readonly requestId: RequestId;\n} | {\n    readonly type: \'branch-allocation\';\n    readonly allocation: BranchAllocation;\n    readonly requestId: RequestId;\n} | {\n    readonly type: \'branch-added\';\n    readonly operationId: OperationId;\n    readonly branch: PersonaBranch;\n    readonly requestId: RequestId;\n} | {\n    readonly type: \'persona-switched\';\n    readonly persona: PersonaId;\n    readonly requestId: RequestId;\n    readonly timelineId: string;\n} | {\n    readonly type: \'discussion-status\';\n    readonly status: DiscussionStatus;\n    readonly requestId: RequestId;\n} | {\n    readonly type: \'archived\';\n    readonly requestId: RequestId;\n} | {\n    readonly type: \'restored\';\n    readonly requestId: RequestId;\n} | {\n    readonly type: \'user-message\';\n    readonly id: string;\n    readonly persona: PersonaId;\n    readonly requestId: RequestId;\n    readonly content?: string;\n    readonly messageId?: MessageId;\n    readonly deliveryOperationId?: DeliveryOperationId;\n    readonly status?: DeliveryStatus;\n    readonly replyToTimelineEventId?: string;\n    readonly sessionEventId?: string;\n} | {\n    readonly type: \'message-retry\';\n    readonly messageId: MessageId;\n    readonly previousTurnOperationId: TurnOperationId;\n    readonly previousDeliveryOperationId: DeliveryOperationId;\n    readonly turnOperationId: T /* …truncated — full shape in source */',
   },
   {
     name: 'ProjectionChangeListener',
@@ -3916,6 +4509,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ReasoningEffortId = Branded<\'ReasoningEffortId\'>;',
   },
   {
+    name: 'ReconcileMessageOptions',
+    declaration: 'export interface ReconcileMessageOptions {\n    readonly messageId: ProductMessageId;\n    readonly deliveryOperationId: DeliveryOperationId;\n    readonly turnOperationId: TurnOperationId;\n}',
+  },
+  {
     name: 'RedactedSecret',
     declaration: 'export interface RedactedSecret {\n    path: string[];\n    set: boolean;\n}',
   },
@@ -3936,12 +4533,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type RequestHeaderReason = \'initial\' | \'resume\' | \'change\';',
   },
   {
+    name: 'RequestId',
+    declaration: 'export type RequestId = string & {\n    readonly __requestId: unique symbol;\n};',
+  },
+  {
     name: 'RequestImageAttachment',
     declaration: 'export interface RequestImageAttachment {\n    variantId: ImageVariantId;\n    attachment: ImageAttachmentRef;\n    data: Uint8Array;\n    mediaType: ImageMediaType;\n    bytes: number;\n    width: number;\n    height: number;\n    depth: \'uchar\';\n    space: \'srgb\';\n    hasAlpha: boolean;\n}',
   },
   {
     name: 'RequestRunOutcome',
     declaration: 'export type RequestRunOutcome = \'approved\' | \'completed\' | \'rejected\' | \'cancelled\' | \'failed\';',
+  },
+  {
+    name: 'ResearchEvidence',
+    declaration: 'export interface ResearchEvidence {\n    readonly id: string;\n    readonly persona: PersonaId;\n    readonly title: string;\n    readonly text: string;\n    readonly source: string;\n    readonly evidenceType: ResearchEvidenceKind;\n    readonly trust: \'reliable\' | \'restricted\';\n    readonly firstPersonAllowed: boolean;\n}',
+  },
+  {
+    name: 'ResearchEvidenceKind',
+    declaration: 'export type ResearchEvidenceKind = typeof RESEARCH_EVIDENCE_KINDS[number];',
   },
   {
     name: 'ResolvedAlwaysRetryPolicy',
@@ -3974,6 +4583,114 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ResumeAgentOptions',
     declaration: 'export interface ResumeAgentOptions {\n    readonly resumeSessionId: SessionId;\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
+  },
+  {
+    name: 'RoleplayerCancelRequest',
+    declaration: 'export interface RoleplayerCancelRequest extends RoleplayerMutationRequest {\n    readonly messageId: ManRoleplayerOperationId;\n    readonly deliveryOperationId: ManRoleplayerOperationId;\n    readonly turnOperationId: ManRoleplayerOperationId;\n}',
+  },
+  {
+    name: 'RoleplayerChoiceAnswer',
+    declaration: 'export interface RoleplayerChoiceAnswer {\n    readonly id: string;\n    readonly selected: readonly string[];\n    readonly custom?: string;\n    readonly skipped?: boolean;\n}',
+  },
+  {
+    name: 'RoleplayerChoiceAnswerRequest',
+    declaration: 'export interface RoleplayerChoiceAnswerRequest extends RoleplayerMutationRequest {\n    readonly choiceOperationId: ManRoleplayerOperationId;\n    readonly answers: readonly RoleplayerChoiceAnswer[];\n}',
+  },
+  {
+    name: 'RoleplayerChoiceCancelRequest',
+    declaration: 'export interface RoleplayerChoiceCancelRequest extends RoleplayerMutationRequest {\n    readonly choiceOperationId: ManRoleplayerOperationId;\n}',
+  },
+  {
+    name: 'RoleplayerCreateRequest',
+    declaration: 'export interface RoleplayerCreateRequest {\n    readonly version: ManRoleplayerProtocolVersion;\n    readonly requestId: ManRoleplayerRequestId;\n    readonly activePersona: PersonaId;\n    readonly personas?: readonly PersonaId[];\n}',
+  },
+  {
+    name: 'RoleplayerDeletedValue',
+    declaration: 'export interface RoleplayerDeletedValue {\n    readonly handle: DilemmaHandle;\n    readonly deleted: true;\n}',
+  },
+  {
+    name: 'RoleplayerDeleteRequest',
+    declaration: 'export interface RoleplayerDeleteRequest extends RoleplayerMutationRequest {\n    readonly operationId: ManRoleplayerOperationId;\n}',
+  },
+  {
+    name: 'RoleplayerDeleteResult',
+    declaration: 'export type RoleplayerDeleteResult = RoleplayerResult<RoleplayerDeletedValue>;',
+  },
+  {
+    name: 'RoleplayerEvidenceRequest',
+    declaration: 'export interface RoleplayerEvidenceRequest extends RoleplayerMutationRequest {\n    readonly evidenceId: string;\n}',
+  },
+  {
+    name: 'RoleplayerFailure',
+    declaration: 'export interface RoleplayerFailure {\n    readonly code: \'unknown-dilemma\' | \'revision-conflict\' | \'archived\' | \'deleting\' | \'deletion-failed\' | \'paused\' | \'stage-ended\' | \'invalid-request\' | \'internal\';\n    readonly message: string;\n    readonly details?: {\n        readonly stage?: string;\n        readonly operationId?: string;\n    };\n}',
+  },
+  {
+    name: 'RoleplayerHandleRequest',
+    declaration: 'export interface RoleplayerHandleRequest {\n    readonly version: ManRoleplayerProtocolVersion;\n    readonly handle: DilemmaHandle;\n}',
+  },
+  {
+    name: 'RoleplayerListRequest',
+    declaration: 'export interface RoleplayerListRequest {\n    readonly version: ManRoleplayerProtocolVersion;\n    readonly includeArchived?: boolean;\n}',
+  },
+  {
+    name: 'RoleplayerListResult',
+    declaration: 'export type RoleplayerListResult = RoleplayerResult<readonly RoleplayerProjection[]>;',
+  },
+  {
+    name: 'RoleplayerMutationRequest',
+    declaration: 'export interface RoleplayerMutationRequest extends RoleplayerHandleRequest {\n    readonly requestId: ManRoleplayerRequestId;\n    readonly expectedRevision: number;\n}',
+  },
+  {
+    name: 'RoleplayerPersonaOption',
+    declaration: 'export interface RoleplayerPersonaOption {\n    readonly id: PersonaId;\n    readonly displayName: string;\n}',
+  },
+  {
+    name: 'RoleplayerProjection',
+    declaration: 'export interface RoleplayerProjection {\n    readonly handle: DilemmaHandle;\n    readonly activePersona: PersonaId;\n    readonly discussionStatus?: DiscussionStatus;\n    readonly branches: readonly {\n        readonly persona: PersonaId;\n    }[];\n    readonly timeline: readonly RoleplayerTimelineItem[];\n    readonly title?: string;\n    readonly titleRevision?: number;\n    readonly titleUserOwned?: boolean;\n    readonly archived?: boolean;\n    readonly deletion?: {\n        readonly operationId: ManRoleplayerOperationId;\n        readonly stage: string;\n        readonly irreversible: boolean;\n        readonly retryable: boolean;\n    };\n    readonly evidence?: readonly {\n        readonly id: string;\n        readonly persona: PersonaId;\n        readonly status: \'available\' | \'challenged\' | \'withdrawn\';\n        readonly evidenceType?: string;\n        readonly trustLevel?: string;\n        readonly title?: string;\n        readonly text?: string;\n        readonly source?: string;\n    }[];\n    readonly evidenceActivity?: readonly {\n        readonly operationId: string;\n        readonly status: \'completed-with-results\' | \'completed-zero-hit\' | \'budget-exhausted\' | \'cancelled\' | \'failed\';\n        readonly returnedCount: number;\n    }[];\n    readonly state?: {\n        readonly operationId?: ManRoleplayerOperationId;\n        readonly retryable?: boolean;\n        readonly failureCategory?: \'provider\' | \'parse\' | \'context\' | \'stale\';\n        readonly status: \'claimed\' | \'running\' | \'completed\' /* …truncated — full shape in source */',
+  },
+  {
+    name: 'RoleplayerProjectionResult',
+    declaration: 'export type RoleplayerProjectionResult = RoleplayerResult<RoleplayerProjection>;',
+  },
+  {
+    name: 'RoleplayerRenameRequest',
+    declaration: 'export interface RoleplayerRenameRequest extends RoleplayerMutationRequest {\n    readonly title: string;\n}',
+  },
+  {
+    name: 'RoleplayerResult',
+    declaration: 'export type RoleplayerResult<T> = {\n    readonly ok: true;\n    readonly value: T;\n} | {\n    readonly ok: false;\n    readonly error: RoleplayerFailure;\n};',
+  },
+  {
+    name: 'RoleplayerRetryRequest',
+    declaration: 'export interface RoleplayerRetryRequest extends RoleplayerMutationRequest {\n    readonly messageId: ManRoleplayerOperationId;\n    readonly failedTurnOperationId: ManRoleplayerOperationId;\n}',
+  },
+  {
+    name: 'RoleplayerRosterResult',
+    declaration: 'export type RoleplayerRosterResult = RoleplayerResult<readonly RoleplayerPersonaOption[]>;',
+  },
+  {
+    name: 'RoleplayerStateModifyRequest',
+    declaration: 'export interface RoleplayerStateModifyRequest extends RoleplayerMutationRequest {\n    readonly itemId: string;\n    readonly text: string;\n    readonly kind?: \'fact\' | \'goal\' | \'conflict\' | \'unresolved\' | \'understanding\';\n}',
+  },
+  {
+    name: 'RoleplayerStateRequest',
+    declaration: 'export interface RoleplayerStateRequest extends RoleplayerMutationRequest {\n    readonly itemId: string;\n}',
+  },
+  {
+    name: 'RoleplayerStateRetryRequest',
+    declaration: 'export interface RoleplayerStateRetryRequest extends RoleplayerMutationRequest {\n    readonly stateOperationId: ManRoleplayerOperationId;\n    readonly retryOperationId: ManRoleplayerOperationId;\n}',
+  },
+  {
+    name: 'RoleplayerSubmitRequest',
+    declaration: 'export interface RoleplayerSubmitRequest extends RoleplayerMutationRequest {\n    readonly messageId: ManRoleplayerOperationId;\n    readonly deliveryOperationId: ManRoleplayerOperationId;\n    readonly turnOperationId: ManRoleplayerOperationId;\n    readonly text: string;\n    readonly replyToTimelineEventId?: string;\n}',
+  },
+  {
+    name: 'RoleplayerSwitchRequest',
+    declaration: 'export interface RoleplayerSwitchRequest extends RoleplayerMutationRequest {\n    readonly persona: PersonaId;\n}',
+  },
+  {
+    name: 'RoleplayerTimelineItem',
+    declaration: 'export interface RoleplayerTimelineItem {\n    readonly id: string;\n    readonly kind: \'user-message\' | \'persona-message\' | \'choice-answer\' | \'system-status\';\n    readonly persona?: PersonaId;\n    readonly status?: \'pending\' | \'delivered\' | \'completed\' | \'cancelled\' | \'failed\';\n    readonly operationId?: string;\n    readonly replyToTimelineEventId?: string;\n    readonly text?: string;\n    readonly claims?: readonly {\n        readonly start: number;\n        readonly end: number;\n        readonly kind: string;\n        readonly evidenceIds: readonly string[];\n        readonly status: \'accepted\' | \'stale\';\n    }[];\n}',
   },
   {
     name: 'RpcError',
@@ -4154,10 +4871,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionHeader',
     declaration: 'export interface SessionHeader {\n    readonly version: number;\n    readonly id: SessionId;\n    readonly createdAt: number;\n    readonly cwd?: string;\n    readonly parentSession?: SessionId;\n    readonly seedLength?: number;\n    readonly origin?: \'subagent\';\n    readonly delegationDepth?: number;\n    readonly agentPreset?: string;\n}',
-  },
-  {
-    name: 'SessionId',
-    declaration: 'export type SessionId = Branded<\'SessionId\'>;',
   },
   {
     name: 'SessionInspection',
@@ -4348,6 +5061,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type SettingsUpdateSource = \'update\' | \'provider\';',
   },
   {
+    name: 'SharedStateItem',
+    declaration: 'export interface SharedStateItem {\n    readonly id: string;\n    readonly persona: PersonaId;\n    readonly kind: StateCandidate[\'kind\'];\n    readonly text: string;\n    readonly sourceEventIds: readonly string[];\n    readonly status: SharedStateItemStatus;\n    readonly confirmation?: \'explicit\' | \'needs-confirmation\';\n    readonly revision: number;\n    readonly sourceOperationId: OperationId;\n}',
+  },
+  {
+    name: 'SharedStateItemStatus',
+    declaration: 'export type SharedStateItemStatus = \'candidate\' | \'confirmed\' | \'rejected\' | \'superseded\' | \'withdrawn\' | \'resolved\';',
+  },
+  {
     name: 'ShellExecRequest',
     declaration: 'export interface ShellExecRequest {\n    command: string;\n    workdir?: string | undefined;\n    timeoutMs?: number | undefined;\n    stdoutMaxBytes?: number | undefined;\n    signal?: AbortSignal | undefined;\n    stdin?: string | undefined;\n    env?: Record<string, string> | undefined;\n    dshEnv?: DshEnvironment | undefined;\n    sandboxPolicy?: SandboxExecutionPolicy | undefined;\n}',
   },
@@ -4452,6 +5173,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SpillSource {\n    toolName: string;\n    callId: CallId;\n    label: string;\n}',
   },
   {
+    name: 'StateCandidate',
+    declaration: 'export interface StateCandidate {\n    readonly id: string;\n    readonly kind: \'fact\' | \'goal\' | \'conflict\' | \'unresolved\' | \'understanding\';\n    readonly text: string;\n    readonly sourceEventIds: readonly string[];\n    readonly confirmation?: \'explicit\' | \'needs-confirmation\';\n    readonly sourceQuote?: string;\n}',
+  },
+  {
+    name: 'StateItemModifyOptions',
+    declaration: 'export interface StateItemModifyOptions {\n    readonly text: string;\n    readonly kind?: StateCandidate[\'kind\'];\n}',
+  },
+  {
     name: 'StorageBackend',
     declaration: 'export interface StorageBackend {\n    readonly kv?: KvFacet;\n    close(): Promise<void>;\n}',
   },
@@ -4534,6 +5263,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SubagentStopReasonMap',
     declaration: 'export interface SubagentStopReasonMap {\n    completed: \'completed\';\n    aborted: \'aborted\';\n    error: \'error\';\n    \'max-tokens\': \'max-tokens\';\n    refusal: \'refusal\';\n}',
+  },
+  {
+    name: 'SubmitMessageOptions',
+    declaration: 'export interface SubmitMessageOptions {\n    readonly messageId: ProductMessageId;\n    readonly deliveryOperationId: DeliveryOperationId;\n    readonly turnOperationId: TurnOperationId;\n    readonly text: string;\n    readonly requestId: RequestId;\n    readonly replyToTimelineEventId?: string;\n    readonly expectedRevision?: number;\n    readonly retryOf?: TurnOperationId;\n    readonly acknowledgeOnly?: boolean;\n}',
   },
   {
     name: 'SubprocessCollect',
@@ -4732,6 +5465,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type TerminalWaitReason = \'stdin_read\' | \'inferred_idle\' | \'timeout\' | \'session_exit\';',
   },
   {
+    name: 'TimelineKind',
+    declaration: 'export type TimelineKind = \'user-message\' | \'persona-message\' | \'choice-answer\' | \'state-action\' | \'system-status\';',
+  },
+  {
+    name: 'TimelineReference',
+    declaration: 'export interface TimelineReference {\n    readonly id: string;\n    readonly kind: TimelineKind;\n    readonly persona?: PersonaId;\n    readonly sessionId?: SessionId;\n    readonly sourceEventId?: string;\n    readonly status?: \'pending\' | \'delivered\' | \'completed\' | \'cancelled\' | \'failed\';\n    readonly operationId?: OperationId;\n    readonly replyToTimelineEventId?: string;\n    readonly text?: string;\n}',
+  },
+  {
     name: 'TodoItem',
     declaration: 'export interface TodoItem {\n    content: string;\n    status: \'pending\' | \'in_progress\' | \'completed\';\n}',
   },
@@ -4870,6 +5611,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TurnEndReasonMap',
     declaration: 'export interface TurnEndReasonMap {\n    completed: {\n        kind: \'completed\';\n    };\n    aborted: {\n        kind: \'aborted\';\n        reason: TurnEndCancelCause;\n    };\n    blocked: {\n        kind: \'blocked\';\n    };\n    error: {\n        kind: \'error\';\n        error: LlmFailure;\n    };\n    \'max-tokens\': {\n        kind: \'max-tokens\';\n    };\n    interrupted: {\n        kind: \'interrupted\';\n    };\n}',
+  },
+  {
+    name: 'TurnOperationId',
+    declaration: 'export type TurnOperationId = OperationId & {\n    readonly __turnOperationId: unique symbol;\n};',
   },
   {
     name: 'TypertCodec',
