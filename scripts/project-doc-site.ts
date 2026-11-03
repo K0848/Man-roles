@@ -23,7 +23,7 @@ import {
   splitMarkdownUrlTarget,
 } from './markdown.ts'
 
-const REPOSITORY_URL = 'https://github.com/deepseek-ai/deepseek-harness'
+const REPOSITORY_URL = 'https://github.com/K0848/Man-roles'
 const root = resolve(import.meta.dirname, '..')
 const generatedRoot = resolve(root, 'website/.generated')
 
@@ -31,10 +31,10 @@ const generatedRoot = resolve(root, 'website/.generated')
  * Resolve the public repository ref used by projected source links.
  *
  * @param environment Build environment containing an optional explicit public ref.
- * @returns The configured public ref, or `master`.
+ * @returns The configured public ref, or `main`.
  */
 export function resolveRepositoryRef(environment: NodeJS.ProcessEnv): string {
-  return environment.DOCS_REPOSITORY_REF ?? 'master'
+  return environment.DOCS_REPOSITORY_REF ?? 'main'
 }
 
 interface Replacement {
@@ -140,7 +140,7 @@ function githubTarget(
   image: boolean,
 ): string {
   const path = repoPath(absPath, repoRoot)
-  if (image) return `https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/${repositoryRef}/${path}${suffix}`
+  if (image) return `https://raw.githubusercontent.com/K0848/Man-roles/${repositoryRef}/${path}${suffix}`
   const kind = lstatSync(absPath).isDirectory() ? 'tree' : 'blob'
   const lineSuffix = line === undefined ? suffix : `#L${line}`
   return `${REPOSITORY_URL}/${kind}/${repositoryRef}/${path}${lineSuffix}`
@@ -206,11 +206,17 @@ export function rewriteMarkdown(source: string, options: RewriteMarkdownOptions)
  *
  * @param markdown Projected Markdown content.
  * @param page Publication manifest entry for the content.
+ * @param repositoryRef Public ref selected by the projection context.
  * @returns Markdown with projection-owned frontmatter fields.
  */
-export function addProjectionFrontmatter(markdown: string, page: Pick<DocsPage, 'source' | 'outline'>): string {
+export function addProjectionFrontmatter(
+  markdown: string,
+  page: Pick<DocsPage, 'source' | 'outline'>,
+  repositoryRef: string = 'main',
+): string {
   const fields = [
     `editSource: ${JSON.stringify(page.source)}`,
+    `editUrl: ${JSON.stringify(`${REPOSITORY_URL}/edit/${repositoryRef}/${page.source}`)}`,
     ...(page.outline === undefined ? [] : [`outline: ${JSON.stringify(page.outline)}`]),
   ].join('\n')
   if (markdown.startsWith('---\n')) return markdown.replace('---\n', `---\n${fields}\n`)
@@ -299,7 +305,7 @@ function referencedImages(): string[] {
       route: page.route,
       pages: docsPages,
       repoRoot: root,
-      repositoryRef: 'master',
+      repositoryRef: resolveRepositoryRef(process.env),
       placeImage: (absPath) => {
         const real = publishableImage(absPath, root)
         if (real !== undefined) found.add(real)
@@ -418,9 +424,10 @@ function projectPagesInto(
 
 /** Rebuild the disposable VitePress source tree from the publication manifest. */
 export function projectDocs(): void {
+  const context = defaultProjectionContext()
   rmSync(generatedRoot, { recursive: true, force: true })
-  projectPagesInto(generatedRoot, defaultProjectionContext(), (markdown, page) =>
-    addProjectionFrontmatter(projectedPageContent(markdown, page), page))
+  projectPagesInto(generatedRoot, context, (markdown, page) =>
+    addProjectionFrontmatter(projectedPageContent(markdown, page), page, context.repositoryRef))
 }
 
 /**
@@ -542,7 +549,7 @@ export interface LlmsTxtSite {
 /** Locale groups llms.txt lists, in the order the site's navigation presents them. */
 const llmsTxtLocales: readonly { heading: string; locale: DocsLocale }[] = [
   { heading: '简体中文', locale: 'root' },
-  { heading: 'English', locale: 'en' },
+  { heading: '兼容入口（同一中文正文）', locale: 'en' },
 ]
 
 /**

@@ -348,7 +348,7 @@ export function dilemmaHandle(id: DilemmaId): string {
 }
 
 /** Derive the deletion receipt's non-reversible handle digest. */
-export function deletionHandleDigest(id: DilemmaId): string {
+function deletionHandleDigest(id: DilemmaId): string {
   return createHash('sha256').update(dilemmaHandle(id)).digest('hex')
 }
 

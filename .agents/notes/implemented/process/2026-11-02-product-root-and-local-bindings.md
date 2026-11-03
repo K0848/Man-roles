@@ -1,29 +1,27 @@
-# Agent Note: Product root and machine-local bindings
+# Agent Note: 产品工程根与本机绑定
 
 Status: implemented
 
-English | [中文](2026-11-02-product-root-and-local-bindings.zh.md)
-
 ## Problem
 
-Separate document and source roots require different working directories and duplicate launchers and persona research. A publication directory used as the development root also leaves installed package links and local profiles tied to a nested path. Publishing a local working directory can include task ledgers, private reviews or user data.
+资料和源码分处两层目录，需要切换工作目录，并维护两套启动器与人物资料。发布目录承担长期开发后，安装依赖链接和本机 profile 还会绑定嵌套路径。直接发布本机工作目录可能携带任务台账、内部评审或用户数据。
 
 ## Decision
 
-The repository root owns Git, the pnpm workspace, builds, one launcher and the five authoritative `research/` files. The package graph and dependency lock remain intact. Nested web builds reuse the invoking pnpm entrypoint so a different global version cannot take over the build. `.private/`, `.claude/`, `.validation/` and `.local/` remain local and ignored; delivery uses the reviewed version-control file set. The publication check covers both representative excluded paths and tracked files that contradict ignore rules.
+仓库根统一拥有 Git、pnpm workspace、构建、单一启动器和五份权威 `research/` 文件，包依赖图与锁文件保持完整。嵌套 Web 构建沿用调用方的 pnpm 入口，避免全局其他版本接管构建。`.private/`、`.claude/`、`.validation/` 和 `.local/` 留在本地并被忽略；交付使用审查后的版本控制文件集合。发布检查同时覆盖代表性排除路径和与忽略规则冲突的已跟踪文件。
 
-The launcher resolves explicit parameters before `.local/launch.json` and then defaults. Local bindings contain paths and non-secret settings, not credentials. A recipient defaults to `.local/dsh-home` and supplies their own credentials. Existing data stays at its configured location. The CLI's existing profile preparation repairs installation-owned fallback links without rewriting conversations.
+启动器按显式参数、本机 `.local/launch.json`、默认值的顺序解析配置。本机绑定保存路径和非秘密设置，不保存凭据。接收者默认使用 `.local/dsh-home` 和自己的凭据；现有数据保持原配置位置。CLI 复用既有 profile 准备逻辑，修复安装拥有的 fallback 链接，不改写对话。
 
-`-Update` completes the build before rechecking process identity and stopping a verified instance of this product. Build failure preserves the running service. A different project, changed port owner or reused PID cannot authorize termination. Ordinary launch reuses a verified instance.
+`-Update` 完成构建后，才再次核验进程身份并停止本产品实例；构建失败保留正在运行的服务。其他工程、端口换主或 PID 复用不能授权终止。普通启动复用已核验实例。
 
 ## Alternatives considered
 
-**Keep a private wrapper around a publication checkout.** This retains competing development roots, launchers and persona sources; documentation cannot remove their operational ambiguity.
+**保留私有外层和发布 checkout。** 这种布局继续保留多个开发根、启动器和人物资料来源，文档不能消除实际操作歧义。
 
-**Deliver the entire local directory.** This includes material outside the product source scope and makes private data exclusion depend on manual file selection.
+**交付整个本机目录。** 这种方式会纳入产品源码范围外的内容，私有数据排除依赖人工挑选。
 
-**Move user history into the source tree.** Rebinding the launcher preserves the existing data location without introducing data migration or changing conversation semantics.
+**把用户历史迁入源码树。** 通过启动器重新绑定即可保留数据位置，无须引入数据迁移或改变对话语义。
 
 ## Consequences
 
-Directory relocation requires updating package-manager metadata, workspace junctions, profile fallback links and current navigation. Ignore rules protect normal Git additions; they do not redact tracked content, prior commits or arbitrary folder uploads. Contributors review file content as well as paths. `scripts/start-man-roles.test.mjs` exercises the real PowerShell entry with isolated process boundaries; source-only installation, builds and empty-data startup remain distinct from real-provider quality acceptance.
+目录移动需要同步包管理器元数据、workspace junction、profile fallback 链接和当前导航。忽略规则保护正常 Git 添加，不能清除已跟踪内容、历史提交或任意整目录上传；贡献者还须检查文件内容。`scripts/start-man-roles.test.mjs` 使用隔离进程边界运行真实 PowerShell 入口；仅公开源码安装、构建和空数据启动，与真实模型质量验收分别记录。

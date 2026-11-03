@@ -1,27 +1,25 @@
-# Agent Note: man-roleplayer H2.8 production UI projection
+# Agent Note: man-roleplayer H2.8 生产 UI 投影
 
 Status: implemented
 
-English | [中文](2026-09-06-man-roleplayer-h28-production-ui.zh.md)
+## 问题
 
-## Problem
+产品 UI 需要由产品所有的持久投影，在保持普通 DSH Session 隔离的同时，为恢复和验证提供足够的 operation 与证据关联。
 
-The product UI needs a durable, product-owned projection that remains isolated from ordinary DSH sessions while exposing enough operation and evidence references for recovery and verification.
+## 决策
 
-## Decision
+客户端由一个 Host projection store 渲染。活动轮次携带不透明困惑 handle，以及真实的消息、delivery、turn 和人物关联。状态重试复用失败分析的输入与稳定 retry operation。删除暴露阶段检查点，不可逆后只能继续同一 operation。归档投影仍可读取但严格只读。已接受正文按 Host 校验的 Claim 范围和当前证据状态渲染；证据被质疑或撤回后关联变为 stale，历史正文保留。
 
-The client renders one Host projection store. Active turns carry an opaque dilemma handle and the real message, delivery, turn, and persona relation. State retry reuses the failed analysis input and stable retry operation. Deletion exposes checkpoint stage and resumes only the same operation after irreversibility. Archived projections remain readable and strictly read-only. Accepted text renders Host-validated Claim ranges and current evidence status; challenged or withdrawn references become stale while historical text remains.
+## 影响
 
-## Consequences
+浏览器不会接收原始 DSH Session id、工具轨迹或普通 Session 正文。证据正文和出处在读取时从配置的调研索引派生，产品事件不复制资料。普通 DSH profile 不加载该根界面。
 
-The browser receives no raw DSH Session id, tool trace, or ordinary Session text. Evidence body and source are derived from the configured research index at read time; product events do not copy that material. Ordinary DSH profiles do not load this root surface.
+客户端可见的产品类型通过 `@deepseek-ai/dsh-session/types` 解析 Session 标识。Host 根入口还声明 `ctx.sessions: SessionStore`，浏览器类型导入该入口会与客户端运行时的会话服务冲突。客户端安全入口保留相同的品牌标识和构造函数，同时避免引入 Host 上下文声明。
 
-Client-visible product types resolve Session identity through `@deepseek-ai/dsh-session/types`. The Host root also declares `ctx.sessions: SessionStore`; importing that root into browser types conflicts with the client runtime session service. The client-safe entry preserves the same branded identity and constructor without the Host augmentation.
+## 考虑过的替代方案
 
-## Alternatives considered
+现存实现记录未保存当时的替代方案比较。记录中的客户端安全 Session 类型入口避免把 Host 服务声明导入浏览器。产品投影提供恢复所需的操作关联，同时不公开原始 Session 标识与普通 Session 正文。
 
-The retained implementation record does not identify a contemporaneous alternatives comparison. The documented client-safe Session type entry avoids importing Host service augmentation into the browser. The product-owned projection exposes operation references for recovery while withholding raw Session identity and ordinary Session text.
+## 验证
 
-## Verification
-
-Host and client TypeScript checks, package tests, production bundle builds, system-Chrome product-profile tests, H2.8 browser tests, H2.6 regression, ordinary-profile isolation, and `git diff --check` were run for the implementation.
+实现已运行 Host 与 client TypeScript 检查、包测试、生产 bundle 构建、系统 Chrome 产品 profile 测试、H2.8 浏览器测试、H2.6 回归、普通 profile 隔离测试及 `git diff --check`。

@@ -1,80 +1,95 @@
-# Man-roles · 向古人问惑
+# 向古人问惑 · Man-roles
 
-English | [中文](README.zh.md)
+本文件是产品的主要维护入口；中文使用说明直接维护在此，不要求英文镜像。
 
-A local historical-persona conversation prototype built on DeepSeek Harness. Discuss a personal dilemma with Wang Yangming, Zeng Guofan, Zhuangzi, Su Shi or Zhu Xi. Research files and persona presets shape their expression. Answers are model-generated, and are not historical quotations or professional advice.
+基于 DeepSeek Harness 的本地历史人物对话原型。选择王阳明、曾国藩、庄子、苏轼或朱熹，围绕自己的困惑展开对话；人物资料和 preset 共同约束角色表达。回答由模型生成，不能视为历史人物原话或专业意见。
 
-This repository is the unified engineering root. Continue development directly here; run installation, builds and tests from this directory.
+本仓库是统一工程根目录。后续直接在此继续开发；安装、构建与测试均从本目录执行。
 
-## Product source
+<a id="product-source"></a>
 
-| Path | Responsibility |
+## 产品源码
+
+| 路径 | 职责 |
 | --- | --- |
-| `packages/extensions/man-roleplayer/` | Product domain, conversation lifecycle and persona presets |
-| `packages/client/ui-man-roleplayer/` | Browser UI and interaction controls |
-| `packages/bundle/man-roleplayer-app/` | Product profile and module assembly |
-| `research/调研成果-*.md` | Research for the five personas |
-| `apps/`, other `packages/`, `scripts/` | Shared DSH runtime, tooling and tests |
-| `start-man-roles.ps1` / `.cmd` | Windows local launcher |
+| `packages/extensions/man-roleplayer/` | 产品领域、会话生命周期和人物 preset |
+| `packages/client/ui-man-roleplayer/` | 浏览器界面与交互控制 |
+| `packages/bundle/man-roleplayer-app/` | 产品 profile 与模块装配 |
+| `research/调研成果-*.md` | 五位人物的资料 |
+| `apps/`、其他 `packages/`、`scripts/` | 共用的 DSH 底座、工具与测试 |
+| `start-man-roles.ps1` / `.cmd` | Windows 本地启动入口 |
 
 <a id="run-from-source"></a>
 
-## Install and build
+<a id="install-and-build"></a>
 
-Use Windows PowerShell, Node.js `^22.19.0 || >=24.0.0` and pnpm `11.7.0`, as specified in the root `package.json`. Dependency installation needs network access. Run at the repository root and wait for each command to succeed:
+## 安装与构建
+
+需要 Git、Windows PowerShell、Node.js `^22.19.0 || >=24.0.0` 和 pnpm `11.7.0`，版本约束以根目录 `package.json` 为准。推荐保留 Git 元数据获取源码：
+
+```powershell
+git clone https://github.com/K0848/Man-roles.git
+cd Man-roles
+```
+
+构建读取源码提交信息。若使用 ZIP 或不含 `.git` 的源码副本，先按该副本的真实来源提交 SHA 设置 `DSH_CLIENT_COMMIT_HASH`；不要填随机值、占位 SHA 或与该源码不符的旧提交。Git checkout 可用 `git rev-parse HEAD` 查询真实提交，ZIP 接收者应使用提供者注明的来源 SHA。此值是公开构建元数据，不是私人凭据。设置后再执行下面的安装和构建。
+
+依赖安装需要网络。在仓库根目录执行，并等待每一步成功：
 
 ```powershell
 pnpm install --frozen-lockfile
 pnpm run build
 ```
 
-Resolve installation or build errors before starting. The lockfile fixes dependency resolution; platform and native dependency support still need verification on your machine.
+安装或构建失败时先处理错误，再启动。锁文件固定依赖解析；平台与原生依赖支持仍须在自己的机器验证。
 
-## Run
+<a id="run"></a>
 
-Set your own API key in the current PowerShell process:
+## 启动
+
+在当前 PowerShell 进程设置自己的 API key：
 
 ```powershell
 $env:DEEPSEEK_API_KEY = '<YOUR_DEEPSEEK_API_KEY>'
-.\start-man-roles.ps1
+.\start-man-roles.cmd
 ```
 
-`start-man-roles.cmd` also works from a shell that already has the environment variable. Never commit real keys. The default provider is `deepseek-official` and model is `deepseek-v4-flash`; the account must support the model, and API calls may incur charges. Use `-Model` for another supported model. The provider adapter also reads optional `DEEPSEEK_BASE_URL`.
+默认使用 `start-man-roles.cmd` 作为 Windows 入口，参数会传给同目录的 PowerShell 启动器。不要提交真实密钥。默认 Provider 为 `deepseek-official`，模型为 `deepseek-v4-flash`；账户须支持所选模型，API 调用可能产生费用。可通过 `-Model` 选择其他受支持模型，底座适配器还读取可选的 `DEEPSEEK_BASE_URL`。
 
-The launcher binds to `http://127.0.0.1:3085/` and runs in the foreground. Press Ctrl+C to stop. A normal launch reuses a verified running instance of this product; an unrelated process on the port produces an error. `-Update` builds first, then rechecks and restarts only the same verified product process. A failed build leaves the running instance in place.
+启动器绑定 `http://127.0.0.1:3085/`，前台运行，按 Ctrl+C 停止。普通启动复用已核验的同产品服务；其他进程占用端口时会报错。`-Update` 先构建，成功后再次核验并仅重启原产品进程；构建失败时保留正在运行的服务。
 
 ```powershell
-.\start-man-roles.ps1 -NoOpen
-.\start-man-roles.ps1 -Update -NoOpen
-.\start-man-roles.ps1 -Port 3086 -Model 'deepseek-v4-flash'
+.\start-man-roles.cmd -NoOpen
+.\start-man-roles.cmd -Update -NoOpen
+.\start-man-roles.cmd -Port 3086 -Model 'deepseek-v4-flash'
 ```
 
-Source, presets and research are resolved relative to this root. On first launch, DSH creates the `man-roles-mvp-web` profile and assembles base, web-app and man-roleplayer-app. Start with an empty data directory and your own credentials; no original user profiles, settings, conversations or runtime database are shipped.
+源码、preset 与资料均相对本根目录定位。首次启动由 DSH 创建 `man-roles-mvp-web` profile，装配 base、web-app 和 man-roleplayer-app。请使用空数据目录和自己的凭据；本仓库不携带原开发环境的用户 profile、设置、对话或运行数据库。
 
-## Local data and privacy
+<a id="local-data-and-privacy"></a>
 
-The default data directory is `.local/dsh-home/`, containing generated profiles, sessions and settings. Keep `.local/` ignored by Git. `-DshHome 'another local directory'` selects a separate location; ensure your custom directory is also excluded from version control. The launcher does not persist the API key, but runtime credential/settings features and files you create require your own care.
+## 本地数据与隐私
 
-Optional `.local/launch.json` stores machine-local bindings for `Port`, `Provider`, `Model`, `DshHome` and `CredentialPatch`. Explicit parameters override this file, which overrides defaults. Paths in this file are relative to the engineering root unless absolute. `CredentialPatch` selects a local credentials patch; an empty value disables it. Keep the file and the real patch out of source delivery. A recipient supplies their own credentials and data. `.private/` holds internal working documents; `.claude/` holds local task ledgers. Both are excluded from Git and source delivery.
+默认数据目录为 `.local/dsh-home/`，保存生成的 profile、会话和设置。保持 `.local/` 在 Git 忽略范围内。`-DshHome '其他本地目录'` 可选择独立位置；自定义目录须另外确保不进入版本控制。启动器不持久化 API key；底座凭据、设置功能和自行创建的文件仍须妥善保管。
 
-Conversation text and required persona context are sent to the configured model service. Exclude sensitive information you should not share with that service. `.gitignore` protects matching untracked paths, not tracked contents or past commits. Review new fixtures and screenshots for private content. Original credentials, browser state, backups and private working notes are not included.
+可选的 `.local/launch.json` 保存本机 `Port`、`Provider`、`Model`、`DshHome` 和 `CredentialPatch` 绑定；显式参数优先于本地文件，本地文件优先于默认值。文件中的相对路径以工程根为起点。`CredentialPatch` 指向本机凭据补丁，空值可禁用补丁。本地配置和真实补丁不进入源码交付，接收者使用自己的凭据与数据。`.private/` 保存内部工作资料，`.claude/` 保存本地任务台账，两者均排除 Git 和源码交付。
 
-## Checks and development
+对话文本和所需人物上下文会发送给配置的模型服务，不要输入不应提供给该服务的敏感内容。`.gitignore` 只保护匹配的未跟踪路径，无法清除已跟踪内容或历史提交；新 fixture 和截图仍须审查隐私内容。本仓库不携带原环境的凭据、浏览器状态、备份或私人工作记录。
 
-A configuration check does not listen on a port or call the model, but initializes a profile in the chosen data directory:
+<a id="checks-and-development"></a>
 
-```powershell
-.\start-man-roles.ps1 -DumpConfig -DshHome "$env:TEMP\man-roles-config-check" -CredentialPatch ''
-```
+## 检查与开发
 
-This establishes configuration assembly only. Review output before sharing because later personal settings may appear in it. After changing product or runtime code, rebuild at this root and restart the same acceptance port.
+修改产品或底座代码后，在本根目录重新构建，再用 `start-man-roles.cmd -Update` 更新原验收入口。
 
-Run relevant tests at this root; see [testing guidance](docs/testing.md) and `apps/web/tests/man-roleplayer-*.e2e.ts`. `pnpm test` runs the unit-test suite; browser tests have separate configuration and prerequisites described in that guidance. After equivalent edits to both README languages, run `pnpm run verify-translation-pairing --write README.md`.
+从本根目录运行相关测试，参见[测试说明](docs/development/testing.md)和 `apps/web/tests/man-roleplayer-*.e2e.ts`。`pnpm test` 执行单元测试；浏览器测试的独立配置和前置条件见该说明。文档修改按实际范围检查格式、链接和事实，不需要语言配对或回录。
 
-Installation, real-provider calls, browser flows and long-running behavior need verification in the user's environment. This source delivery does not establish production deployment, old-data migration or complete cross-platform acceptance.
+安装、真实模型调用、浏览器流程和长期运行仍须在使用者环境中验证。本次源码交付不代表生产部署、旧数据迁移或跨平台完整验收。
 
-## Origin and license
+<a id="origin-and-license"></a>
 
-Before committing changes to repository layout or `.gitignore`, run `node scripts/verify-publish-ignore.mjs`. It checks excluded and publishable paths and reports any tracked files that conflict with the ignore rules; review actual staged content separately for private information.
+## 来源与许可
 
-The runtime comes from [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). Source provenance and maintenance boundaries are in [SOURCE.md](SOURCE.md). Original copyright notices and the [MIT license](LICENSE) are retained, as are [vendor notices](vendor/README.md) and applicable third-party licenses. Research documents are project-curated material; quoted material remains subject to its original rights.
+修改仓库布局或 `.gitignore` 后，提交前运行 `node scripts/verify-publish-ignore.mjs`。它检查应排除和应提交的路径，并报告与忽略规则冲突的已跟踪文件；实际暂存内容仍需单独审查私人信息。
+
+底座来自 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，来源与维护边界见 [SOURCE.md](SOURCE.md)。原版权声明、[MIT 许可证](LICENSE)、[vendor 声明](vendor/README.md)及适用的第三方许可证均保留。人物资料为项目整理材料，引用内容的权利仍归原权利人。

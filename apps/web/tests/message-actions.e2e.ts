@@ -1,7 +1,7 @@
 // Web e2e scenario: message IconActions + clocks. Cold-seeds a deterministic
 // completed-turn-tail fork case (zero model calls) and pins the settled
 // conversation aria after the footers are focus-revealed — the surface package
-// jsdom tests cannot substitute for (docs/testing.md snapshot rule).
+// jsdom tests cannot substitute for (docs/development/testing.md snapshot rule).
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'

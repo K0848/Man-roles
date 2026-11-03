@@ -5,8 +5,8 @@ import { personaDefinition } from './types.ts'
 import { z } from 'zod'
 
 /** One Claim vocabulary is shared by the model-facing tool and Host parser. */
-export const CLAIM_KINDS = ['reliable-quote', 'historical-fact', 'attribution', 'modern-inference', 'insufficient-evidence'] as const
-export const claimSidecarSchema = z.object({
+const CLAIM_KINDS = ['reliable-quote', 'historical-fact', 'attribution', 'modern-inference', 'insufficient-evidence'] as const
+const claimSidecarSchema = z.object({
   textRange: z.object({ start: z.number().int().nonnegative(), end: z.number().int().positive() }).strict(),
   kind: z.enum(CLAIM_KINDS),
   evidenceIds: z.array(z.string().trim().min(1)),
@@ -15,7 +15,7 @@ export const claimSidecarArraySchema = z.array(claimSidecarSchema).min(1)
 
 /** Model-facing answer segment. Host concatenates these strings and owns the
  * exact UTF-16 ranges so the model never has to count offsets. */
-export const claimSegmentSchema = z.object({
+const claimSegmentSchema = z.object({
   text: z.string().min(1),
   kind: z.enum(CLAIM_KINDS),
   evidenceIds: z.array(z.string().trim().min(1)),
@@ -51,11 +51,14 @@ export const claimSidecarValueSchema = {
   },
 } as const
 
-export const RESEARCH_EVIDENCE_KINDS = [
+const RESEARCH_EVIDENCE_KINDS = [
   'authorial-text', 'disciple-record', 'historical-account', 'textual-parable',
   'quoted-other-speaker', 'later-evaluation', 'variant-reading', 'contested-attribution',
   'modern-interpretation', 'quote', 'historical-fact', 'attribution',
 ] as const
+/** 正式研究资料的来源分类，由公开证据字段与 Cordis 类型目录共同使用。
+ * @public
+ */
 export type ResearchEvidenceKind = typeof RESEARCH_EVIDENCE_KINDS[number]
 
 /** One parsed, persona-bound research entry with stable provenance and claim/voice permissions. */

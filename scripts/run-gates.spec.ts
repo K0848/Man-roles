@@ -104,8 +104,17 @@ describe('gate graph validation', () => {
 
     expect(ids.slice(0, 10)).toEqual([
       'doc-typecheck', 'docs-site-build', 'doc-graphs', 'markdown-links', 'type-equivalence',
-      'cordis-catalog', 'mermaid', 'scoped-events', 'translation-pairing', 'markdown-wrap',
+      'cordis-catalog', 'mermaid', 'scoped-events', 'markdown-wrap', 'client-catalog',
     ])
+  })
+
+  it('allows documentation changes without bilingual records or translation prompts', () => {
+    const gates = withPnpmEntrypoint(() => gatesForMode('doc-sync'))
+
+    expect(gates.some(subject => subject.args.some(arg => arg.startsWith('verify-translation-')))).toBe(false)
+    expect(gates.map(subject => subject.id)).toEqual(expect.arrayContaining([
+      'markdown-links', 'doc-refs', 'doc-budgets', 'archived-agent-notes',
+    ]))
   })
 
   it('launches a native pnpm entrypoint directly', () => {

@@ -1,6 +1,6 @@
 /**
  * Generic per-session projection value store (push model; see the
- * session-projection subsystem page, docs/subsystems/session-projection.md):
+ * session-projection subsystem page, docs/reference/subsystems/session-projection.md):
  * the host is the only computation site; the client holds finished
  * whole values per key — `key → { value, seq }` — seeded by the history tail
  * page's projections block and updated by `session/projection` push frames,
@@ -23,7 +23,7 @@ export type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/t
 
 /**
  * The fifth framework hook seat (see the session-projection subsystem page,
- * docs/subsystems/session-projection.md): key-addressed
+ * docs/reference/subsystems/session-projection.md): key-addressed
  * projection reader delivered through the standard kit. `undefined` uniformly
  * means capability absent — host unit unmounted, or no baseline/frame has
  * carried the key yet. The selector overload mirrors useSession (per-key uSES

@@ -48,6 +48,12 @@ const repositoryUrl = 'git+https://github.com/deepseek-harness/deepseek-harness.
  * their trusted publishing against the repository that runs the workflow.
  */
 const publishedRepositoryUrl = 'git+https://github.com/deepseek-ai/deepseek-harness.git'
+const productRepositoryUrl = 'https://github.com/K0848/Man-roles.git'
+const productPackageNames: Readonly<Record<string, string>> = {
+  'packages/bundle/man-roleplayer-app': '@deepseek-ai/dsh-man-roleplayer-app',
+  'packages/client/ui-man-roleplayer': '@deepseek-ai/dsh-client-ui-man-roleplayer',
+  'packages/extensions/man-roleplayer': '@deepseek-ai/dsh-man-roleplayer',
+}
 /** Private packages that participate in workspace checks but not releases. */
 const experimentalPackageDirectory = /^packages\/experimental\/[^/]+$/
 /** npm namespace reserved for private experimental packages. */
@@ -255,6 +261,27 @@ export function checkExperimentalManifest({ dir, manifest }: WorkspaceManifest):
   return errors
 }
 
+/**
+ * 校验已选入发布集合的源码归属；不改变发布成员或发布行为。
+ * @param workspace - 包的实际目录与 manifest 身份。
+ * @returns 错误列表；只有三个具名产品包可以指向产品仓库。
+ */
+export function checkReleaseRepository({ dir, manifest }: WorkspaceManifest): string[] {
+  const label = manifest.name ?? dir
+  const productName = productPackageNames[dir]
+  // 同时绑定路径和包名，避免复制一份产品 URL 就绕过上游包的归属约束。
+  if (productName !== undefined && manifest.name !== productName) {
+    return [`${label}: product package directory ${dir} must declare name ${productName}`]
+  }
+  const expectedUrl = productName === undefined ? publishedRepositoryUrl : productRepositoryUrl
+  if (manifest.repository?.type !== 'git'
+    || manifest.repository.url !== expectedUrl
+    || manifest.repository.directory !== dir) {
+    return [`${label}: release member repository must use ${expectedUrl} with directory ${dir}`]
+  }
+  return []
+}
+
 function checkWorkspace({ dir, manifest }: WorkspaceManifest): string[] {
   const errors = checkExperimentalManifest({ dir, manifest })
   const label = manifest.name ?? dir
@@ -293,11 +320,7 @@ function checkWorkspace({ dir, manifest }: WorkspaceManifest): string[] {
     if (manifest.publishConfig?.access !== 'public') {
       errors.push(`${label}: release member must set publishConfig.access to "public"`)
     }
-    if (manifest.repository?.type !== 'git'
-      || manifest.repository.url !== publishedRepositoryUrl
-      || manifest.repository.directory !== dir) {
-      errors.push(`${label}: release member repository must use ${publishedRepositoryUrl} with directory ${dir}`)
-    }
+    errors.push(...checkReleaseRepository({ dir, manifest }))
   } else if (!experimentalPackageDirectory.test(dir) && manifest.private !== true) {
     errors.push(`${label}: package.json must set "private": true`)
   }

@@ -7,7 +7,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import ts from 'typescript'
 import { builtDeclarationPath } from './doc-typecheck-paths.ts'
 import { markdownFences } from './markdown.ts'
@@ -24,7 +24,7 @@ const root = resolve(import.meta.dirname, '..')
 type BlockKind = 'check' | 'ignore' | 'type-equiv' | 'cordis-catalog' | 'persistence-catalog' | 'config-catalog'
 
 /** One extracted code block. */
-interface Block {
+export interface Block {
   file: string
   /** 1-based line of the opening fence. */
   line: number
@@ -67,7 +67,7 @@ const configHost: ts.ParseConfigFileHost = {
  * workspace paths via tsconfig.base.json.
  */
 function builtTypeCompilerOptions(): ts.CompilerOptions {
-  const configPath = join(root, 'tsconfig.host.json')
+  const configPath = join(root, 'config/typescript/tsconfig.host.json')
   const parsed = ts.getParsedCommandLineOfConfigFile(configPath, {}, configHost)
   if (!parsed) throw new Error(`doc-typecheck: cannot parse ${configPath}`)
   if (parsed.errors.length > 0) {
@@ -95,7 +95,7 @@ function builtTypeCompilerOptions(): ts.CompilerOptions {
 }
 
 /** Compile Markdown blocks as virtual files against declarations from the coordinated build. */
-function compileBlocksAgainstBuiltTypes(blocks: Block[]): readonly ts.Diagnostic[] {
+export function compileBlocksAgainstBuiltTypes(blocks: Block[]): readonly ts.Diagnostic[] {
   const options = builtTypeCompilerOptions()
   const sources = new Map<string, string>()
   for (const [index, block] of blocks.entries()) {
@@ -141,7 +141,7 @@ function formatDiagnostics(diagnostics: readonly ts.Diagnostic[], blocks: Block[
  * not exist until Host tsdown has run.
  */
 function workspaceReferences(): { path: string }[] {
-  const file = join(root, 'tsconfig.host.json')
+  const file = join(root, 'config/typescript/tsconfig.host.json')
   // Parse with TypeScript's own JSONC reader: a regex comment stripper corrupts the `/*/` path
   // candidate in the workspace wildcard.
   const result = ts.readConfigFile(file, path => readFileSync(path, 'utf8'))
@@ -151,14 +151,14 @@ function workspaceReferences(): { path: string }[] {
   // `config` is typed `any` by the TS API; narrow it to the one field read here.
   const { references } = result.config as { references: { path: string }[] }
   return references.map(({ path }) => ({
-    path: path.startsWith('./') ? `../${path.slice(2)}` : `../${path}`,
+    path: resolve(dirname(file), path),
   }))
 }
 
 /** The standalone temp project used when no coordinated build owns declaration freshness. */
 function tempTsconfig(): string {
   return JSON.stringify({
-    extends: '../tsconfig.host.json',
+    extends: '../config/typescript/tsconfig.host.json',
     compilerOptions: {
       noUnusedLocals: false,
       noUnusedParameters: false,
@@ -202,51 +202,56 @@ function remapBlockPaths(output: string, blocks: Block[]): string {
   })
 }
 
-const markdownGlobs = ['README.md', '.agents/notes/**/*.md', 'docs/**/*.md', 'packages/*/*.md', 'packages/*/*/*.md']
+/** 校验现存 Markdown 的独立代码围栏，不要求语言副本。 */
+function main(): void {
+  const markdownGlobs = ['README.md', 'README.zh.md', '.agents/notes/**/*.md', 'docs/**/*.md', 'packages/*/*.md', 'packages/*/*/*.md']
 
-const files: string[] = []
-for (const pattern of markdownGlobs) {
-  for (const match of globSync(pattern, { cwd: root })) {
-    if (!isArchivedAgentNotePath(match)) files.push(resolve(root, match))
+  const files: string[] = []
+  for (const pattern of markdownGlobs) {
+    for (const match of globSync(pattern, { cwd: root })) {
+      if (!isArchivedAgentNotePath(match)) files.push(resolve(root, match))
+    }
+  }
+  files.sort()
+
+  const extracted = files.flatMap(extractBlocks)
+  const { primary: all, derivatives } = partitionPairedMarkdownDerivatives(
+    extracted,
+    block => block.file,
+    block => `${block.kind}\0${block.code}`,
+  )
+  const checked = all.filter(b => b.kind === 'check')
+  const ignored = all.filter(b => b.kind === 'ignore')
+  // Only compile-eligible fences belong in the opt-out ratio; every other skipped
+  // kind has an independent verifier named in the BlockKind rules above.
+  const ratioDenominator = checked.length + ignored.length
+
+  if (checked.length === 0) {
+    console.log('doc-typecheck: no ts code blocks to check.')
+    process.exit(0)
+  }
+
+  const useBuiltTypes = process.env.DSH_DOC_TYPECHECK_USE_BUILD_OUTPUT === '1'
+  const compilationError = useBuiltTypes
+    ? (() => {
+      const diagnostics = compileBlocksAgainstBuiltTypes(checked)
+      return diagnostics.length === 0 ? undefined : formatDiagnostics(diagnostics, checked)
+    })()
+    : compileBlocksStandalone(checked)
+  if (compilationError !== undefined) {
+    console.error('doc-typecheck: documentation code blocks failed to compile.\n')
+    console.error(compilationError)
+    process.exit(1)
+  }
+
+  const ratio = ignored.length / ratioDenominator
+  const skipped = all.length - ratioDenominator
+  console.log(`doc-typecheck: ${checked.length} block(s) compiled, ${ignored.length} ignored (${(ratio * 100).toFixed(0)}% opt-out), ${skipped} type-equiv/catalog (checked elsewhere), ${derivatives.length} paired derivative(s).`)
+  // Guard against the escape hatch becoming the norm.
+  if (ratioDenominator >= 4 && ratio > 0.5) {
+    console.error(`doc-typecheck: too many blocks opt out of checking (${ignored.length}/${ratioDenominator}). Make them compile or delete them.`)
+    process.exit(1)
   }
 }
-files.sort()
 
-const extracted = files.flatMap(extractBlocks)
-const { primary: all, derivatives } = partitionPairedMarkdownDerivatives(
-  extracted,
-  block => block.file,
-  block => `${block.kind}\0${block.code}`,
-)
-const checked = all.filter(b => b.kind === 'check')
-const ignored = all.filter(b => b.kind === 'ignore')
-// Only compile-eligible fences belong in the opt-out ratio; every other skipped
-// kind has an independent verifier named in the BlockKind rules above.
-const ratioDenominator = checked.length + ignored.length
-
-if (checked.length === 0) {
-  console.log('doc-typecheck: no ts code blocks to check.')
-  process.exit(0)
-}
-
-const useBuiltTypes = process.env.DSH_DOC_TYPECHECK_USE_BUILD_OUTPUT === '1'
-const compilationError = useBuiltTypes
-  ? (() => {
-    const diagnostics = compileBlocksAgainstBuiltTypes(checked)
-    return diagnostics.length === 0 ? undefined : formatDiagnostics(diagnostics, checked)
-  })()
-  : compileBlocksStandalone(checked)
-if (compilationError !== undefined) {
-  console.error('doc-typecheck: documentation code blocks failed to compile.\n')
-  console.error(compilationError)
-  process.exit(1)
-}
-
-const ratio = ignored.length / ratioDenominator
-const skipped = all.length - ratioDenominator
-console.log(`doc-typecheck: ${checked.length} block(s) compiled, ${ignored.length} ignored (${(ratio * 100).toFixed(0)}% opt-out), ${skipped} type-equiv/catalog (checked elsewhere), ${derivatives.length} paired derivative(s).`)
-// Guard against the escape hatch becoming the norm.
-if (ratioDenominator >= 4 && ratio > 0.5) {
-  console.error(`doc-typecheck: too many blocks opt out of checking (${ignored.length}/${ratioDenominator}). Make them compile or delete them.`)
-  process.exit(1)
-}
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) main()

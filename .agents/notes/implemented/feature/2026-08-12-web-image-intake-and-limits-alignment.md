@@ -1,35 +1,33 @@
-# Agent Note: Whole-page image drop, projected intake limits, and thumbnail tiling
+# Agent Note：整页图片拖放、上限投影预检与缩略图平铺
 
-Status: implemented
+状态：implemented
 
-English | [中文](2026-08-12-web-image-intake-and-limits-alignment.zh.md)
+## 问题
 
-## Problem
+issue #2248 的第二步对齐，接在[附件展示 note](2026-08-11-web-attachment-display-alignment.md) 之后（其附件栏、toast 与原子组件包的决策继续有效；本 note 取代其中历史画廊几何与灯箱 backdrop 的具体规格）。与 DeepSeek Chat 相比剩下的差距：图片只能拖到 composer 卡片上——拖到聊天记录区会让浏览器直接导航到文件；灯箱关闭钮是裸 `×` 文本字符（button 不继承字体，且该字形的墨迹在行框中心之上，因此明显偏斜），backdrop 用 `color-mix(label-primary 74%)`，dark 下反转成刺眼的白色蒙层；一条消息的多张图各自以最大 240px 的块竖着堆叠，因为画廊容器本身被钉在 240px；客户端完全不执行也不展示图片限额——用户可以攒 50 张图，直到提交后收到原始的 `attachment-error (TOO_MANY_IMAGES)` toast，眼看附件栏清空又回滚。
 
-The second alignment step for issue #2248, after the [attachment display note](2026-08-11-web-attachment-display-alignment.md) (whose rail/toast/atoms decisions stand; this note supersedes its history-gallery geometry and the lightbox backdrop specifics). Remaining gaps against DeepSeek Chat: images could only be dropped on the composer card — a drop over the transcript navigated the browser away to the file; the lightbox close glyph was a bare `×` text character (buttons inherit no font family and the glyph's ink sits above the line box center, so it rendered visibly off-center) over a `color-mix(label-primary 74%)` backdrop that inverts to a bright white wash in dark mode; a message's images stacked vertically as up-to-240px blocks because the gallery container itself was pinned to 240px; and nothing client-side enforced or displayed the image limits — a user could stack 50 images and learn about `maxImagesPerMessage` only from a raw `attachment-error (TOO_MANY_IMAGES)` toast after submit, watching the rail empty and refill around the failure.
+## 决策
 
-## Decision
+**整页拖放。** InputBar 在 document 上绑定 `dragenter`/`dragover`/`dragleave`/`drop`（enter/leave 深度计数、视口边缘与 `dragend` 复位、按 `Files` 类型门控使文本拖拽保留原生 textarea 路径），并渲染 `ui-attachment` 新增的 `DropOverlay` 原子组件：经 body portal、不接收指针事件的全视口层（DeepSeek Chat DragMask 的视觉——白色 70% 加 10px 模糊，dark 为 `rgba(39,39,48,0.7)`，插画、标题、上限行），`disabled` 变体宣告锁定或忙碌的 composer。指针惰性是承重的：拖拽事件继续命中下方页面，深度计数永远看不到遮罩自己。document 级监听状态是安全的，因为 composer-bar slot 为 `kind: 'single'`。
 
-**Whole-page drop.** InputBar binds `dragenter`/`dragover`/`dragleave`/`drop` on the document (enter/leave depth counting, viewport-edge and `dragend` resets, `Files`-type gating so text drags keep their native textarea path) and renders the new `DropOverlay` atom in `ui-attachment`: a body-portaled, pointer-inert full-viewport layer (DeepSeek Chat's DragMask visuals — white/70% + 10px blur, dark `rgba(39,39,48,0.7)`, illustration, title, limits line) whose `disabled` variant announces a locked/busy composer. Pointer-inertness is load-bearing: drag events keep targeting the page below, so the depth count never sees the overlay itself. Document-level listener state is safe because the composer-bar slot is `kind: 'single'`.
+**灯箱。** 关闭钮换成 `ui-primitives` 的 `IconCloseOutline16`（Modal 的先例——在 viewBox 内居中的 SVG 不依赖字体度量）。backdrop 用共享的对话框遮罩（`--dsw-alias-bg-mask-1` 加 `--dsw-mask-blur`，两个主题都是黑基色），画在独立的兄弟图层上，因为 `backdrop-filter` 画在容器上会把预览图自己也模糊掉。
 
-**Lightbox.** The close control is `ui-primitives`' `IconCloseOutline16` (the Modal precedent — an SVG centered in its viewBox needs no font metrics). The backdrop is the shared dialog mask (`--dsw-alias-bg-mask-1` + `--dsw-mask-blur`, black-based in both themes) painted on a separate sibling layer, because `backdrop-filter` on the container would blur the previewed image itself.
+**历史缩略图（DeepSeek Chat 规则）。** 一条消息仅有的一张图长边 240px、展示比例钳制在 [0.25, 4]，`cover` 裁切，特别高的图锚定顶部、特别宽的锚定左侧，从不放大；多张图渲染为固定 64px 方块，单个可换行的横排（10px 间距，用户消息右对齐）。assistant 连续的 `image` 块合并进同一个画廊，平铺而不是各占一行。
 
-**History thumbnails (DeepSeek Chat rules).** A message's lone image renders at 240px on its long edge with the displayed ratio clamped to [0.25, 4], cropped by `cover` with the anchor at the top of very tall images and the left of very wide ones, never upscaled; several images render as fixed 64px square tiles in one wrapping row (10px gap, user messages right-aligned). Consecutive assistant `image` blocks merge into one gallery so they tile instead of each opening a one-image row.
+**上限对齐并投影。** 输入默认值是每条消息 20 张、每个源文件 32 MiB、源文件总量 100 MiB、每张图片一亿解码像素，以及源文件任一边 16384px。附件后端另行生成长边 2048px、独立安全上限 4 MiB 的持久主版本。模型请求使用各路由自己的像素和编码字节预算，因此源文件准入不采用提供方请求限制。HTTP 载体统一使用 `DEFAULT_MAX_REQUEST_BODY_BYTES = 160 MiB`，满足 100 MiB 总量经过 base64 和请求封装扩张后的加载时容量断言。512 MiB 总量无法通过当前传输，因为 base64 进入 JSON 后会需要一个接近 V8 字符串大小上限的 JSON 字符串。输入上限通过 `imageLimits` 会话投影到达客户端。它是每次启动恒定的单元，由 **apiproxy** 而非 attachment Service Definition 注册。`dsh-llm` 依赖 `dsh-attachment`，而 `dsh-session-projection` 经 `dsh-session` 到达 `dsh-llm`；在 seam 包注册投影会形成 project-reference 环。每条消息的数量和总量规则也由 proxy 强制执行。`SessionProjectionMap` 合并继续放在 proxy 的 sessions 协议文件中，客户端已经通过载体类型再导出使用它。
 
-**Limits aligned and projected.** Intake defaults are 20 images, 32 MiB per source, 100 MiB aggregate source bytes, 100 million decoded pixels, and 16384px per source side. The attachment backend prepares a separate durable master with a 2048px long edge and 4 MiB safety cap. Model requests have their own route-specific pixel and encoded-byte budgets, so source admission does not use provider request limits. The HTTP carrier uses one shared `DEFAULT_MAX_REQUEST_BODY_BYTES = 160 MiB` to satisfy the load-time capacity assertion for the 100 MiB aggregate after base64 and envelope expansion. A 512 MiB aggregate cannot pass this transport because base64-in-JSON would require a JSON string near V8's string-size limit. The intake limits reach clients as the `imageLimits` session projection, a constant-per-boot unit registered by **apiproxy** rather than the attachment Service Definition. `dsh-llm` depends on `dsh-attachment`, while `dsh-session-projection` reaches `dsh-llm` through `dsh-session`; registering the projection in the seam package would create a project-reference cycle. The per-message count and aggregate rules are also enforced by the proxy. The `SessionProjectionMap` merge remains in the proxy sessions wire file, which clients already consume through carrier type re-exports.
+**加入预检与错误文案。** 两种加入手势汇合到 InputBar 的一个 `intakeImages` 包装：在 `addImages` 之前按投影检查数量、单图字节与总字节，违规的一批整体拒收（DeepSeek Chat 语义）并立刻弹出点名上限的横幅——不再有提交时的回滚戏码。宿主检查保留，兜底绕过 composer 的调用方。横幅文案遵循用户定下的一条原则：用户能解决的原因（模型不支持视觉、数量、大小、分辨率、格式——格式改为正面列出支持列表而不是回显被拒的 MIME 类型）用点明出路的产品句子；用户无法解决的原因（base64 损坏、引用丢失、读取失败）折叠为一条保留原因码的发送失败句子，因为产品当前面向开发者，可上报的码好过死胡同。非附件错误码保留原文加错误码的展示。
 
-**Intake pre-check and error copy.** Both intake gestures converge on one `intakeImages` wrapper in InputBar that checks count, per-image bytes, and aggregate bytes against the projection before `addImages`: a violating batch is refused whole (DeepSeek Chat semantics) with an immediate banner naming the limit — no submit-time rollback theater. The host checks stay as the backstop for callers that bypass the composer. Banner copy follows one principle the user set: reasons a user can act on (model without vision, count, size, resolution, format — now a positive list of supported formats instead of echoing the rejected MIME type) get product sentences naming the way out; reasons they cannot act on (corrupt base64, lost references, read failures) fold into one send-failed sentence that keeps the reason code, because the product currently faces developers and a reportable code beats a dead end. Non-attachment error codes keep the raw message + code presentation.
+## 备选方案
 
-## Alternatives considered
+**在 attachment Service Definition 构造函数里注册投影单元。** 天然的 seam 归属，也是第一版实现——被依赖图（上述环）和一个测试基建交互否决：基类构造函数调用 `ctx.inject` 使得 spec 中直接构造的 store 触发全局 invariant 宿主，后者往同一 root 重复挂载 `attachments` 服务。
 
-**Registering the projection unit in the attachment Service Definition's constructor.** The natural seam owner, and the first implementation — rejected by the dependency graph (the cycle above) and by a test-harness interaction: the base constructor calling `ctx.inject` made directly-constructed stores in specs trigger the global invariant host, which then double-mounted an `attachments` service into the same root.
+**灯箱用 `--dsw-alias-bg-mask-photo`（0.88 黑、主题恒定、无人使用）。** 设计系统的照片查看器 token，也可能是 dsweb 灯箱实际的蒙层；用户选择与 settings 对话框遮罩一致（`bg-mask-1` 加模糊）——两者都能修复 dark 反转。
 
-**`--dsw-alias-bg-mask-photo` (0.88 black, theme-stable, unused) for the lightbox.** The design system's photo-viewer token and dsweb's likely lightbox wash; the user chose consistency with the settings dialog mask (`bg-mask-1` + blur) — both fix the dark-mode inversion.
+**在 `apply.ts` 的 `addImages` inject 里预检。** seam 纯度上的位置，因管线成本否决：投影仓没有暴露给 inject 工厂的非 React 面，而 InputBar 已经以惯用方式消费投影，且是两种手势的唯一调用方。
 
-**Pre-checking inside `apply.ts`'s `addImages` inject.** The seam-purist placement, rejected for plumbing cost: the projection store has no non-React face exposed to the inject factory, while InputBar already consumes projections idiomatically and is the single caller of both gestures.
+**用 `host.describe` 字段代替投影。** 与会话无关且更便宜，但要经注入 prop 链而非 `useProjection` 送达，而投影的键缺席语义（"未组合 attachment 服务 → 不预检"）是白拿的。
 
-**A `host.describe` field instead of a projection.** Session-independent and cheaper, but delivered through an injected prop chain rather than `useProjection`, and the projection's key-absence semantics ("no attachment service composed → no pre-check") fall out for free.
+## 后果
 
-## Consequences
-
-A drop anywhere on the window now lands in the rail, over-limit intake fails at the moment of the gesture with copy naming the limit, and history images tile like DeepSeek Chat's. The carrier's default request-body budget is ~5× larger and remains a per-request resident-memory bound (the bridge buffers bodies whole; recorded in the connection README's limitations). The fixture transport mirrors the projection with hardcoded default numbers — a deployment that overrides the limits diverges from fixture-mode copy, acceptable for a keyless demo lane. Gallery arrow navigation, lightbox zoom/download, and non-image file cards remain deferred (#2248).
+拖到窗口任何位置都能进附件栏，超限加入在手势发生的那一刻就以点名上限的文案失败，历史图片像 DeepSeek Chat 一样平铺。载体的默认请求体预算扩大约 5 倍，并且仍是单请求驻留内存上界（桥把请求体整体缓冲；已记录在 connection README 的限制节）。fixture 传输用硬编码的默认数字镜像该投影——改配置的部署会与 fixture 模式的文案分叉，对 keyless 演示通道可接受。画廊左右切换、灯箱缩放与下载、非图片文件卡片仍然推迟（#2248）。

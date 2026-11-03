@@ -104,6 +104,30 @@ afterEach(() => {
 })
 
 describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
+  it('loads relocated independent faces through the workspace solution', () => {
+    const root = copyFixture('relocated-faces-')
+    mkdirSync(join(root, 'config/typescript'), { recursive: true })
+    for (const face of ['host', 'client']) {
+      writeFileSync(join(root, `config/typescript/tsconfig.${face}.json`), JSON.stringify({
+        extends: '../../tsconfig.base.json',
+        files: [],
+        references: [{ path: `../../packages/${face}` }],
+      }))
+      // 旧约定名不提供任何包，模型仍须从 solution 的新路径装配两面。
+      writeFileSync(join(root, `tsconfig.${face}.json`), '{ "files": [] }')
+    }
+    writeFileSync(join(root, 'tsconfig.json'), JSON.stringify({
+      files: [],
+      references: ['host', 'client'].map(face => ({ path: `./config/typescript/tsconfig.${face}.json` })),
+    }))
+
+    const model = new WorkspaceAnalyzer({ root }).analyze()
+
+    expect(model.faces.map(face => face.face)).toEqual(['host', 'client'])
+    expect(model.faces.flatMap(face => face.packages.map(owner => owner.name)))
+      .toEqual(expect.arrayContaining(['@fixture/host', '@fixture/client']))
+  })
+
   it('builds independent face models with an explicit cross-face type graph', () => {
     const model = new WorkspaceAnalyzer({ root: fixtureRoot }).analyze()
 
@@ -1219,7 +1243,8 @@ function canonicalType(text: string): string {
 function copyFixture(prefix: string): string {
   const root = mkdtempSync(join(import.meta.dirname, `.${prefix}`))
   temporaryRoots.push(root)
-  cpSync(fixtureRoot, root, { recursive: true })
+  // 当前 Windows Node 的递归快路径会直接终止进程；逐项遍历保留同一份 fixture 内容。
+  cpSync(fixtureRoot, root, { recursive: true, filter: () => true })
   return root
 }
 

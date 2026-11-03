@@ -2,10 +2,11 @@
  * Canonical publication manifest for the documentation website.
  *
  * Markdown stays in its owning repository tier. This manifest maps each
- * canonical source into matching route trees for both site locales; when a
- * translation is absent, both routes intentionally project the available
- * source instead of copying Markdown.
+ * single Chinese source into the primary route and legacy /en/ compatibility
+ * route. The compatibility route does not create or promise another language.
  */
+
+import { documentationPath } from '../scripts/documentation-paths.ts'
 
 /** Locale key used by the VitePress site. */
 export type DocsLocale = 'root' | 'en'
@@ -55,8 +56,8 @@ interface MirroredPage {
   sourceAliases?: string[] | Partial<Record<DocsLocale, string[]>>
 }
 
-type PairedPage = Omit<MirroredPage, 'source' | 'contentLocale' | 'sourceAliases'> & {
-  /** English side of a sibling `foo.md` / `foo.zh.md` pair. */
+type CanonicalPage = Omit<MirroredPage, 'source' | 'contentLocale' | 'sourceAliases'> & {
+  /** Stable unsuffixed path; either language document may exist independently. */
   source: string
   /** Language-neutral repository aliases, such as the directory of an index page. */
   sourceAliases?: string[]
@@ -73,38 +74,42 @@ function mirroredPages(pages: MirroredPage[]): DocsPage[] {
     const aliases = page.sourceAliases === undefined
       ? undefined
       : Array.isArray(page.sourceAliases) ? page.sourceAliases : page.sourceAliases[locale]
+    const source = documentationPath(localized(page.source, locale))
+    const sourceAliases = aliases === undefined ? undefined
+      : [...new Set(aliases.map(documentationPath))].filter(alias => alias !== source)
     return {
       locale,
-      contentLocale: localized(page.contentLocale, locale),
-      source: localized(page.source, locale),
+      contentLocale: 'zh-CN' as const,
+      source,
       route: locale === 'root' ? page.route : `en/${page.route}`,
-      label: page.label[locale],
+      label: page.label.root,
       sidebar: page.sidebar[locale],
-      section: page.section[locale],
+      section: page.section.root,
       order: page.order,
       ...(page.outline === undefined ? {} : { outline: page.outline }),
-      ...(aliases === undefined ? {} : { sourceAliases: aliases }),
+      ...(sourceAliases === undefined ? {} : { sourceAliases }),
     }
   }))
 }
 
-function pairedPages(pages: PairedPage[]): DocsPage[] {
-  return mirroredPages(pages.map((page) => {
-    const chineseSource = page.source.replace(/\.md$/, '.zh.md')
-    const sharedAliases = page.sourceAliases ?? []
-    return {
-      ...page,
-      source: { root: chineseSource, en: page.source },
-      contentLocale: { root: 'zh-CN', en: 'en-US' },
-      sourceAliases: {
-        root: [...sharedAliases, page.source],
-        en: [...sharedAliases, chineseSource],
-      },
-    }
-  }))
+/**
+ * 两个路由投影同一份中文规范正文，不查找或创建语言副本。
+ * @param source - 稳定的无语言后缀规范路径。
+ * @returns 两个站点路由各自的源路径及真实内容语言。
+ */
+export function documentLanguageSources(source: string): {
+  source: Record<DocsLocale, string>
+  contentLocale: Record<DocsLocale, DocsPage['contentLocale']>
+} {
+  const canonical = documentationPath(source)
+  return { source: { root: canonical, en: canonical }, contentLocale: { root: 'zh-CN', en: 'zh-CN' } }
 }
 
-const homeAndGuide = pairedPages([
+function canonicalPages(pages: CanonicalPage[]): DocsPage[] {
+  return mirroredPages(pages.map(page => ({ ...page, ...documentLanguageSources(page.source) })))
+}
+
+const homeAndGuide = canonicalPages([
   {
     source: 'docs/user/index.md',
     route: 'index.md',
@@ -140,7 +145,7 @@ const homeAndGuide = pairedPages([
   },
 ])
 
-const develop = pairedPages([
+const develop = canonicalPages([
   {
     source: 'docs/user/develop/basic/index.md',
     route: 'develop/basic/index.md',
@@ -218,7 +223,7 @@ const develop = pairedPages([
   },
 ])
 
-const cordisTutorial = pairedPages(([
+const cordisTutorial = canonicalPages(([
   ['index.md', '总览', 'Overview'],
   ['01-first-plugin.md', '1. 第一个插件', '1. Your first plugin'],
   ['02-lifecycle-and-effects.md', '2. 生命周期与副作用', '2. Lifecycle and effects'],
@@ -227,7 +232,7 @@ const cordisTutorial = pairedPages(([
   ['05-config.md', '5. 配置', '5. Configuration'],
   ['06-composition-and-hmr.md', '6. 组合与热重载', '6. Composition and HMR'],
   ['07-into-the-harness.md', '7. 进入 Harness', '7. Into the harness'],
-] as const).map(([file, rootLabel, enLabel], order): PairedPage => ({
+] as const).map(([file, rootLabel, enLabel], order): CanonicalPage => ({
   source: `docs/cordis-tutorial/${file}`,
   route: `develop/cordis-tutorial/${file}`,
   label: { root: rootLabel, en: enLabel },
@@ -237,7 +242,7 @@ const cordisTutorial = pairedPages(([
   ...(file === 'index.md' ? { sourceAliases: ['docs/cordis-tutorial'] } : {}),
 })))
 
-const cordisPrimerReference = pairedPages([
+const cordisPrimerReference = canonicalPages([
   {
     source: 'docs/cordis-primer.md',
     route: 'reference/cordis-primer.md',
@@ -313,8 +318,8 @@ const subsystemGroups = [
   ]],
 ] as const
 
-const subsystemsReference = subsystemGroups.flatMap(([rootSection, enSection, files]) => pairedPages(
-  files.map(([file, rootLabel, enLabel], order): PairedPage => ({
+const subsystemsReference = subsystemGroups.flatMap(([rootSection, enSection, files]) => canonicalPages(
+  files.map(([file, rootLabel, enLabel], order): CanonicalPage => ({
     source: `docs/subsystems/${file}`,
     route: file === 'README.md' ? 'reference/subsystems/index.md' : `reference/subsystems/${file}`,
     label: { root: rootLabel, en: enLabel },
@@ -328,9 +333,9 @@ const subsystemsReference = subsystemGroups.flatMap(([rootSection, enSection, fi
 ))
 
 const reference = [
-  ...pairedPages(([
+  ...canonicalPages(([
     ['docs/architecture.md', 'reference/index.md', '架构', 'Architecture', 0],
-  ] as const).map(([source, route, rootLabel, enLabel, order]): PairedPage => ({
+  ] as const).map(([source, route, rootLabel, enLabel, order]): CanonicalPage => ({
     source,
     route,
     label: { root: rootLabel, en: enLabel },
@@ -338,11 +343,11 @@ const reference = [
     section: { root: '概念', en: 'Concepts' },
     order,
   }))),
-  ...pairedPages(([
+  ...canonicalPages(([
     ['docs/capability-seams.md', 'reference/capability-seams.md', '能力服务', 'Capability services', 2],
     ['docs/agent-lifecycle.md', 'reference/agent-lifecycle.md', 'Agent 生命周期', 'Agent lifecycle', 3],
     ['docs/tool-execution-pipeline.md', 'reference/tool-execution-pipeline.md', 'Tool 执行', 'Tool execution', 4],
-  ] as const).map(([source, route, rootLabel, enLabel, order]): PairedPage => ({
+  ] as const).map(([source, route, rootLabel, enLabel, order]): CanonicalPage => ({
     source,
     route,
     label: { root: rootLabel, en: enLabel },
@@ -350,11 +355,11 @@ const reference = [
     section: { root: '概念', en: 'Concepts' },
     order,
   }))),
-  ...pairedPages(([
+  ...canonicalPages(([
     ['docs/config-catalog.md', 'reference/config-catalog.md', '插件配置', 'Plugin configuration'],
     ['docs/tool-catalog.md', 'reference/tool-catalog.md', 'Tool Schema', 'Tool schemas'],
     ['docs/persistence-catalog.md', 'reference/persistence-catalog.md', '持久化事件', 'Persistence events', 'deep'],
-  ] as const).map(([source, route, rootLabel, enLabel, outline], order): PairedPage => ({
+  ] as const).map(([source, route, rootLabel, enLabel, outline], order): CanonicalPage => ({
     source,
     route,
     label: { root: rootLabel, en: enLabel },
@@ -363,13 +368,13 @@ const reference = [
     order,
     ...(outline === undefined ? {} : { outline }),
   }))),
-  ...pairedPages(([
+  ...canonicalPages(([
     ['context.md', 'Context', 'Context'],
     ['events.md', 'Events', 'Events'],
     ['fiber.md', 'Fiber', 'Fiber'],
     ['registry.md', 'Plugin Registry', 'Plugin Registry'],
     ['service.md', 'Service', 'Service'],
-  ] as const).map(([file, rootLabel, enLabel], order): PairedPage => ({
+  ] as const).map(([file, rootLabel, enLabel], order): CanonicalPage => ({
     source: `docs/cordis-api/${file}`,
     route: `reference/cordis-api/${file}`,
     label: { root: rootLabel, en: enLabel },
@@ -388,13 +393,13 @@ const reference = [
     section: { root: 'Cordis API', en: 'Cordis Core API' },
     order: order + 5,
   }))),
-  ...pairedPages(([
+  ...canonicalPages(([
     ['adding-a-package.md', '新增 Package', 'Adding a package'],
     ['adding-a-tool.md', '新增 Tool', 'Adding a tool'],
     ['adding-an-llm-adapter.md', '新增 LLM Adapter', 'Adding an LLM adapter'],
     ['adding-a-settings-card.md', '新增设置卡片', 'Adding a settings card'],
     ['extension-cookbook.md', '扩展模式', 'Extension patterns'],
-  ] as const).map(([file, rootLabel, enLabel], order): PairedPage => ({
+  ] as const).map(([file, rootLabel, enLabel], order): CanonicalPage => ({
     source: `docs/cookbook/${file}`,
     route: `reference/cookbook/${file}`,
     label: { root: rootLabel, en: enLabel },
@@ -402,7 +407,7 @@ const reference = [
     section: { root: '开发手册', en: 'Cookbook' },
     order,
   }))),
-  ...pairedPages([{
+  ...canonicalPages([{
     source: 'docs/cookbook/adding-a-conversation-node.md',
     route: 'reference/cookbook/adding-a-conversation-node.md',
     label: { root: '新增 Conversation Node', en: 'Adding a Conversation Node' },
@@ -436,32 +441,19 @@ export interface DocsSection {
  * The subsystem groups collapse because together they outnumber the rest of the
  * reference sidebar; expanded, they push every other group below the fold.
  */
-const sections: Record<DocsLocale, readonly DocsSection[]> = {
-  root: [
-    { label: '入门' }, { label: 'SDK' },
-    { label: '基础' }, { label: '框架能力' }, { label: '实战' }, { label: 'Cordis 框架教程' },
-    { label: '概念' }, { label: '生成参考' }, { label: 'Cordis API' }, { label: '开发手册' },
-    { label: '总览' },
-    { label: '内核与作用域', collapsed: true },
-    { label: '会话与持久化', collapsed: true },
-    { label: '模型与上下文', collapsed: true },
-    { label: '执行与工具', collapsed: true },
-    { label: '策略与交互', collapsed: true },
-    { label: '平台与接入', collapsed: true },
-  ],
-  en: [
-    { label: 'Guide' }, { label: 'SDK' },
-    { label: 'Basics' }, { label: 'Framework' }, { label: 'Practice' }, { label: 'Cordis framework tutorial' },
-    { label: 'Concepts' }, { label: 'Generated reference' }, { label: 'Cordis Core API' }, { label: 'Cookbook' },
-    { label: 'Overview' },
-    { label: 'Core and scopes', collapsed: true },
-    { label: 'Sessions and persistence', collapsed: true },
-    { label: 'Model and context', collapsed: true },
-    { label: 'Execution and tools', collapsed: true },
-    { label: 'Policy and interaction', collapsed: true },
-    { label: 'Platform and access', collapsed: true },
-  ],
-}
+const sectionOrder: readonly DocsSection[] = [
+  { label: '入门' }, { label: 'SDK' },
+  { label: '基础' }, { label: '框架能力' }, { label: '实战' }, { label: 'Cordis 框架教程' },
+  { label: '概念' }, { label: '生成参考' }, { label: 'Cordis API' }, { label: '开发手册' },
+  { label: '总览' },
+  { label: '内核与作用域', collapsed: true },
+  { label: '会话与持久化', collapsed: true },
+  { label: '模型与上下文', collapsed: true },
+  { label: '执行与工具', collapsed: true },
+  { label: '策略与交互', collapsed: true },
+  { label: '平台与接入', collapsed: true },
+]
+const sections: Record<DocsLocale, readonly DocsSection[]> = { root: sectionOrder, en: sectionOrder }
 
 /**
  * Placement and collapse behavior of one sidebar group.

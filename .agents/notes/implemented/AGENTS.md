@@ -1,13 +1,7 @@
-# AGENTS.md — Implemented Agent Notes
+# 已实施决策记录
 
-These Agent Notes describe shipped decisions. Follow the [root instructions](../../../AGENTS.md), [documentation standard](../../../docs/AGENTS.md), and [Agent Note format](../README.md#the-file-format); `verify-agent-note-format` gates the lifecycle-specific structure.
+遵守 [工程规则](../../../AGENTS.md)、[文档规则](../../../docs/AGENTS.md) 和 [Agent Note 格式](../README.md#the-file-format)。记录已实施的决定、真实替代方案、代价及验证边界。
 
-## Keep an implemented Agent Note current with what actually shipped
+代码路径、默认值或实际机制变化时同步更新事实，不把旧决定改写成相反决定；反转另写新记录并交叉链接。取消双语不要求复制、翻译或回录记录。已冻结的归档不得编辑。
 
-Keep paths, symbols, defaults, and mechanisms current in the same change that alters them. Rewrite stale facts in place; do not append change history.
-
-When a shipped note is unlikely to guide future work, archive its complete triplet through [`dsh-archive-agent-notes`](../../skills/dsh-archive-agent-notes/SKILL.md) instead of continuing to maintain it.
-
-### This is not a license to rewrite the *decision*
-
-Update factual realization in place. A reversal of the decision or its rationale requires a new Agent Note and cross-link; a fully superseded old note may be deleted only through the consolidation rule in the [Agent Note rules](../README.md).
+旧记录不再指导当前行为时，先证明取代范围和独有理由的去向；删除或归档必须在授权范围内，不能将历史封存规则套在新中文单篇记录上。

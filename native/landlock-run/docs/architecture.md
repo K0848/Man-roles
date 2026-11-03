@@ -1,34 +1,25 @@
-# Architecture
+# Landlock 启动器架构
 
-This repository owns confinement *mechanism*, not policy: consumers (agent harnesses and sandbox capabilities) decide which paths a run may read or write; this package family provides the launcher that enforces those grants and the JavaScript API that resolves and speaks to it. The packaging follows the per-platform-package model of [`node-addon-require-builtin`](https://www.npmjs.com/package/@esplus/node-addon-require-builtin) (and esbuild), adapted from Node addons to standalone static executables.
+此包族拥有隔离执行机制，消费方决定可读写路径等策略；启动器落实授权，JS 入口解析可执行路径并处理协议。打包采用一个入口加按平台可选二进制包的结构，不把多个不同隔离机制预先装成共享 loader。
 
-## Two-layer package family
+## 两层包族
 
-The family is one entry package plus per-platform binary packages:
+入口包 `@deepseek-ai/node-addon-landlock-run` 提供 launcherPath、probe、grantArgs 和协议常量，并携带 C 源码供审阅。Linux x64/arm64 平台包各自只带 bin 下的静态二进制与 prebuilds.json，没有 JS。os/cpu 让安装器选择匹配包，入口把包解析为文件路径。
 
-- **Entry package** (`@deepseek-ai/node-addon-landlock-run`): ESM JavaScript. Owns the tool's CLI contract — path resolution (`launcherPath`), the functional probe (`probe`), grant-argv construction (`grantArgs`), and the contract constants. Ships the C source in its tarball for auditability. Lists every platform package as an `optionalDependency`.
-- **Platform packages** (`@deepseek-ai/node-addon-landlock-run-linux-{x64,arm64}`): one prebuilt static binary under `bin/`, a `prebuilds.json` declaring it, and no JavaScript at all. npm's `os`/`cpu` fields select the matching one at install time; the entry package resolves it to a file path — there is nothing to import.
+CLI 解析器和二进制在同一包族版本发布，避免协议落后于二进制。确有第二个工具需要共享 JS 时再提取，不提前增加包层级。
 
-Because the CLI parser and binary are versioned together in one package family, the parser cannot fall behind that binary version. Preventing that mismatch is why the package split exists.
+## 解析与可用性
 
-There is no shared loader package: platform packages have nothing to load. If a second tool ever needs shared JS, extract it then, not preemptively.
+launcherPath 返回匹配平台包的 bin/landlock-run；无法解析时返回入口自身 node_modules 下确定但不存在的备用路径。路径存在不代表能隔离，probe 是唯一可用性信号。
 
-## Resolution and availability
+probe 在短子进程建立并执行真实最大规则集，避免内核有 syscall 但拒绝执行的误判。缺二进制和不能隔离的内核都表现为 unusable，消费方只处理一个拒绝路径。
 
-`launcherPath()` resolves `@deepseek-ai/node-addon-landlock-run-<platform>-<arch>` and returns `<package>/bin/landlock-run`. When the package is not resolvable it returns a deterministic fallback path inside the entry package's own `node_modules` that simply never exists. Existence is deliberately unchecked either way: `probe()` is the single availability signal, and a missing binary probes `unusable` exactly like an unenforcing kernel. Consumers get one degradation path, not two.
+## 失败与构建
 
-The probe is functional — the launcher builds and enforces a real maximal ruleset in a short-lived child — because version checks would miss a kernel that has the syscalls but refuses enforcement.
+启动器级错误以 125 退出且不 exec，包括参数错误、内核不能执行、授权根打不开及 exec 失败。旧 ABI 只限制已支持访问时可以报告 partial，由消费方决定其承诺；二进制和入口都不读环境变量选择安全机制。
 
-## Fail-closed everywhere
+构建采用当前架构的 musl-gcc 静态编译，产物同时适用于 glibc/musl。平台 prepack 检查 ELF 和可执行位，入口检查 lib，打包安装再核对产物并验证真实隔离。
 
-The launcher exits `125` without exec'ing the command on any launcher-level failure: usage error, unenforcing kernel, unopenable grant root, failed exec. Partial enforcement (an older Landlock ABI governing only a subset of accesses) is accepted, reported on stderr, and surfaced by the probe as `partial` — the consumer decides what its mode vocabulary promises at each level. Neither the binary nor the entry package reads environment variables: which binary confines a process is never decidable by the ambient environment.
+## 平台扩展
 
-## Build and release model
-
-Builds are native-only. `scripts/build.ts` compiles the running architecture's binaries with the distro `musl-gcc` (static: no loader or libc expectations on consumers, one binary for glibc and musl distros); CI's per-architecture runners are the builders of record, and no cross toolchain exists in the repo. Review covers the C source and the CI job that built each binary, enforced by three gates: platform prepack refuses missing/wrong-ELF binaries, entry prepack refuses unbuilt `lib/`, and the release pipeline byte-pins installed binaries against the workspace builds they were packed from.
-
-The package matrix is checked-in metadata (`prebuilds.json` + `os`/`cpu` fields); `scripts/github-matrix.mjs` derives the CI and Release matrices from it, so adding a platform extends automation without editing workflows.
-
-## Adding a platform
-
-A new platform adds one `packages/<platform>/` package (`package.json` with `os`/`cpu`, `prebuilds.json`, README, LICENSE), a runner entry in `scripts/github-matrix.mjs`, and a row in [support-matrix.md](support-matrix.md) — added only together with a native GitHub runner that builds and proves it (the no-cross-toolchain rule). Sibling launchers for other confinement mechanisms belong in their own repositories on this same template, not as second tools here.
+新增平台同步 manifest 的 os/cpu、prebuilds.json、支持矩阵及能完成原生构建验证的 runner 设计。本项目没有启用上游发布工作流，文档不能替代实际平台验收。不同内核隔离机制需要独立设计，不直接当作本启动器的另一个变体。

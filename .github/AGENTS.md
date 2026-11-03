@@ -1,3 +1,5 @@
-# AGENTS.md — GitHub Actions
+# GitHub 资料维护
 
-Run jobs on Windows runners (`windows-*` labels) under native `pwsh`. The pull-request `windows` job is the deliberate exception: it runs Windows Node under Wine on hosted Linux and blocks `all checks passed`; `windows-native` runs automatically on `windows-2025` (or the self-hosted `[self-hosted, dsh-win-ci, windows]` pool under `DSH_CI_FAILOVER_WINDOWS=selfhosted`) but reports independently. `ci.yml` is pull-request-only; the master `serial-windows` standby, the Linux `serial-linux-selfhosted` standby, the `wine-apt-cache` seeder, and the two manual runner benchmarks live in `ci-master.yml` (master-push + `workflow_dispatch`). Because `ci-master.yml` does not listen to `pull_request`, those master-only jobs never appear in PR check panels (a job a workflow defines for a given event is listed and shows `skipped` when its `if` is false); keeping them in a separate workflow is what stops PR check circles from showing gray segments. The master `serial-windows` standby continuously validates the self-hosted failover target — see the [failover runbook](../.agents/notes/implemented/process/2026-07-26-ci-failover-runbook.md).
+本目录保存 Man-roles 的贡献说明、问题模板及协作元数据，不代表 DeepSeek 官方贡献或发布政策。仓库未启用上游 CI 工作流，不能把旧 runner、平台矩阵或发布 job 当成现有能力。
+
+修改模板保持与本产品相关，默认使用中文；不自动创建、关闭或合并远程事项。贡献入口为 [CONTRIBUTING](CONTRIBUTING.md)，源码交付范围见 [根 README](../README.md)。工作流、权限、secret 和自动发布改动需要对应任务授权。

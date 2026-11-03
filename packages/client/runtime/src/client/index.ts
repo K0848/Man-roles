@@ -101,7 +101,7 @@ export type {
   PendingInteraction, PendingInteractionStatus, PendingKind, PendingPayloads,
 } from './sessions/pending.ts'
 // Projection value store (push model; see the session-projection subsystem
-// page, docs/subsystems/session-projection.md): host-computed
+// page, docs/reference/subsystems/session-projection.md): host-computed
 // whole values per key; domains ship projection support with zero client code.
 export type {
   ProjectionsBaseline, ProjectionValueStore, SessionProjectionMap, UseProjection,

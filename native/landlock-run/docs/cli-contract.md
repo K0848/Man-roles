@@ -1,34 +1,26 @@
-# CLI contract: landlock-run
+# landlock-run 命令行契约
 
-This file pins the launcher's externally observable behavior — the cross-repo compatibility surface between the binaries and every consumer. Consumers interact with it through the entry package (`launcherPath`/`probe`/`grantArgs`) and the launcher protocol; changing anything below requires a version bump for the whole package family and a note in the release notes.
+本文定义二进制与消费方之间的可观察协议；消费方通过入口包的 launcherPath/probe/grantArgs 使用。参数、状态和报告格式变化须同步包族版本及发布说明。
 
-## Invocation grammar
+## 调用语法
 
 ```text
 landlock-run [--ro <path>]... [--rw <path>]... -- <argv>...
 landlock-run --probe
 ```
 
-- `--ro <path>`: grant read + execute beneath `<path>`.
-- `--rw <path>`: grant full filesystem access beneath `<path>` (every access the negotiated kernel ABI can govern).
-- Everything not granted is denied — Landlock rulesets are allow-lists.
-- A grant on a non-directory keeps only its file-compatible access bits (this is how a `--rw /dev/null` grant works).
-- `--`: mandatory separator; everything after it is the command argv, exec'd via `execvp` with the launcher's environment unchanged.
-- `--probe`: mutually exclusive with grants and a command.
-- No other flags, no environment-variable inputs.
+--ro 授予路径下的读取与执行；--rw 授予协商 ABI 可治理的全部文件系统访问。未授予访问被拒绝，非目录授权只保留兼容文件的访问位。-- 是必须的参数边界，后方 argv 经 execvp 执行且环境不变。--probe 不与授权或命令组合，不接受其他参数或环境输入。
 
-## Exit codes
+## 退出与报告
 
-- `125` (`LAUNCHER_FAILURE_EXIT`): every launcher-level failure — usage error, kernel that cannot enforce Landlock, unopenable grant root, failed `exec`. The wrapped command was NOT run.
-- After a successful `exec`, every child status is passed through unchanged, including 125. Consumers therefore require both status 125 and a `landlock-run: ` fatal line to attribute launcher failure.
-- `--probe`: `0` when the kernel enforces (fully or partially), `125` otherwise.
+启动器失败使用 `125`（LAUNCHER_FAILURE_EXIT），不会执行被包装命令。成功 exec 后子进程状态原样传回，包括 125；消费方须同时核对 125 和 `landlock-run: ` 致命报告，不能只凭状态归因。
 
-## Report lines
+probe 在内核可以完整或部分执行时为 0，不可用时为 125；执行能力由实际 probe 决定，不按内核版本推断。具体固定报告字符串和常量由 JS 入口与 C 实现共同拥有，不复制另一套解析器。
 
-- Probe success prints exactly one stdout line: `landlock: fully enforced` or `landlock: partially enforced (older ABI)`. The entry package's `probe()` maps these to `full`/`partial`; a non-zero probe exit maps to `unusable`.
-- A confined run under a partial-ABI kernel prints one stderr line `landlock-run: partial enforcement (older Landlock ABI)` and proceeds — still confined for everything the kernel supports.
-- Every fatal error prints one stderr line prefixed `landlock-run: ` before exiting `125`.
+部分 ABI 执行只对已支持访问有效；消费方必须将 full、partial、unusable 区分，不能把 partial 扩写成全部访问已隔离。详见 [支持矩阵](support-matrix.md)。
 
-## Confinement semantics
+## 固定报告与继承
 
-The launcher sets `no_new_privs`, installs the ruleset on itself, and `exec`s the command; the ruleset is inherited across `execve`, so every descendant process is equally confined. The ruleset governs the filesystem accesses of the kernel's negotiated Landlock ABI (up to ABI 5); accesses newer than the running ABI are not governed and are the difference between `full` and `partial`.
+probe 成功只输出一行 stdout：`landlock: fully enforced` 或 `landlock: partially enforced (older ABI)`，入口分别映射为 full/partial，非零状态映射 unusable。部分 ABI 的受限执行在 stderr 输出 `landlock-run: partial enforcement (older Landlock ABI)` 后继续；每个致命错误先输出以 `landlock-run: ` 开头的一行 stderr，再退出 125。
+
+启动器设置 no_new_privs，在自身安装规则后 exec。规则跨 execve 继承，后代进程同受限制；本构建识别的文件系统访问最高到 ABI 5，运行 ABI 不认识的更高访问不受治理，这是 full 与 partial 的区别。

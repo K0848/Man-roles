@@ -1,0 +1,39 @@
+# Agent Note: Man-roles 中文维护与产品工程入口
+
+Status: implemented
+
+## 问题
+
+Man-roles 的公开目录承接 DeepSeek Harness 的完整工作区与文档工具。产品已使用独立根目录和启动器，但活动规则仍要求英中同权镜像、三文件配对、翻译回录及上游贡献流程。修改一段产品说明会带来无关翻译与 Git hook 成本，源码使用者也容易把底座指南当成产品启动入口。
+
+## 决策
+
+活动人工说明统一维护一份中文普通 `.md` 正文，不保留逐页 `.zh.md` 跳转或英文镜像；API 标识、代码、源码 JSDoc 与必要许可原文保留。生成区域由各自生成器负责，链接按正式目录重新投影。
+
+产品安装、构建、启动和数据边界统一由 [根 README](../../../../README.md) 维护。[工程规则](../../../../AGENTS.md)、[文档规则](../../../../docs/AGENTS.md) 和 [语言政策](../../../../docs/development/language/README.md) 说明当前维护方式。上游版权、许可、包身份、vendor 来源与本地修补保留；不承诺上游 CI、官方发布流程、独立 exe 或未经验证的平台。
+
+编译、测试、构建和分析的14份配置集中到 `config/`，同步真实消费者和路径。根 TypeScript solution 与默认 Vitest 转发入口负责工具发现；两份 Oxlint 实际规则保留在根，因为其 glob 以配置物理目录为基准且禁止父目录模式。Vitest 使用已安装 Vite 的原生 TypeScript 路径解析，移除失去消费者的开发插件，Host 与 Client 仍是独立编译面。
+
+配对校验、翻译 prompt 和 Git 自动回录退出活动维护链；既有本机 Git 配置不被静默删除。代码围栏、类型等价、链接、生成内容与 Agent Note 结构继续按实际职责验证。冻结归档保留现有封存证据，不修改任何历史正文或 sidecar。
+
+本决定在 Man-roles 中取代 [强制配对](2026-07-02-bilingual-docs-and-pairing-gate.md)、[翻译 prompt](2026-07-23-translation-prompt-v4-contract.md)、[最小翻译 brief](2026-07-26-briefed-minimal-translation-updates.md)、[自动配对合并](2026-08-08-automatic-translation-pairing-merges.md) 和 [常规翻译](2026-08-08-lightweight-routine-documentation-translation.md) 的持续维护要求；这些记录中的原设计理由作为底座参考保留，不把所有英文资料一并删除。
+
+## 备选方案
+
+**保留英中同步并放宽检查。** 仍要求人补写无当前读者需求的镜像，且容易用失真的配对记录表示一致性，不能减少真实维护成本。
+
+**按是否英文直接删除内容。** 会误删许可、代码和封存历史。活动正文按用途合并为中文，保留必要原文与实际入链，并同步生成及类型消费者。
+
+**只改 README、保留活动规则。** 后续 Agent 仍会重新补翻译、配对或触发已退役工具，无法形成稳定维护方式。
+
+## 后果
+
+日常文档改动只维护当前事实的拥有者，减少翻译耦合和上游流程负担；生成正文和人工说明按其拥有者维护，站点兼容路由使用相同中文正文。生成器仍需保留必要 API、类型和实际消费的稳定锚点，不能通过删除类型或链接检查规避问题。
+
+公开交付继续包含产品必需代码、锁文件、资源与说明，排除私有数据和作者专属配置。当前修改本身不证明全新机器安装、真实提供商行为、独立可执行文件或多平台运行，不把文档检查写成完整产品验收。
+
+## 验证
+
+[安装器用例](../../../../scripts/install-lefthook.spec.ts)覆盖无翻译工具依赖的钩子安装，以及已有驱动配置的保留；[门禁用例](../../../../scripts/run-gates.spec.ts)覆盖配对退出后的检查组合。[生成器用例](../../../../scripts/gen-cordis-catalog-record.spec.ts)、[决策记录用例](../../../../scripts/agent-note-tree.spec.ts)和[围栏用例](../../../../scripts/paired-markdown-derivatives.spec.ts)覆盖仅一种语言、无一致性记录的正常输入，以及缺少决策字段、生成标记损坏或代码错误时的拒绝。
+
+[站点用例](../../../../scripts/project-doc-site.spec.ts)检查现存路由使用同一份中文正文以及真实文档链接；[路径用例](../../../../scripts/documentation-paths.spec.ts)检查迁移后链接和局部锚点。活动记录与专用工具退役后，完整构建、类型、lint、文档门禁及公开文件排除规则继续用于验证工程可维护性；封存历史维持独立校验。

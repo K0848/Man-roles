@@ -1,25 +1,10 @@
-# Release
+# 原生启动器发布参考
 
-Pre-1.0: treat this as a release checklist, not a stability policy.
+这是底座包族的发布设计参考，不是本仓库已启用的工作流，也不授权实际发布、打 tag、提交或推送。当前工程源码交付和平台验证边界见 [根 SOURCE](../../../SOURCE.md)。
 
-## Versioning
+## 版本与本地准备
 
-The launcher workspace root and its three public packages share one version. Run the bump helper from the repository root:
-
-```sh
-pnpm --dir native/landlock-run release:bump patch          # or minor / major / x.y.z
-```
-
-It updates `native/landlock-run/package.json` and every `native/landlock-run/packages/*` manifest, refreshes the repository root lockfile (`--ignore-scripts --lockfile-only`), and runs `release:verify`. Explicit versions accept full semver including prereleases (`pnpm --dir native/landlock-run release:bump 0.0.0-test.0`); the publish workflow puts prerelease versions under the `next` dist-tag, so `latest` never points at a test build. Keep `workspace:*` dependencies in source; pnpm converts them to concrete versions during pack.
-
-Version bumps are normal source changes: open a release PR (or commit) with the launcher manifests and root lockfile, merge it, then create the matching `landlock-run-vX.Y.Z` tag from that commit. The namespace avoids colliding with release tags for other package families in the repository. The publish workflow validates that the tag matches every launcher package version.
-
-```sh
-pnpm --dir native/landlock-run release:commit patch        # bump + stage + commit in one command
-git tag landlock-run-v0.0.2
-```
-
-## Preflight
+workspace 根与三个公开包采用同一版本。原有 release:bump 帮助器更新 manifest、根锁文件并运行 release:verify；可指定 patch/minor/major 或完整 semver。源码保留 workspace:*，由打包转换具体版本。预发布应使用独立 dist-tag，不能让 latest 指向测试版本。
 
 ```sh
 pnpm install --frozen-lockfile
@@ -28,33 +13,10 @@ pnpm --dir native/landlock-run typecheck
 pnpm --dir native/landlock-run test:entry
 ```
 
-On a Linux host, also rehearse the pack path locally:
+Linux 原生环境需要另外构建二进制、运行 launcher 测试并通过 pack-release 和 verify-packed-install 做当前平台 tarball 演练。不能把 Windows 上入口测试成功视为 Linux 限制已经验证。
 
-```sh
-pnpm --dir native/landlock-run build:native
-pnpm --dir native/landlock-run test:launcher
-node native/landlock-run/scripts/pack-release.mjs native/landlock-run/.release/npm --current-platform-only
-node native/landlock-run/scripts/verify-packed-install.mjs native/landlock-run/.release/npm --current-platform-only
-```
+## 发布顺序与权限
 
-## Publish
+平台包先于入口发布，确保入口 optionalDependencies 不超前引用不存在版本。二进制应由对应架构原生构建，最终发布的是已经验证的 tarball，不能直接用 pnpm publish 跳过保留可执行位的打包路径。
 
-Use the main repository's `Landlock Run Release` workflow so every binary is built on its matching native runner:
-
-1. Run it with `publish=false` (from the release commit) to build all platform binaries, assemble and verify the payloads, pack the tarballs in publish order, rehearse the packed install, and upload the `npm-tarballs` artifact for inspection.
-2. Create and push the `landlock-run-vX.Y.Z` tag matching the package versions.
-3. Run the same workflow from that tag with `publish=true`.
-
-The workflow publishes only from the final packed tarballs, in `publish-order.txt` order (platform packages before the entry that optionally depends on them). A current-platform rehearsal can still query npm for metadata about an incompatible optional platform package; that package cannot supply the host launcher, which comes from the matching local tarball. Publishing every platform package before the entry ensures a public entry version never points ahead of its platform packages. The workflow supports npm trusted publishing through GitHub OIDC; without it, provide an `NPM_TOKEN` secret in the `npm-publish` environment. Packages publish with `--access public`.
-
-The three scoped package names must be bootstrapped with an `@deepseek-ai` organization token through the `NPM_TOKEN` fallback: npm [requires a package to exist before a trusted publisher can be configured](https://docs.npmjs.com/cli/v11/commands/npm-trust/). After the first release creates all three packages, configure each package to trust `landlock-run-release.yml` in this repository with the `npm-publish` environment, then remove the fallback token when organization policy permits it.
-
-Manual local fallback (current platform's packages only) — always through `pack-release.mjs`, never `pnpm publish` directly (pnpm's pack path strips the launcher's executable bit; see [packaging.md](packaging.md)):
-
-```sh
-node native/landlock-run/scripts/pack-release.mjs native/landlock-run/dist/npm --current-platform-only
-node native/landlock-run/scripts/verify-packed-install.mjs native/landlock-run/dist/npm --current-platform-only
-while IFS= read -r tarball; do npm publish "native/landlock-run/dist/npm/${tarball}" --access public; done < native/landlock-run/dist/npm/publish-order.txt
-```
-
-Do not commit `.npmrc` files with tokens or registry overrides.
+上游设计使用与版本一致的 landlock-run-vX.Y.Z tag、先演练再正式发布，以及受控 npm 凭据或可信发布身份。启用这些机制需要实际仓库和 npm 权限配置及独立授权；不把参考中的 CI 或 OIDC 当作本项目现状。不得提交含 token 或 registry 覆盖的 .npmrc。

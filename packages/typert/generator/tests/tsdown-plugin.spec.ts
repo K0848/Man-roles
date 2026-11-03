@@ -65,6 +65,23 @@ afterEach(() => {
 })
 
 describe('typertPlugin', () => {
+  it('finds a workspace whose solution references relocated compiler faces', async () => {
+    const root = await workspace()
+    await mkdir(join(root, 'config/typescript'), { recursive: true })
+    writeFileSync(join(root, 'config/typescript/tsconfig.host.json'), '{}\n')
+    writeFileSync(join(root, 'tsconfig.json'), JSON.stringify({
+      files: [], references: [{ path: './config/typescript/tsconfig.host.json' }],
+    }))
+    rmSync(join(root, 'tsconfig.host.json'))
+    const output = await packageOutput(root, 'tools', {
+      name: '@deepseek-ai/dsh-tools', exports: { './typert': './lib/typert.host.js' },
+    })
+
+    typertPlugin().writeBundle({ dir: output })
+
+    expect(readFileSync(join(output, 'typert.host.js'), 'utf8')).toBe('export const host = true\n')
+  })
+
   it('lowers standard decorators in TypeScript source dependencies', () => {
     const plugin = typertPlugin()
     expect(plugin.transform('export const value = 1\n', '/workspace/src/plain.ts')).toBeUndefined()

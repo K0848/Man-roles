@@ -1,150 +1,68 @@
-# AGENTS.md — Web client stack
+# Web 客户端规则
 
-Rules for `packages/client/*` (the browser side of the dsh web GUI) plus its build entry `apps/web`. They supplement the repo-wide [conventions](../../AGENTS.md#conventions) and the [package rules](../README.md). Before touching slots, component props, stores, or plugin structure, read the [slot system standard](../../.agents/notes/implemented/architecture/2026-07-22-slot-type-chain-implementation.md) (the definitive composition model) and the [web client architecture note](../../.agents/notes/implemented/architecture/2026-07-19-gui-web-client-architecture.md) (loading chain, object layer, services).
+适用于 `packages/client/*` 和 `apps/web`，补充 [根规则](../../AGENTS.md#conventions) 与 [包规则](../AGENTS.md)。包名为 `@deepseek-ai/dsh-client-<name>`。修改 slot、props、store 或插件结构前读 [slot 模型](../../.agents/notes/implemented/architecture/2026-07-22-slot-type-chain-implementation.md) 与 [客户端架构](../../.agents/notes/implemented/architecture/2026-07-19-gui-web-client-architecture.md)。
 
-Packages here are named with the directory prefix: `@deepseek-ai/dsh-client-<name>`.
+## Slot 与 props
 
-## Slot and props discipline
+1. UI 只通过 `ctx.slots.register({ name, children?, store?, inject? }, Component)` 装配；只有 shell 渲染 root，没有额外 slot 定义、白名单 face 或 face 生成器。
+2. children 同时声明和授权可渲染的洞，键与 kind/scope 必须准确。不得渲染未声明 slot 或重复声明别人的 slot；名称反映组合路径，如 `tool.call.toolview`。
+3. props 由 `PropsRuntime`、`PropsRenderSlots`、`PropsStore` 与 inject face 四部分派生，不手写重复字段或本地重定义。框架提供 useSession、useSessions、useWorkspaces、useStore、renderSlot 及绑定的 useName hook；业务代码传普通数据与回调，不把自造订阅 hook 作为 prop。
+4. 数据渠道按拥有者选择：父级已知用 owner props，组件私有用本地状态，跨入口或需跨重挂载保留的交互状态用注册 store。派生值使用框架数据的纯计算，不另建订阅。
+5. store 通过 `props.useStore` 读取、`props.actions.*` 写入；工厂导出为 createXXXStore，在 apply 创建 handle 并共享，禁止模块级单例。测试可直接工厂创建，不要求渲染机制。
+6. inject 从 apply 的 ctx 闭包导出普通数据与回调，不导出整个服务、ReactNode 生产器或自造 hook。私有响应式值放在保留 hooks 分区，由 renderer 绑定，组件看不到源对象；只访问 inject 已声明的依赖。
 
-The [slot system standard](../../.agents/notes/implemented/architecture/2026-07-22-slot-type-chain-implementation.md) owns the full design; these are the rules you must not violate when writing or reviewing client code:
+## 响应式读取与数据契约
 
-1. **One API**: a plugin composes UI only through `ctx.slots.register({ name, children?, store?, inject? }, Component)`. There is no separate slot-definition call, no whitelist face object, no face-minting helper. The shell alone renders `'root'`.
-2. **children = declaration + authorization**: the slots your component renders are exactly the keys of your register call's `children` object (spec values: `kind`/`scope`). Rendering a slot you didn't declare, or declaring one someone else declared, fails at load — do not work around it; the conflict is the design speaking. Slot names mirror the composition path: `<domain>.<entry>.<hole>` (e.g. `'tool.call.toolview'`).
-3. **Component props are the four shares, all derived**: `PropsRuntime<K>` (SlotMap: owner params + `useSession`/`sessionId` on session scope + global `useSessions`/`useWorkspaces`) & `PropsRenderSlots<S>` (children keys) & `PropsStore<H>` (store factory) & the inject face. Never hand-write a member a share already derives; never re-type a share locally.
-4. **Hooks are framework-made only**: `useSession`, `useSessions`, `useWorkspaces`, `useStore`, `renderSlot` are the five standing seats, plus the `use<Name>` hooks the renderer binds from provide contributions and inject `hooks` compartments. Business code never creates a hook or selector as a prop value — pass plain data and callbacks. (Component-internal behavioral hooks that subscribe to nothing external are fine.)
-5. **Live data has exactly three channels**: parent knows it → owner props at the renderSlot site; only the component knows it → local state; shared across entries or survives remounts → a store declared at register. Derived data is a pure function over framework-hook data (`useMemo`), never its own subscription.
-6. **Stores: read `props.useStore`, write `props.actions.*`** — the declared actions are the complete mutation API. Write the store as an exported `createXXXStore()` factory (module-level handles are forbidden — de-facto singletons); share by passing one handle to several registers inside `apply`. Production code never calls the factory or `.create()` outside `apply`; tests do (that is the sanctioned zero-machinery path).
-7. **inject returns plain data and callbacks** from the apply closure's own ctx — no hand-made hooks, no ReactNode producers, no whole-service objects. A registrant-private reactive fact uses the reserved `hooks` compartment (bare observables the renderer binds to `use<Name>`; components never see the sources). The plugin may use only the dependencies named by its `inject` declaration; there is no wider ctx to reach for.
+渲染期间会被 React 外部改变的数据必须经框架 hook 订阅，事件处理可以读即时 snapshot。业务组件不写 useSyncExternalStore、手工 subscribe 或镜像外部 snapshot；按私有 hooks、共享 store、标准 session provide 的次序确定拥有者。
 
-## Reactive read and contract-currency discipline
+跨 UI 域只共享 JSON 兼容数据与其回调；ReactNode 通过 slot 传递，不新增 ReactNode prop/inject 成员。已有 accessory/overlay/leftItems/rightItems 的迁移另按实际契约处理。observable 源身份稳定，未变化时 snapshot 引用也稳定；重建发布值的拥有者在同一步通过同一源重新发布，后加入注册也要通知已有消费方。
 
-How live data reaches render code, and what UI domains may share:
+## 导出与 ctx
 
-1. **Everything a render reads that can change outside React arrives through a framework hook** (rule 4 above). Event-handler code may read live snapshots (e.g. `keyboard.snapshot`); render code subscribes.
-2. **Business components contain no subscription machinery** — no `useSyncExternalStore`, no manual subscribe wiring, no mirroring an external snapshot into local state or a second store. Give each reactive fact its owning channel instead: registrant-private → the inject `hooks` compartment; cross-entry or remount-surviving → a declared store; per-session standard → `sessions.provide`.
-3. **Data-access ladder** — resolve needs in this order: framework hooks (standing seats + provide/inject-bound `use<Name>`) → a declared store (`useStore`/`actions`) → inject callbacks → anything else is a new framework extension point and needs main-thread arbitration.
-4. **UI domains share only JSON-compatible data and callbacks.** Owner props, injected values, store state, and provide contributions are plain serializable data or callbacks over such data. The injected `hooks` compartment is the only place for bare observables, and components never receive those sources directly. Route ReactNode content through a slot; do not add ReactNode-valued owner props or injected members (the composer's existing `accessory`/`overlay`/`leftItems`/`rightItems` fields remain until they move to slots).
-5. **An observable source keeps two identities stable**: the source object itself (hook binding is cached per source), and its snapshot between changes (`getSnapshot` returns the same reference until the fact moves).
-6. **Whoever rebuilds a published value republishes it through the same source in the same step**, and a registration path that can run after consumers exist notifies the live consumers as part of registering.
+浏览器入口只导出 Cordis 加载所需 apply/inject/Config、组件通过类型消费的 store 工厂及共享类型；组件、私有 helper、常量和 handle 保持内部。新增公开值导出需要明确产品或接口取舍，不能为了测试方便扩大 API。同包测试直接引用内部源码；跨插件通过 slot 或服务协作，不直接导入对方实现。
 
-## Export discipline (client plugin packages)
+ctx 只属于 apply 及其闭包。业务 TSX 组件只经四部分 props 取得数据与回调，不访问 ctx、不导入服务类探测、不读取 React context；BindingContext 等属于 renderer 内部。需要新数据时从 owner、store 或 inject 传入。
 
-The `/client` entrypoint of a UI plugin package is its public browser API, not a convenience barrel. Three rules apply package-wide (do not restate them as per-file comments):
+## 分层与通知
 
-1. **A UI plugin exports no values beyond what cordis loading needs** — `apply` / `inject` (and `Config` where present), plus store factories consumed type-only by components (`ReturnType<typeof createXXXStore>`). Shared types (owner data, injected values, composed prop aliases) may also be exported. Implementation components, pure helpers, constants, and store handles stay internal. Adding any new value export requires user sign-off, not a matching consumer.
-2. **Same-package tests import internals directly** — relative `../src/client/xxx.ts` from package tests, or the `./src/*` subpath where a spec lives outside the package. Never widen the public API to make a test compile.
-3. **Cross-package imports of another plugin's symbols are in principle forbidden.** The sanctioned routes are the slot system (register/renderSlot) and ctx services. If neither fits, stop and escalate — do not add an export to unblock yourself.
+runtime 数据对象层不导入 React；ConnectionController、SessionManager、Session 拥有业务、重连和流状态，store 引擎提供普通 observable。ui-renderer 拥有 slot、SessionProvider 及所有 ctx/React 绑定。展示组件消费 props，不持有业务逻辑；生产业务代码不依赖 ui-renderer 值。
 
-## ctx discipline (components never see ctx)
+业务数据不进入仅用于选择、草稿和面板宽度的交互 store。rpcId 由发起者生成、响应方原样返回，业务只接收 RpcRequest。用户手势可直接 notifyNow，结构变化用 markDirty，流片段用累计 markFrameDirty。绘制数据不进入 Session 日志；Host 按帧计算或实时推送，回放重新计算；新增模型可见输入仍需要会话事件。
 
-`ctx` belongs to the apply world only: the plugin body and the inject factories closed over it. Components — every `.tsx` under a feature domain — receive all data and callbacks **through the four props shares**; they never call a hook that reaches ctx, never import a service class to poke it, never read a React context (business components see zero contexts — `BindingContext` and its kin are renderer-internal). If a component needs something new, the answer is a prop threaded from its share's source (owner site, store declaration, or inject face), not a hook.
+## 依赖与构建
 
-## Layering red lines
+每个客户端包的 Cordis peer/dev 范围一致。动态包之间的值、类型、module augmentation 及 dsh.client.inject 关系声明为 peer+dev；仅测试依赖为 dev。静态输入与 shell 预载 React 等属于动态消费包的 dev，不放入 dependencies/peer；普通第三方实现库放 dependencies。动态包不把内部 dsh 包放 dependencies。
 
-The stack has one-way knowledge, settled in the [web client architecture note](../../.agents/notes/implemented/architecture/2026-07-19-gui-web-client-architecture.md):
+浏览器和 Node face 独立决定 external，不能因 npm 栏目迁移静默改变 bundle 内容；所有相对运行时导入与资源必须被 files 覆盖。使用 [客户端包检查](../../scripts/verify-client-packages.ts) 核对真实关系。
 
-1. **Data object layer** (`runtime`, React-free): `ConnectionController` → `SessionManager` → `Session` own all business state (event windows, streaming accumulation, reconnect machine), and the snapshot-store engine (zustand/immer, `defineStore`, `shallowEqual`) lives here too — store products are bare observable sources with no hook members. Zero React imports — grep-assertable.
-2. **Render machinery** (`ui-renderer`, dynamic plugin): all ctx-to-React integration — slot renderer/outlets, `SessionProvider`, and the uSES adapter. Every hook is composed here at the binding site from bare sources; production business code carries no ui-renderer value dependency.
-3. **Presentation components** (plugin packages' `src/client/`, pure props): consumables, expected to be rewritten wholesale. Business logic must not leak into them; everything arrives through the four props shares.
+## 公开浏览器环境
 
-Non-negotiables across the layers:
+源码静态读取的 DSH_CLIENT_* 都是公开产物内容；共享 helper 将构建进程中的相同值送给 Vite 和动态包，未设置为 undefined，不支持动态查找或枚举。完整构建记录公开值及全部客户端产物摘要，消费方拒绝缺失或过期记录。构建后可变选择属于运行时配置。
 
-- **Business data lives in the object layer, never a store.** Entry-declared stores carry shared viewing/interaction state (selection, drafts, panel widths); sessions, frames, and connections stay in the object layer.
-- **rpcId is strictly bidirectional**: the initiator mints, the responder echoes; business signatures see only `RpcRequest<P>`, minting stays in the carrier layer ([layering and RPC protocol note](../../.agents/notes/implemented/architecture/2026-07-19-gui-layering-and-rpc-protocol.md)).
-- **Notifier publication discipline**: `notifyNow` is only the direct echo of a user gesture; structural updates use microtask-batched `markDirty`, while visible streaming chunks use cumulative `markFrameDirty`. See `runtime/src/client/sessions/notifier.ts`.
-- **The web layer is pure presentation.** Nothing that is "how to draw" (tool-card views, queue states) enters the session log; the host computes such data per frame or pushes it live, and replay recomputes it — falling back to the generic form when it can't. A new *model-visible* input still requires a session event (repo-wide rule).
+<a id="shared-modules-and-the-module-graph"></a>
 
-## Dependency declaration
+## 共享模块与模块图
 
-Npm sections describe installation and development relationships; each build face independently decides what its artifact contains. [`verify-client-packages`](../../scripts/verify-client-packages.ts) checks the client-specific rules and can repair unambiguous manifest drift with `--fix`.
+[platform.ts](web/src/platform.ts) 拥有 PLATFORM_MODULES 和 PRELOADED_CLIENT_EXTERNALS。动态 bundle 的基线 external 隐式生效，不重复声明 React、Cordis、runtime 或静态 UI 基线；dsh.client.external 只增加确需模块表身份的非基线值导入，specifier 必须准确，只有尾部 /client 可别名到包行。未声明的普通第三方库可私有打包，import type 不产生运行请求。
 
-1. **Every client package keeps Cordis in matching `peerDependencies` and `devDependencies`.** This includes the static packages because their Node face participates in the same Cordis plugin contract.
-2. **A dynamic package declares internal dynamic relationships as peer plus dev.** Production source imports, re-exports, module augmentations, and type-only references to an `@deepseek-ai/dsh-*` package count, as does a package named by `dsh.client.inject`. A test-only internal dependency stays dev-only.
-3. **Static client inputs are dev-only for a dynamic consumer.** A package without `dsh.client`, plus the React modules seeded by the web shell, belongs only in the consumer's `devDependencies`; it never belongs in that dynamic package's `dependencies` or `peerDependencies`. `packages/client/web` likewise keeps Loader, modules, and static UI inputs as development inputs; Cordis remains peer plus dev.
-4. **Ordinary installed libraries stay in `dependencies`.** This includes private implementation libraries bundled into `lib/client.js` and bare imports left in a statically linked `lib/index.js`; the final Vite host, not the library build, merges and splits the latter. A dynamic package never puts an `@deepseek-ai/dsh-*` package in `dependencies`.
-5. **Every peer has a matching development range.** npm dependency and peer cycles are allowed; only the synchronous module-request graph has the separate acyclicity rule below.
-6. **Browser and Node build faces declare externality independently.** A dynamic browser half uses the baseline plus `dsh.client.external`; a statically linked face externalizes every bare specifier; a Node face externalizes its production dependencies ([`tsdown.client.ts`](tsdown.client.ts)). Moving a name between npm sections must not silently change bundle contents.
-7. **Keep the published payload closed.** Every relative runtime import and emitted asset must be covered by `files`; the repository publint pass checks the exact publication view.
+模块请求只能由动态包自身行或准确静态表键供应，不存在 dsh.client.provide。构建与客户端检查拒绝未声明 workspace 值导入、缺失提供方、重复请求及同步模块环。
 
-## Build-time browser environment
+Cordis inject 等待服务，可保持 PENDING 并允许服务环；模块 external 在同步 factory require 前就必须满足，不能等待且拒绝环。dsh.client.inject 的包依赖边仅作展示和 HMR 信息，不排序 activation。模块先按拓扑注册，Cordis 再按服务依赖激活；一个 provider 可先注册后激活。web shell 不是 Loader entry，静态导入负责基线，其余预加载行仍是普通 Loader entry 与 lib/client.js。
 
-Client business code may statically read `process.env.DSH_CLIENT_*`; every referenced value is public artifact content. The shared build-environment helper gives Vite and dynamic tsdown bundles the same build-process values, resolves unset names to `undefined`, and exposes no dynamic lookup or enumeration. A complete root build records the exact public values and a digest of all client artifacts; release and built-artifact consumers reject a missing or stale record. Use runtime configuration for choices that must change after build.
+## Conversation Node
 
-## Shared modules and the module graph
+业务功能注册 ConversationNodeDefinition 及对应 conversation.chat.node renderer，不在 Session、SessionManager 或中央 dispatcher 添加业务 switch/fold。match 只读当前事件，多事件 Context 各自携带或导出同一稳定业务 ID，update 按 seq 确定回放。追加热路径与渲染不扫描完整窗口、Contexts 或 Nodes；状态累计后通过 buildLocationData 发布同 Turn/Step 信息。见 [操作指南](../../docs/reference/cookbook/adding-a-conversation-node.md)。
 
-A dynamic browser half either carries a module privately or requests the shared module-table identity. The client baseline is centralized in [`web/src/platform.ts`](web/src/platform.ts): `PLATFORM_MODULES` names shell-seeded React, Cordis, and static UI libraries; `PRELOADED_CLIENT_EXTERNALS` names dynamic rows, currently runtime, whose ordinary `lib/client.js` factory arrives before shell boot.
+## 目录与样式
 
-1. **Baseline externals are implicit for every dynamic bundle.** Do not repeat React, Cordis, runtime, `ui-primitives`, or `ui-slots` in package manifests.
-2. **`dsh.client.external` adds a package-specific request.** Use it only for a non-baseline value import whose dynamic row must be materialized through the module table. Declare the exact import specifier; only a trailing `/client` aliases the package row.
-3. **Silence means a private copy.** Ordinary third-party implementation libraries may be bundled independently. A value reached only through `import type` is erased and creates no request.
-4. **A request has two possible suppliers.** A dynamic package supplies its own row; `PLATFORM_MODULES` supplies an exact static-table key. There is no `dsh.client.provide` alias protocol.
-5. **Validate both sides.** The dynamic build preset externalizes the baseline and rejects undeclared workspace value imports; [`verify-client-packages`](../../scripts/verify-client-packages.ts) rejects malformed or redundant requests, missing suppliers, and synchronous request cycles.
+每个 UI 业务能力一个插件包。多域包用 contract 作为唯一共享 API，域间不直接导入，在 apply.ts 单点装配；注册不发生在模块顶层。规则由 [域图检查](../../scripts/verify-client-domain-graph.ts) 约束。
 
-### The module graph sits below cordis DI
+样式遵循 [样式说明](../../docs/development/web-styling.md)，共用 token 和全局表在 ui-theme，组件使用语义 CSS Modules 与 clsx，不硬写颜色、不另引组件库或 Tailwind。产品文案及人工说明使用中文，API 标识与既有源码 JSDoc 可保留原语言。
 
-Three declarations read like dependency edges and none is interchangeable: Cordis service `inject`, module-graph `external`, and `dsh.client.inject` — the informational package-name edges of the [new-package checklist](#new-plugin-package-checklist).
+## 测试与新增能力
 
-| | Cordis service `inject` | module graph `external` |
-|---|---|---|
-| Unit | service name | module specifier |
-| Timing | runtime; the fiber waits | materialization; the `require` handed to a factory is synchronous and cannot wait |
-| Unsatisfied | stays PENDING, with no timeout | throws on the spot |
-| Who may satisfy it | any plugin providing that service, replaceable | the single module identity, not replaceable |
-| Cycles | allowed | rejected |
+按改动选择对应 runtime、组件或真实浏览器层验证；组件断言用户可见行为，不断言类名、hook 内部或渲染次数。jsdom 由文件首行 pragma 指定，共用配置仍为 node。coverage 豁免必须解释不可达原因。完整策略见 [测试说明](../../docs/development/testing.md)，不把上游 CI 当成本项目证据。
 
-The seam is `loader.internal = modules`: cordis reaches plugin code through `EntryTree.import`, so every module request must be satisfiable before cordis can order activation above it. The modules node half emits rows in topological order, and `ClientModuleSystem.import`/`prefetch` recursively registers dynamic provider factories before their consumers materialize. This module order is independent from Cordis activation: a provider that injects services can register first and activate last.
+新增插件同时核对：package manifest/exports/files、包内 tsconfig 与 tsdown.config.ts、正确聚合的 references、web-app profile 条目和其依赖；runtime-diagnostics/invariants 依赖与 README 契约保持。跨包 slot 用 slots.inject 等待真实声明，多个贡献需原子安装时返回生成器；不要用无关服务依赖替代声明等待。
 
-`packages/client/web` is not a Loader entry. Its static imports seed `PLATFORM_MODULES`; parser-preloaded dynamic rows remain ordinary Loader entries and ordinary `lib/client.js` artifacts.
-
-## Conversation Node discipline
-
-- A Chat business feature registers one `ConversationNodeDefinition` and its keyed `conversation.chat.node` renderer; do not add its event switch or fold to `Session`, `SessionManager`, or a central built-in dispatcher. Follow the [Conversation Node cookbook](../../docs/cookbook/adding-a-conversation-node.md).
-- `match(event)` reads only the current event. Every event in a multi-event Context carries or independently derives the same stable business id; `update` folds one Match into State and remains deterministically replayable by log `seq`.
-- The append hot path and renderers never scan the full event window, Contexts, or Chat Nodes. Accumulate in State, publish same-Turn/Step facts through `buildLocationData()`, and consume final Node data or constrained Location hooks.
-
-## Directory regime (plugin packages)
-
-One UI feature = one plugin package (`src/client/` browser half). A multi-domain package splits where its code could later become separate packages — ui-conversation is the example: `contract/` (the only shared API), domain directories that never import a sibling domain, and `apply.ts` as the single cross-domain assembly point; `scripts/verify-client-domain-graph.ts` enforces the levels. Registration goes through `slots.register` in `apply` — never module-level side effects.
-
-## Styling
-
-[docs/web-styling.md](../../docs/web-styling.md) is authoritative. Shared `--dsw-*` tokens and global sheets live in `ui-theme/src/styles/`; feature components consume semantic aliases through CSS Modules and `clsx`, with no literal colors, component library, or Tailwind. Product copy is Chinese; code comments are English.
-
-## Testing and coverage
-
-The GUI test structure (three tiers, lane map) is settled in the [GUI testing system note](../../.agents/notes/implemented/process/2026-07-20-gui-testing-system.md); repo-wide policy in [docs/testing.md](../../docs/testing.md).
-
-- Client source packages are inside the per-file 100% coverage gate (`pnpm run test:coverage`). Genuinely unreachable defensive arms take a `/* v8 ignore -- <reason> */` comment with a real reason, never a bare ignore.
-- Component specs render with realistic props or a driven fixture runtime and assert user-visible behavior, not class names, hook internals, or render counts.
-- The jsdom environment comes from a per-file `// @vitest-environment jsdom` pragma on the spec's first line; the shared config stays node-env.
-- Each tier asserts its own layer. Data-layer semantics belong to the runtime and host suites; component specs cover presentation behavior.
-
-## Before you push: the local check ladder
-
-Run the narrowest rung that covers what you touched; escalate only when the change surface demands it.
-
-1. **Every GUI code change** — `pnpm run test:gui` (seconds; no browser, no server): the client suites plus the host-side GUI packages. This is the inner loop; run it as freely as a typecheck.
-2. **Any change that can alter the assembled browser or visible conversation/UI output** (client components or copy, `apps/web`, Vite, `dsh-host-webserver`, connection/handler/SSE) — additionally `DSH_SNAPSHOT=replay pnpm run test:web`: rebuilds the frontend dist, then runs the browser smoke pair (the real-host case self-skips without `DEEPSEEK_API_KEY`) plus the keyless replayed e2e scenarios. Linux PR CI uses the same read-only replay mode. Use `DSH_SNAPSHOT=refresh` only after confirming an intentional output change, or `DSH_SNAPSHOT=record` with a key to re-record fixtures.
-3. **Before a PR** — use [dsh-pre-push-checks](../../.agents/skills/dsh-pre-push-checks/SKILL.md) to select the narrow checks for the outgoing diff; there is no repo-wide pre-push aggregate.
-
-If `test:gui` is red on code you did not touch, neither silently fix nor ignore it: note it in your handoff so it lands in the next PR window's sweep.
-
-## New plugin package checklist
-
-Bringing up a new `packages/client/<name>` plugin package (ui-workspace is a complete example; ui-sidebar/ui-user-questions are minimal skeletons):
-
-1. **Package skeleton**: `package.json` (`@deepseek-ai/dsh-client-<name>`, exports `.`/`./invariant`/`./client`/`./src/*`/`./package.json`, `dsh.client` manifest, `files` list), `tsconfig.json` (extends `tsconfig.base.client.json`, one `references` entry per workspace dependency plus `runtime-diagnostics/invariants`), `tsdown.config.ts` (`clientBundle(id, ['lib/types/index.js', 'lib/types/invariant.js'])`), `src/index.ts` (empty node-half apply), `src/invariant.ts` (companion with a real reason), `src/css-modules.d.ts` when using CSS Modules, `README.md` with the Model Experience section.
-2. **Three registration surfaces, all required** (missing any one fails at a different, later point): the `tsconfig.client.json` aggregate `references` entry; a `dsh.client` row in `packages/bundle/web-app/cordis.patch.yml`; a `packages/bundle/web-app/package.json` dependency (profile boots resolve bare row names through the healed `$DSH_HOME/profiles/node_modules` fallback, which mirrors the app's and each bundle's declared dependencies — a row whose package no manifest declares fails to import). `pnpm-workspace.yaml` already globs `packages/*/*`.
-3. **dsh.client manifest semantics**: `platform: 'web'` always, and the declaration requires a `./client` export (the scan throws without one); `immediately: true` only for stage-one-prefetch infrastructure rows. `inject` lists package-name dependency edges — they are **informational only** (preflight display, HMR diffing); they do not sequence entry activation or apply order. Activation order is Cordis fiber inject waiting on *services*, nothing else. A non-baseline `external` request sequences its dynamic supplier ahead of the consumer — see [shared modules](#shared-modules-and-the-module-graph).
-4. **Registering into another package's slot**: apply order is unconstrained, and a business service is not a declaration barrier. Use `ctx.slots.inject(name, () => ctx.slots.register(...))`; it waits on the actual declaration, removes the contribution when that declaration collapses, reruns after redeclaration, and leaves with the caller's plugin fiber. Return a generator yielding each registration when several contributions must install and roll back atomically. A bare `slots.register` into an undeclared slot remains an error; keep service edges only for services the contribution actually reads.
-5. Rebuild the bundle (`pnpm --filter <pkg> bundle`) before probing a live `dsh web` server — the registry serves `lib/client.js`, not sources.
-6. **Declaration decisions**, each settled by [dependency declaration](#dependency-declaration) and [shared modules](#shared-modules-and-the-module-graph): does the package ship a `./client` export; which non-baseline value imports require `dsh.client.external`; which dynamic value dependencies are peer plus dev; which static compile inputs are dev-only; and whether `files` covers every relative runtime import and emitted asset.
-
-## New component checklist
-
-1. Compose through register: add the slot to `SlotMap`, declare it in its parent entry's `children`, and register your component — see the [slot system standard](../../.agents/notes/implemented/architecture/2026-07-22-slot-type-chain-implementation.md). No other composition route exists.
-2. Type the props as the four shares (`PropsRuntime` & `PropsRenderSlots` & `PropsStore` & inject face) — derive, don't hand-write. Shared/surviving state goes in a `createXXXStore()` factory declared at register; component-private state stays local.
-3. Component tests feed props directly (`createXXXStore().create()` for the store data; plain stubs for framework hooks) and assert behavior without render machinery.
-4. Tokens only in CSS; Chinese product copy; English comments.
-5. `pnpm run test:gui` green; if the component changes visible assembled output, also run `DSH_SNAPSHOT=replay pnpm run test:web`.
-6. Non-trivial change? It needs an Agent Note in the same PR (repo-wide rule) — the GUI notes above are the precedents to extend.
+新增组件仍从 SlotMap、父 children、slot 注册及四部分 props 推导类型。包内配置文件保持在包内，根聚合位于 config/typescript；重建后再用实际 lib/client.js 验收，不以源码检查代替发布产物。

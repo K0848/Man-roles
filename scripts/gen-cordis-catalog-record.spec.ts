@@ -1,131 +1,26 @@
-/**
- * Negative-path coverage for the guarded pair auto-record
- * (`maybeRecordPair`): the safety property is that regeneration re-records a
- * pair's `.i18n.yaml` ONLY for a region-confined write over a well-formed,
- * previously-consistent record — every other state is left for the pairing
- * gate to report.
- */
+/** 区域生成不依赖翻译副本或 sidecar，保留标记及链接正确性检查。 */
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import {
-  localizePageRegion,
-  maybeRecordPair,
-  REGION_BEGIN,
-  REGION_END,
-  spliceRegion,
-} from './gen-cordis-catalog.ts'
-import { blobHash, renderPairMeta } from './translation-pairing.ts'
-
-const PAGE = 'docs/subsystems/fix.md'
-const ZH = 'docs/subsystems/fix.zh.md'
-const META = 'docs/subsystems/fix.i18n.yaml'
-
-function page(prose: string, region: string): string {
-  return `# Fix\n\n${prose}\n\n${REGION_BEGIN}\n${region}\n${REGION_END}\n`
-}
+import { localizePageRegion, REGION_BEGIN, REGION_END, spliceRegion, subsystemRegionOutputs } from './gen-cordis-catalog.ts'
 
 const roots: string[] = []
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
-/** Lay out a pair on disk and return { root, before } for a regeneration that already wrote `current`. */
-function setup(options: {
-  beforeEn: string
-  beforeZh: string
-  currentEn: string
-  currentZh: string
-  meta?: string | null
-  omitZhSnapshot?: boolean
-}): { root: string; before: Map<string, Buffer> } {
-  const root = mkdtempSync(join(tmpdir(), 'record-guard-'))
+function fixture(): string {
+  const root = mkdtempSync(join(tmpdir(), 'cordis-region-'))
   roots.push(root)
-  mkdirSync(join(root, 'docs/subsystems'), { recursive: true })
-  writeFileSync(join(root, PAGE), options.currentEn)
-  writeFileSync(join(root, ZH), options.currentZh)
-  const meta = options.meta === undefined
-    ? renderPairMeta(PAGE, blobHash(Buffer.from(options.beforeEn)), ZH, blobHash(Buffer.from(options.beforeZh)))
-    : options.meta
-  if (meta !== null) writeFileSync(join(root, META), meta)
-  const before = new Map<string, Buffer>([[PAGE, Buffer.from(options.beforeEn)]])
-  if (!options.omitZhSnapshot) before.set(ZH, Buffer.from(options.beforeZh))
-  return { root, before }
+  mkdirSync(join(root, 'docs/reference/subsystems'), { recursive: true })
+  return root
 }
 
-describe('maybeRecordPair', () => {
-  const beforeEn = page('prose.', 'old region')
-  const beforeZh = page('散文。', 'old region')
-  const currentEn = page('prose.', 'new region')
-  const currentZh = page('散文。', 'new region')
-
-  it('re-records a region-confined write over a consistent record', () => {
-    const { root, before } = setup({ beforeEn, beforeZh, currentEn, currentZh })
-    expect(maybeRecordPair(PAGE, before, root)).toBe(true)
-    expect(readFileSync(join(root, META), 'utf8'))
-      .toBe(renderPairMeta(PAGE, blobHash(Buffer.from(currentEn)), ZH, blobHash(Buffer.from(currentZh))))
-  })
-
-  it('refuses when the pair was already out of sync before the run', () => {
-    const stale = renderPairMeta(PAGE, blobHash(Buffer.from('drifted long ago\n')), ZH, blobHash(Buffer.from(beforeZh)))
-    const { root, before } = setup({ beforeEn, beforeZh, currentEn, currentZh, meta: stale })
-    expect(maybeRecordPair(PAGE, before, root)).toBe(false)
-    expect(readFileSync(join(root, META), 'utf8')).toBe(stale)
-  })
-
-  it('refuses a malformed record even when its hashes are current', () => {
-    // A renamed key with preserved hashes must stay the pairing gate's error,
-    // never become valid through regeneration.
-    const renamedKeys = [
-      '# comment',
-      `fixXmd: ${blobHash(Buffer.from(beforeEn))}`,
-      `fix.zh.md: ${blobHash(Buffer.from(beforeZh))}`,
-      '',
-    ].join('\n')
-    const { root, before } = setup({ beforeEn, beforeZh, currentEn, currentZh, meta: renamedKeys })
-    expect(maybeRecordPair(PAGE, before, root)).toBe(false)
-    expect(readFileSync(join(root, META), 'utf8')).toBe(renamedKeys)
-  })
-
-  it('refuses a record with extra entries', () => {
-    const extra = renderPairMeta(PAGE, blobHash(Buffer.from(beforeEn)), ZH, blobHash(Buffer.from(beforeZh)))
-      + `other.md: ${blobHash(Buffer.from(beforeEn))}\n`
-    const { root, before } = setup({ beforeEn, beforeZh, currentEn, currentZh, meta: extra })
-    expect(maybeRecordPair(PAGE, before, root)).toBe(false)
-  })
-
-  it('refuses a record with a duplicated expected key', () => {
-    // Map#set would collapse the duplicate back to size 2; the parser must
-    // reject the repeat instead of letting the guard accept the record.
-    const duplicated = [
-      `fix.md: ${blobHash(Buffer.from(beforeEn))}`,
-      `fix.md: ${blobHash(Buffer.from(beforeEn))}`,
-      `fix.zh.md: ${blobHash(Buffer.from(beforeZh))}`,
-      '',
-    ].join('\n')
-    const { root, before } = setup({ beforeEn, beforeZh, currentEn, currentZh, meta: duplicated })
-    expect(maybeRecordPair(PAGE, before, root)).toBe(false)
-    expect(readFileSync(join(root, META), 'utf8')).toBe(duplicated)
-  })
-
-  it('refuses when prose drifted alongside the region write', () => {
-    const proseDrift = page('prose, edited by a human.', 'new region')
-    const { root, before } = setup({ beforeEn, beforeZh, currentEn: proseDrift, currentZh })
-    expect(maybeRecordPair(PAGE, before, root)).toBe(false)
-  })
-
-  it('refuses a brand-new pair with no record', () => {
-    const { root, before } = setup({ beforeEn, beforeZh, currentEn, currentZh, meta: null })
-    expect(maybeRecordPair(PAGE, before, root)).toBe(false)
-  })
-
-  it('refuses when a side has no pre-write snapshot', () => {
-    const { root, before } = setup({ beforeEn, beforeZh, currentEn, currentZh, omitZhSnapshot: true })
-    expect(maybeRecordPair(PAGE, before, root)).toBe(false)
-  })
-})
+function page(prose: string): string {
+  return `# Fix\n\n${prose}\n\n${REGION_BEGIN}\nold\n${REGION_END}\n`
+}
 
 describe('spliceRegion', () => {
   it('replaces exactly the cordis-surface region', () => {
@@ -149,27 +44,35 @@ describe('spliceRegion', () => {
   })
 })
 
-describe('localizePageRegion', () => {
-  it('changes only paired Markdown paths for the Chinese generated region', () => {
-    const root = mkdtempSync(join(tmpdir(), 'cordis-region-locale-'))
-    roots.push(root)
-    mkdirSync(join(root, 'docs/subsystems'), { recursive: true })
-    mkdirSync(join(root, 'packages'), { recursive: true })
-    mkdirSync(join(root, 'scripts'), { recursive: true })
-    writeFileSync(join(root, 'docs/subsystems/target.md'), '# Target\n')
-    writeFileSync(join(root, 'docs/subsystems/target.zh.md'), '# 目标\n')
-    writeFileSync(join(root, 'docs/subsystems/excluded.md'), '# Excluded\n')
-    writeFileSync(join(root, 'docs/subsystems/excluded.zh.md'), '# 排除\n')
-    writeFileSync(join(root, 'packages/outside.md'), '# Outside\n')
-    writeFileSync(join(root, 'packages/outside.zh.md'), '# 范围外\n')
-    writeFileSync(join(root, 'scripts/translation-pairing.manifest.json'), JSON.stringify({
-      excluded: ['docs/subsystems/excluded.md'],
-    }))
-    const region = `${REGION_BEGIN}\n[Target](target.md#api) [Excluded](excluded.md) [Outside](../../packages/outside.md)\n${REGION_END}`
+describe('subsystemRegionOutputs', () => {
+  const region = `${REGION_BEGIN}\nnew\n${REGION_END}`
 
-    expect(localizePageRegion(region, 'docs/subsystems/page.md', root)).toBe(region)
-    expect(localizePageRegion(region, 'docs/subsystems/page.zh.md', root)).toBe(
-      `${REGION_BEGIN}\n[Target](target.zh.md#api) [Excluded](excluded.md) [Outside](../../packages/outside.md)\n${REGION_END}`,
+  it('updates only the canonical Chinese page and leaves a legacy sibling untouched', () => {
+    const root = fixture()
+    writeFileSync(join(root, 'docs/reference/subsystems/fix.md'), page('中文说明。'))
+    writeFileSync(join(root, 'docs/reference/subsystems/fix.zh.md'), 'legacy sibling\n')
+    expect(subsystemRegionOutputs('fix.md', region, root)).toEqual([
+      ['docs/reference/subsystems/fix.md', page('中文说明。').replace('\nold\n', '\nnew\n')],
+    ])
+    expect(readFileSync(join(root, 'docs/reference/subsystems/fix.zh.md'), 'utf8')).toBe('legacy sibling\n')
+  })
+
+  it('rejects an absent canonical owner and invalid markers', () => {
+    const root = fixture()
+    writeFileSync(join(root, 'docs/reference/subsystems/fix.zh.md'), page('旧副本不能代替规范页。'))
+    expect(() => subsystemRegionOutputs('fix.md', region, root)).toThrow('canonical subsystems page does not exist')
+    writeFileSync(join(root, 'docs/reference/subsystems/fix.md'), '# 缺少标记\n')
+    expect(() => subsystemRegionOutputs('fix.md', region, root)).toThrow('expected exactly 1 cordis-surface region')
+  })
+})
+
+describe('localizePageRegion', () => {
+  it('projects canonical document and source links without rewriting declarations', () => {
+    const region = '[类型](target.zh.md?q=1#api) [源码](../../packages/core/agent/src/index.ts)\n'
+      + '```ts\n/** target.zh.md */\ninterface Original {}\n```\n'
+    expect(localizePageRegion(region, 'docs/subsystems/fix.md')).toBe(
+      '[类型](target.md?q=1#api) [源码](../../../packages/core/agent/src/index.ts)\n'
+      + '```ts\n/** target.zh.md */\ninterface Original {}\n```\n',
     )
   })
 })

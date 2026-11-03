@@ -4,4 +4,3 @@
 *.jpg binary
 *.webp binary
 *.pdf binary
-*.i18n.yaml merge=dsh-translation-pairing

@@ -114,7 +114,7 @@ export const productEventSchema = z.discriminatedUnion('type', [
 ]) as unknown as z.ZodType<ProductEvent>
 
 /** One durable append-only event list, keyed by dilemma id. */
-export const productEventListSchema = z.array(productEventSchema)
+const productEventListSchema = z.array(productEventSchema)
 
 /** Product event domain opened by the host-owned repository. */
 export const manRoleplayerProductDomainSpec = defineDomain({

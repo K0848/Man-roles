@@ -8,13 +8,14 @@
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { relative, resolve, sep } from 'node:path'
 import { markdownHeadingLines, markdownProseLines, type MarkdownProseLine } from './markdown.ts'
+import { normalizeReadmeContractHeadings } from './readme-contract-headings.ts'
 
 const root = resolve(import.meta.dirname, '..')
-const HEADING = '## Model Experience'
-const LIMITATIONS_HEADING = '## Known Limitations and Deferred Work'
-const MODEL_VIEW_HEADING = '#### What the model sees'
-const TOKEN_EFFECT_HEADING = '#### Token effect'
-const KV_CACHE_EFFECT_HEADING = '#### KV Cache effect'
+const HEADING = '## 模型体验'
+const LIMITATIONS_HEADING = '## 已知限制与暂缓事项'
+const MODEL_VIEW_HEADING = '#### 模型看到的内容'
+const TOKEN_EFFECT_HEADING = '#### Token 影响'
+const KV_CACHE_EFFECT_HEADING = '#### KV Cache 影响'
 const FIELD_HEADINGS = [MODEL_VIEW_HEADING, TOKEN_EFFECT_HEADING, KV_CACHE_EFFECT_HEADING] as const
 
 type SentenceKind = 'none' | 'indirect'
@@ -194,12 +195,12 @@ interface ParsedField {
 /** Validate H5-plus-markdown literals nested under one Model Experience field. */
 function validateNestedVerbatim(raw: readonly string[], fragments: Set<string>): { blocks: number; error?: string } {
   let cursor = 0
-  while (raw[cursor]?.trim().length === 0) cursor += 1
+  while (raw[cursor]?.trim().length === 0 || isNavigationAnchor(raw[cursor] ?? '')) cursor += 1
   if (cursor === raw.length) return { blocks: 0 }
 
   let blocks = 0
   while (true) {
-    while (raw[cursor]?.trim().length === 0) cursor += 1
+    while (raw[cursor]?.trim().length === 0 || isNavigationAnchor(raw[cursor] ?? '')) cursor += 1
     if (cursor === raw.length) break
     if (!/^##### \S/.test(raw[cursor] ?? '')) {
       return { blocks, error: 'content after a field paragraph must be a titled H5 verbatim block' }
@@ -227,26 +228,46 @@ function validateNestedVerbatim(raw: readonly string[], fragments: Set<string>):
   return { blocks }
 }
 
-/** GitHub-style fragment for the simple ASCII nested titles allowed by these rules. */
+/** 保留中英文标题的文字与数字，避免不同中文标题都被归为空锚点。 */
 function headingFragment(title: string): string {
-  return title.toLowerCase().replaceAll('`', '').replaceAll(/[^a-z0-9 _-]/g, '').trim().replaceAll(/\s+/g, '-')
+  return title.toLowerCase().replaceAll('`', '').replaceAll(/[^\p{L}\p{N} _-]/gu, '').trim().replaceAll(/\s+/g, '-')
 }
 
 /** A direct stable system-prompt contribution, as named by the README rules. */
 function isDirectSystemPromptEntry(title: string): boolean {
-  return /\bsystem prompt\b/i.test(title)
+  return /\bsystem prompt\b|系统提示词/i.test(title)
 }
 
 /** Anchored generated-catalog links in one model-view field. */
 function toolCatalogLinkFragments(text: string): string[] {
-  return [...text.matchAll(/\]\(\.\.\/\.\.\/\.\.\/docs\/tool-catalog\.md#([a-z0-9_-]+)\)/g)]
+  return [...text.matchAll(/\]\(\.\.\/\.\.\/\.\.\/docs\/reference\/generated\/tool-catalog\.md#([a-z0-9_-]+)\)/g)]
     .map(match => match[1] as string)
 }
 
+function isNavigationAnchor(text: string): boolean {
+  return /^\s*<a\s+(?:id|name)=["'][^"']+["']\s*><\/a>\s*$/.test(text)
+}
+
+function hasOneBlankSeparation(raw: readonly string[], from: number, to: number): boolean {
+  const between = raw.slice(from, to - 1)
+  const anchors = between.filter(isNavigationAnchor).length
+  return between.every(line => line.trim().length === 0 || isNavigationAnchor(line))
+    && between.length === anchors * 2 + 1
+}
+
 const toolCatalogFragments = new Set<string>()
-for (const line of readFileSync(resolve(root, 'docs/tool-catalog.md'), 'utf8').split('\n')) {
-  const title = /^## (.+)$/.exec(line)?.[1]
-  if (title !== undefined) toolCatalogFragments.add(headingFragment(title))
+const toolCatalogText = readFileSync(resolve(root, 'docs/reference/generated/tool-catalog.md'), 'utf8')
+const toolCatalogLines = toolCatalogText.split('\n')
+for (const heading of markdownHeadingLines(toolCatalogText).filter(entry => entry.depth === 2)) {
+  toolCatalogFragments.add(headingFragment(heading.text))
+  // 中文标题保留的旧锚点仍指向同一 H2；只接受紧贴该标题的显式导航锚点。
+  for (let index = heading.index - 2; index >= 0; index -= 1) {
+    const line = toolCatalogLines[index]?.trim() ?? ''
+    if (line.length === 0) continue
+    const anchor = /^<a id=["']([^"']+)["']><\/a>$/.exec(line)?.[1]
+    if (anchor === undefined) break
+    toolCatalogFragments.add(anchor)
+  }
 }
 
 const failures: Failure[] = []
@@ -292,13 +313,14 @@ for (const packageJson of packageJsons) {
     continue
   }
 
-  const text = readFileSync(abs, 'utf8')
+  const text = normalizeReadmeContractHeadings(readFileSync(abs, 'utf8'))
   const rawLines = text.split('\n')
-  const lines = markdownProseLines(text)
+  // 显式锚点只提供导航身份，不属于模型内容段落；未知 HTML 仍参与结构检查。
+  const lines = markdownProseLines(text).filter(line => !isNavigationAnchor(line.raw))
   const headings = markdownHeadingLines(text)
   const h2Headings = headings.filter(heading => heading.depth === 2)
   const modelExperienceHeadings = headings.filter(heading => heading.text
-    .trim().replaceAll(/\s+/g, ' ').toLowerCase() === 'model experience')
+    .trim().replaceAll(/\s+/g, ' ').toLowerCase() === '模型体验')
   const modelHeadings = modelExperienceHeadings.filter(heading => heading.depth === 2 && heading.raw === HEADING)
   if (NO_MODEL_EXPERIENCE_SECTION[pkg] !== undefined) {
     if (modelExperienceHeadings.length !== 0) {
@@ -352,14 +374,16 @@ for (const packageJson of packageJsons) {
   const content = section.filter(line => line.raw.trim().length > 0)
   const sentenceContract = SENTENCE_MODEL_EXPERIENCE[pkg]
   if (sentenceContract !== undefined) {
-    const pattern = sentenceContract.kind === 'none' ? /^None, as .+\.$/ : /^Indirectly, through .+\.$/
-    const rawContent = rawSection.filter(line => line.trim().length > 0)
+    const pattern = sentenceContract.kind === 'none'
+      ? /^(?:None, as .+\.|无(?:影响)?[，,。:：；;—].+[。.])$/
+      : /^(?:Indirectly, through .+\.|(?=.*间接).+[。.])$/
+    const rawContent = rawSection.filter(line => line.trim().length > 0 && !isNavigationAnchor(line))
     const sentence = content[0]
     const kvCacheHeading = content[1]
     const kvCacheEffect = content[2]
     if (content.length !== 3 || rawContent.length !== 3 || !pattern.test(sentence?.raw ?? '')) {
-      const prefix = sentenceContract.kind === 'none' ? 'None, as ' : 'Indirectly, through '
-      failures.push({ path: readme, message: `must contain exactly one sentence beginning ${JSON.stringify(prefix)} and ending with a period, followed by ${KV_CACHE_EFFECT_HEADING} and one non-empty paragraph` })
+      const explanation = sentenceContract.kind === 'none' ? '无直接影响及原因' : '间接影响的途径'
+      failures.push({ path: readme, message: `短模型体验须只有一个说明“${explanation}”的完整段落，随后是 ${KV_CACHE_EFFECT_HEADING} 和一个非空段落` })
       continue
     }
     if (kvCacheHeading?.raw !== KV_CACHE_EFFECT_HEADING
@@ -382,7 +406,7 @@ for (const packageJson of packageJsons) {
     continue
   }
 
-  const shortSentence = content.find(line => line.raw === 'None.' || /^None, as |^Indirectly, through /.test(line.raw))
+  const shortSentence = content.slice(0, 1).find(line => /^(?:None\.|None, as |Indirectly, through |无[，,。:：；;]|间接影响)/.test(line.raw))
   if (shortSentence !== undefined) {
     failures.push({ path: readme, message: `line ${shortSentence.index}: short Model Experience form requires an audited entry in SENTENCE_MODEL_EXPERIENCE` })
     continue
@@ -424,9 +448,9 @@ for (const packageJson of packageJsons) {
       entryError = true
       break
     }
-    if ((entryIndex === 0 && heading.index !== modelHeading.index + 2)
+    if ((entryIndex === 0 && !hasOneBlankSeparation(rawLines, modelHeading.index, heading.index))
       || rawLines[heading.index - 2]?.trim().length !== 0
-      || fieldStarts[0].line.index !== heading.index + 2) {
+      || !hasOneBlankSeparation(rawLines, heading.index, fieldStarts[0].line.index)) {
       failures.push({ path: readme, message: `line ${heading.index}: model-context entry heading and first field require one blank line between them` })
       entryError = true
       break
@@ -449,7 +473,7 @@ for (const packageJson of packageJsons) {
         entryError = true
         break
       }
-      if (value.index !== fieldStart.line.index + 2) {
+      if (!hasOneBlankSeparation(rawLines, fieldStart.line.index, value.index)) {
         failures.push({ path: readme, message: `line ${fieldStart.line.index}: ${expectedHeading} and its paragraph require one blank line between them` })
         entryError = true
         break
@@ -525,7 +549,7 @@ for (const packageJson of packageJsons) {
     if (!/\bschemas?\b/i.test(entry.title)) continue
     const fragments = toolCatalogLinkFragments(entry.modelView.raw)
     if (fragments.length === 0) {
-      failures.push({ path: readme, message: `line ${entry.heading.index}: tool-schema entry must link an anchored section of ../../../docs/tool-catalog.md` })
+      failures.push({ path: readme, message: `line ${entry.heading.index}: tool-schema entry must link an anchored section of ../../../docs/reference/generated/tool-catalog.md` })
       catalogError = true
       break
     }

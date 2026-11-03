@@ -35,7 +35,7 @@ export const repositoryConfigHost: ts.ParseConfigFileHost = {
  * program collides the cordis Context merges.
  */
 function loadProjectGraph(projectRoot: string, face: CompilerFace): ProjectGraph {
-  const rootConfigPath = resolve(projectRoot, `tsconfig.${face}.json`)
+  const rootConfigPath = resolve(projectRoot, `config/typescript/tsconfig.${face}.json`)
   const rootConfig = parseConfig(rootConfigPath)
   const rootNames = new Set<string>()
   const visited = new Set<string>()
