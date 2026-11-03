@@ -28,7 +28,9 @@ function runRepositoryOxlint(args: readonly string[], env: NodeJS.ProcessEnv = {
 }
 
 function runOxlint(args: readonly string[], env: NodeJS.ProcessEnv = {}) {
-  return spawnSync(process.execPath, [oxlintCli, ...args], {
+  const explicitConfig = args.includes('--config') || args.some(arg => arg.startsWith('--config='))
+  const configArgs = explicitConfig ? [] : ['--config', '.oxlintrc.json']
+  return spawnSync(process.execPath, [oxlintCli, ...configArgs, ...args], {
     cwd: repositoryRoot,
     encoding: 'utf8',
     env: { ...process.env, NO_COLOR: '1', ...env },
@@ -51,13 +53,13 @@ describe('Oxlint executable contract', () => {
     const configPath = await writeContractConfig(suffix)
     const probes = [
       ['host package source', 'packages/fs/fs-observation-policy/src', 'packages/fs/fs-observation-policy/tsconfig.json'],
-      ['host package test', 'packages/fs/fs-observation-policy/tests', 'tsconfig.host.json'],
+      ['host package test', 'packages/fs/fs-observation-policy/tests', 'config/typescript/tsconfig.host.json'],
       ['client package source', 'packages/client/ui-primitives/src', 'packages/client/ui-primitives/tsconfig.json'],
       // A test under packages/client states its face in the filename, so the
       // probe carries the Client suffix to reach the Client aggregate.
-      ['client package test', 'packages/client/ui-trajectory/tests', 'tsconfig.client.json', '.client.ts'],
-      ['example', 'examples/headless-agent/tests', 'tsconfig.host.json'],
-      ['website', 'website', 'tsconfig.host.json'],
+      ['client package test', 'packages/client/ui-trajectory/tests', 'config/typescript/tsconfig.client.json', '.client.ts'],
+      ['example', 'examples/headless-agent/tests', 'config/typescript/tsconfig.host.json'],
+      ['website', 'website', 'config/typescript/tsconfig.host.json'],
     ] as const
     const source = `export function probePromise(): Promise<void> {
   return Promise.resolve()
@@ -95,7 +97,7 @@ probePromise()
       }
       expect(output.match(/typescript\(no-floating-promises\)/g)).toHaveLength(probes.length)
       expect(output, 'client aggregate script project').toContain(
-        `Got tsconfig for file ${join(repositoryRoot, clientScript).replaceAll('\\', '/')}: ${join(repositoryRoot, 'tsconfig.client.json').replaceAll('\\', '/')}`,
+        `Got tsconfig for file ${join(repositoryRoot, clientScript).replaceAll('\\', '/')}: ${join(repositoryRoot, 'config/typescript/tsconfig.client.json').replaceAll('\\', '/')}`,
       )
       expect(output).not.toContain('Unmatched file:')
     } finally {

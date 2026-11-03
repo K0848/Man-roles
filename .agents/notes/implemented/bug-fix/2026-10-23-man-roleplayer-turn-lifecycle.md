@@ -1,27 +1,25 @@
-# Agent Note: Persona turn generation and stop waits have separate lifetimes
+# Agent Note: 人物轮次生成与停止等待具有独立生命周期
 
 Status: implemented
 
-English | [中文](2026-10-23-man-roleplayer-turn-lifecycle.zh.md)
-
 ## Problem
 
-Persona generation can legitimately take longer than the configured stop deadline. Applying that deadline to normal Agent idle waits releases the submission lease while generation continues. A later submission then has no live lease, and an acknowledged background turn can reject an unobserved completion promise and terminate the process.
+人物正常生成可能合理地超过配置的停止时限。将该时限用于正常 Agent 空闲等待，会在生成仍继续时释放提交租约。稍后的提交因此失去有效租约；已经确认接收的后台轮次还可能拒绝无人观察的完成 Promise，导致进程退出。
 
 ## Decision
 
-The product Host owns one stop signal per executing persona attempt. Every product cancellation and budget limit signals that owner before cancelling the Agent. Normal generation and the optional submission finalizer await idle under the existing active-turn and request budgets; the bounded stop wait begins only after the stop signal. A stopped attempt cannot start a finalizer.
+产品 Host 为每个执行中的人物 attempt 持有一个停止信号。所有产品取消和预算限制均先通知该所有者，再取消 Agent。正常生成及可选的提交修复在既有整轮活动预算和请求预算内等待空闲；只有收到停止信号后才开始有限停止等待。已停止的 attempt 不能启动提交修复。
 
-A stop timeout publishes its execution checkpoint but retains the Agent submission lease and message operation until eventual idle records `stopped`. New submissions and retries remain excluded during that interval. Acknowledged attempts attach a rejection observer to their completion promise without changing the promise returned to callers that await completion.
+停止超时会发布执行检查点，但保留 Agent 提交租约和消息操作，直到最终空闲后记录 `stopped`。期间拒绝新消息与重试。确认接收的 attempt 为完成 Promise 安装拒绝观察者，同时保持等待完成的调用方所获得的原 Promise 语义。
 
-Cold resume verifies the resumed Agent for the same Session is idle before marking a failed turn's unresolved execution checkpoint stopped. Failed turns from an earlier process can then be retried without replaying any model request during recovery.
+冷恢复先核实同一 Session 恢复的 Agent 已空闲，再将失败轮次未解决的执行检查点标为 stopped。因此，前一进程遗留的失败轮次可以重试，恢复过程中不会重放模型请求。
 
 ## Alternatives considered
 
-**Increase the stop timeout.** Generation still has an unrelated deadline and can outlive its lease. The existing generation budgets already own that limit.
+**增大停止时限。** 生成仍受到无关时限约束，并可能超过租约生命周期。既有生成预算已经负责该限制。
 
-**Swallow process-level promise failures.** Global suppression hides unrelated defects and does not prevent overlapping attempts or lost submissions. The observer belongs to the owned background completion promise.
+**全局吞掉 Promise 失败。** 全局抑制会隐藏其他缺陷，也不能阻止 attempt 重叠或提交丢失。观察者属于当前后台完成 Promise 的所有者。
 
 ## Consequences
 
-Slow valid answers retain their submission authority. Cancellation remains bounded for callers, while a provider that delays abort keeps the conversation occupied until actual quiescence. Loader-composition regressions cover slow generation and finalization, active/request timeout, acknowledged execution rejection, retry, and delayed cancellation recovery. Real-provider and browser acceptance remain separate integration evidence; these regressions use deterministic external-provider substitutes.
+缓慢但有效的回答保留提交权限。调用方的取消等待仍有限；延迟响应取消的 Provider 则持续占用对话，直到真正停稳。Loader 组装回归覆盖缓慢生成与修复、整轮与请求超时、确认接收后的执行拒绝、重试，以及延迟取消后的恢复。真实 Provider 和浏览器验收属于独立集成证据；这些回归使用确定性的外部 Provider 替身。

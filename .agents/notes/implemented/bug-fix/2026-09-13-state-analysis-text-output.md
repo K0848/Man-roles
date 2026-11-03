@@ -1,31 +1,29 @@
-# Agent Note: State analysis reserves output for structured text
+# Agent Note: 状态分析为结构化文本保留输出预算
 
 Status: implemented
 
-English | [中文](2026-09-13-state-analysis-text-output.zh.md)
-
 ## Problem
 
-Real `deepseek-v4-flash` persona answers completed, but every detached state-analysis operation failed as a provider error. The product event did not retain the bounded underlying error, so retries could not distinguish transport failure from an empty or malformed model response. A diagnostic retry proved that the provider returned no text while the call still had a 2,048-token output ceiling and inherited the model's reasoning mode.
+真实 `deepseek-v4-flash` 人物回答能够完成，但所有分离执行的状态分析都以 Provider 错误失败。产品事件没有保留有界的底层错误，重试无法区分传输失败、空响应或格式错误。增加诊断后的真实重试证明：Provider 没有返回文本，而调用只有 2,048 Token 输出上限，并继承了模型的 reasoning 模式。
 
 ## Decision
 
-State analysis resolves the selected model's capabilities before dispatch. When the model advertises the `off` reasoning effort, the state-only call explicitly selects it so its bounded output budget is reserved for the required JSON text. Models that do not advertise that effort keep their existing call configuration rather than receiving an unsupported override.
+状态分析在调用前解析所选模型的能力。模型声明支持 `off` reasoning effort 时，状态专用调用显式选择它，把有界输出预算留给所需 JSON 文本；不声明该能力的模型继续使用原调用配置，不接收不支持的覆盖值。
 
-A failed internal `state-analysis` event may persist `failureDetail`, a maximum 300-character diagnostic containing only error name, primitive code/status fields, and a whitespace-normalized message. It never includes the request messages, prompt, credentials, user content, or Session identity, and the product Remote does not project it to the browser.
+失败的内部 `state-analysis` 事件可以持久化最长 300 字的 `failureDetail`，只包含错误名称、基础类型的 code/status 和空白归一化后的消息。它不包含请求消息、Prompt、凭据、用户正文或 Session 身份，产品 Remote 也不会将它投影到浏览器。
 
-The existing detached operation, input watermark, revision checks, and explicit retry operation remain unchanged. A successful retry publishes state from the persisted authority input without regenerating the already accepted persona answer.
+既有的分离 operation、输入水位、revision 校验和显式重试 operation 保持不变。成功重试使用已持久化的权威输入发布状态，不重新生成已经接受的人物回答。
 
 ## Alternatives considered
 
-**Treat reasoning deltas as the JSON answer.** Reasoning is not the model's final response contract and may contain partial, revised, or private intermediate content. Promoting it would violate both structured validation and reasoning boundaries.
+**把 reasoning delta 当作 JSON 回答。** reasoning 不是模型最终响应契约，可能包含不完整、被修正或私有的中间内容。提升它会同时破坏结构化校验和 reasoning 边界。
 
-**Increase the state-analysis token ceiling.** A larger shared reasoning-plus-text budget would increase cost without guaranteeing that final text appears. The operation needs structured text, not more hidden deliberation.
+**提高状态分析 Token 上限。** 扩大 reasoning 与文本共享的预算会增加成本，却不能保证最终文本出现。该操作需要的是结构化文本，不是更多隐藏推理。
 
-**Retry every provider failure automatically.** Blind retries can repeat charges and hide persistent configuration errors. The product keeps explicit retry semantics and first records a bounded cause.
+**自动重试所有 Provider 失败。** 盲目重试会重复收费并掩盖持续配置错误。产品继续采用显式重试，并先记录有界原因。
 
 ## Consequences
 
-The real fixed-port retry now completes state analysis and preserves the existing persona answer. Reasoning-capable persona turns are unaffected because only the detached state-analysis call requests `off`.
+固定端口真实重试现已完成状态分析，同时保留原人物回答。人物轮次的 reasoning 能力不受影响，因为只有分离状态分析调用请求 `off`。
 
-The diagnostic is durable internal data and must remain bounded and unprojected. Providers that cannot disable reasoning may still return no text; those failures remain visible through the same category and diagnostic without weakening the JSON schema.
+诊断属于持久内部数据，必须保持有界且不进入 Remote 投影。无法关闭 reasoning 的 Provider 仍可能不给文本；这类失败继续通过同一分类和诊断暴露，而不会放宽 JSON Schema。

@@ -1668,7 +1668,7 @@ describe('man-roleplayer real Loader composition', () => {
     expect(await ctx.manRoleplayer.activeTurn(id)).toBeUndefined()
   })
 
-  it.each(['activeTimeoutMs', 'requestTimeoutMs'] as const)('stops an acknowledged background turn at its real %s budget and allows retry', async budget => {
+  it.each(['activeTimeoutMs', 'requestTimeoutMs'] as const)('stops an acknowledged background turn at its real %s budget and allows retry', async (budget) => {
     root = await mkdtemp(join(tmpdir(), 'dsh-man-roleplayer-real-timeout-'))
     const ctx = await loadComposition(join(root, 'sessions'), undefined, undefined, { provider: 'mock', model: 'mock' }, false, {
       activeTimeoutMs: 2_000, requestTimeoutMs: 1_000, stopTimeoutMs: 100, [budget]: 30,
@@ -1678,7 +1678,9 @@ describe('man-roleplayer real Loader composition', () => {
     const id = dilemmaId(`real-timeout-${budget}`)
     await ctx.manRoleplayer.create({ id, requestId: requestId('real-create'), branches: [{ persona: 'wang-yangming', sessionId: sessionId(`real-wang-${budget}`) }], activePersona: 'wang-yangming', agentOptions: { provider: 'mock', model: 'mock' } })
     await ctx.manRoleplayer.submitMessage(id, { messageId: messageId('real-message'), deliveryOperationId: deliveryOperationId('real-delivery'), turnOperationId: turnOperationId('real-turn'), text: '你好', requestId: requestId('real-submit'), acknowledgeOnly: true })
-    for (let attempt = 0; attempt < 100 && await ctx.manRoleplayer.activeTurn(id) !== undefined; attempt++) await new Promise(resolve => setTimeout(resolve, 5))
+    for (let attempt = 0; attempt < 100 && await ctx.manRoleplayer.activeTurn(id) !== undefined; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 5))
+    }
     const repository = (ctx.manRoleplayer as unknown as { repository: ProductConversationRepository }).repository
     expect((await repository.readEvents(id))?.findLast(event => event.type === 'turn-budget')).toMatchObject({ status: 'budget-exhausted' })
     const retried = await ctx.manRoleplayer.retryMessage(id, messageId('real-message'), turnOperationId('real-turn'), requestId('real-retry'))
@@ -1694,7 +1696,9 @@ describe('man-roleplayer real Loader composition', () => {
     const agent = ctx.agents.get(branch.sessionId)!
     vi.spyOn(agent, 'followup').mockImplementationOnce(() => { throw new Error('local followup failure') })
     await ctx.manRoleplayer.submitMessage(id, { messageId: messageId('ack-message'), deliveryOperationId: deliveryOperationId('ack-delivery'), turnOperationId: turnOperationId('ack-turn'), text: '你好', requestId: requestId('ack-submit'), acknowledgeOnly: true })
-    for (let attempt = 0; attempt < 100 && await ctx.manRoleplayer.activeTurn(id) !== undefined; attempt++) await new Promise(resolve => setTimeout(resolve, 5))
+    for (let attempt = 0; attempt < 100 && await ctx.manRoleplayer.activeTurn(id) !== undefined; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 5))
+    }
     ctx.llm.registerAdapter(['mock'], new MockAdapter([toolCallResponse('ack-retry-submit', 'persona_turn_submit', { segments: [{ text: '请说说你的具体困惑。', kind: 'modern-inference', evidenceIds: [] }] }), textResponse('')]))
     const retried = await ctx.manRoleplayer.retryMessage(id, messageId('ack-message'), turnOperationId('ack-turn'), requestId('ack-retry'))
     expect(retried.timeline).toContainEqual(expect.objectContaining({ id: 'retry:ack-message:ack-retry', status: 'completed' }))
@@ -1718,7 +1722,9 @@ describe('man-roleplayer real Loader composition', () => {
     expect(events?.some(event => event.type === 'turn-execution' && event.turnOperationId === turnOperationId('stop-timeout-turn') && (event.state === 'stop-failed' || event.state === 'unknown'))).toBe(true)
     await expect(ctx.manRoleplayer.acceptPersonaTurnSubmission(ctx.agents.get(branch.sessionId), { segments: [{ text: '这是已经取消的旧回答。', kind: 'modern-inference', evidenceIds: [] }] })).rejects.toThrow(/no longer open/)
     await expect(ctx.manRoleplayer.switchPersona(id, 'zeng-guofan', requestId('stop-timeout-switch'))).rejects.toThrow(/still running|stop-failed|unknown/)
-    for (let attempt = 0; attempt < 100 && await ctx.manRoleplayer.activeTurn(id) !== undefined; attempt++) await new Promise(resolve => setTimeout(resolve, 5))
+    for (let attempt = 0; attempt < 100 && await ctx.manRoleplayer.activeTurn(id) !== undefined; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 5))
+    }
     expect(await ctx.manRoleplayer.activeTurn(id)).toBeUndefined()
     expect((await (ctx.manRoleplayer as unknown as { repository: ProductConversationRepository }).repository.readEvents(id))?.findLast(event => event.type === 'turn-execution')).toMatchObject({ state: 'stopped' })
   })
@@ -1923,13 +1929,22 @@ describe('man-roleplayer real Loader composition', () => {
       deliveryOperationId: 'reply-follow-up-delivery' as ManRoleplayerOperationId, turnOperationId: 'reply-follow-up-turn' as ManRoleplayerOperationId,
       text: '我准备先完成粗稿，但担心又开始反复修改，应该怎样确定停止点？', replyToTimelineEventId: 'reply-source-turn',
     })
-    expect(sent).toMatchObject({ ok: true, value: { timeline: expect.arrayContaining([expect.objectContaining({ id: 'reply-follow-up', replyToTimelineEventId: 'reply-source-turn' })]) } })
+    expect(sent.ok).toBe(true)
+    if (!sent.ok) throw new Error(sent.error.message)
+    expect(sent.value.timeline).toContainEqual(expect.objectContaining({
+      id: 'reply-follow-up', replyToTimelineEventId: 'reply-source-turn',
+    }))
     await waitForBackgroundQuiet(ctx)
     await ctx.fiber.dispose()
     contexts.splice(contexts.indexOf(ctx), 1)
     const reloaded = await loadComposition(sessionsRoot)
     const restored = await reloaded.get('manRoleplayerRemote')!.getProjection({ version: 1, handle: before.handle })
-    expect(restored).toMatchObject({ ok: true, value: { timeline: expect.arrayContaining([expect.objectContaining({ id: 'reply-follow-up', kind: 'user-message', status: 'delivered', text: '我准备先完成粗稿，但担心又开始反复修改，应该怎样确定停止点？', replyToTimelineEventId: 'reply-source-turn' })]) } })
+    expect(restored.ok).toBe(true)
+    if (!restored.ok) throw new Error(restored.error.message)
+    expect(restored.value.timeline).toContainEqual(expect.objectContaining({
+      id: 'reply-follow-up', kind: 'user-message', status: 'delivered',
+      text: '我准备先完成粗稿，但担心又开始反复修改，应该怎样确定停止点？', replyToTimelineEventId: 'reply-source-turn',
+    }))
     expect(JSON.stringify(restored)).not.toContain('sessionId')
   })
 

@@ -1,26 +1,24 @@
 # @deepseek-ai/dsh-attachment-local
 
-English | [中文](README.zh.md)
+这是 [`@deepseek-ai/dsh-attachment`](../attachment) 的私有本地实现。对象存放在 `<DSH_HOME>/attachments/v1/objects/<sha256-prefix>/<sha256>`，并通过不透明的 `sha256:` 标识符寻址。每个进程都会把每级祖先目录项同步到文件系统根目录，以此一次性证明 home 已持久化。写入使用私有暂存目录、仅所有者可访问的文件、经过同步的临时文件、原子且排他的硬链接发布，并对发布路径执行目录同步（适用于 POSIX；Windows 依赖文件系统元数据日志），确保已报告的引用能够在崩溃后继续存在。
 
-The private local implementation of [`@deepseek-ai/dsh-attachment`](../attachment). Objects land at `<DSH_HOME>/attachments/v1/objects/<sha256-prefix>/<sha256>` and are addressed by an opaque `sha256:` id. Each process proves a home durable once by syncing every ancestor entry to the filesystem root. Writes use a private staging directory, owner-only files, a synced temporary file, an atomic exclusive hard-link publish, and directory syncs on the publication path (POSIX; Windows relies on filesystem metadata journaling) so the reported reference survives a crash.
+每条消息最多准入 20 张图片，源图编码字节总量不超过 200MiB。每张源图不得超过 20MiB、64,000,000 像素和单边 8192px。随后生成提供方无关的规范化附件：应用 EXIF 方向，删除元数据和色彩配置文件，转换为 8-bit sRGB/sRGBA，并保持宽高比把长边限制到 `normalizedImageMaxDimension`（默认 2048px）。规范化附件有独立的 `normalizedImageMaxBytes` 安全上限（默认 4MiB）。透明像素会保留；当所有 alpha 样本均为不透明时，Sharp/libvips 可能省略没有实际作用的 alpha 平面。系统用 nearest-neighbour 对有界样本分类，不会通过像素平均把高频图片误判为低色数。确认的低色数图片先尝试 PNG，只有不带 alpha 通道时才使用 palette，随后依次尝试质量 85、80、75 的 WebP；其他透明图片依次尝试这些质量的 WebP；其他非透明图片依次尝试这些质量的 JPEG。只有前一个候选超限时才会执行下一个候选；同一尺寸的候选全部超限后才缩小尺寸。已经处于两个规范化上限内的干净、单帧、8-bit sRGB/sRGBA PNG、JPEG 或 WebP 按字节原样直通；16-bit PNG、GIF、动图、元数据、方向和不兼容色彩空间都会触发转换。源图和转换后的附件各完整解码一次。`saveImages` 在发布任何批次成员前为每张图片各准备并验证一次规范化附件，因此校验失败不会留下部分引用，提交阶段也不会重复执行完整图片编码。
 
-Admission accepts at most 20 images and 200MiB of encoded source bytes per message. Each source may use up to 20MiB, 64,000,000 pixels, and 8192px per side. It then prepares a provider-independent normalized attachment. EXIF orientation is applied, metadata and color profiles are removed, pixels become 8-bit sRGB/sRGBA, and the long edge is reduced proportionally to `normalizedImageMaxDimension` (2048px by default). The normalized attachment has its own `normalizedImageMaxBytes` safety cap (4MiB by default). Transparent pixels are retained; Sharp/libvips may omit an alpha plane whose samples are all opaque. A nearest-neighbour bounded sample classifies color complexity without averaging high-frequency pixels. Confirmed low-color images try PNG, using a palette only when the input has no alpha channel, then WebP at qualities 85, 80, and 75. Other alpha images try WebP at those qualities; other opaque images try JPEG. Each candidate runs only after the preceding candidate exceeds the cap. Dimensions shrink only after every candidate at one size exceeds the cap. A clean, single-frame 8-bit sRGB/sRGBA PNG, JPEG, or WebP already within both normalization limits passes through byte-identically; 16-bit PNG, GIF, animated input, metadata, orientation, and incompatible color spaces force conversion. The source and converted attachment are each fully decoded once. `saveImages` prepares and verifies every normalized attachment once before publishing the batch, so validation failure leaves no partial references and commit does not repeat full image encoding.
+请求版本保存在 `<DSH_HOME>/attachments/v1/request-images/`。`readImageRequest` 在不放大小图的前提下，把存储的规范化附件缩放到总像素预算内，再执行独立的编码字节上限。请求编码器使用同一分类分支：低色数图片先尝试 PNG，只有不带 alpha 通道时才使用 palette，再尝试质量 85 和 80 的 WebP；其他透明图片依次尝试质量 85 和 80 的 WebP；其他非透明图片依次尝试质量 85 和 80 的 JPEG。候选按需执行，两个质量档均超限后才缩小尺寸。缓存身份包含附件 ID、变换策略版本、像素和字节预算及固定编码参数。缓存字节在使用前会完整解码并校验为 8-bit sRGB/sRGBA。同一身份的并发调用共享一次变换和缓存写入；取消一个等待方不会取消共享任务。调用方组合单数读取得到有序批次，服务的 FIFO 限流器通过 `imageCompressionConcurrency` 限制同时执行的规范化和请求变换。该配置范围为 1 至 8，默认值为 2；文件发布仍在准备结束后按顺序执行。
 
-Request versions live below `<DSH_HOME>/attachments/v1/request-images/`. `readImageRequest` scales the stored normalized attachment under a total-pixel budget without enlargement, then enforces a separate encoded-byte cap. The request encoder uses the same color branches, with PNG (palette only without alpha) before WebP 85 and 80 for low-color images, WebP 85 then 80 for other alpha images, and JPEG 85 then 80 for other opaque images. It executes candidates lazily and reduces dimensions only after both quality attempts exceed the request cap. Its cache identity includes the attachment id, transform version, pixel and byte budgets, and fixed encoder settings. Cached bytes are fully decoded and checked as 8-bit sRGB/sRGBA before use. Concurrent calls for one identity share one transform and cache write; cancelling one waiter does not cancel the shared work. Callers compose ordered batches from singular reads, while the service's FIFO limiter applies `imageCompressionConcurrency` to simultaneous normalization and request transforms. The setting ranges from 1 through 8 and defaults to 2; file publication remains ordered after preparation.
+`DSH_HOME` 按共享路径策略解析：显式配置、`$DSH_HOME`，最后是 `~/.dsh`。会话日志只包含引用和经过校验的元数据，绝不包含这个宿主路径。`readImage` 会把可选取消信号传入文件系统读取、在校验前后观察该信号，并保留取消语义，而不会将其包装成 `ATTACHMENT_READ_FAILED`。
 
-`DSH_HOME` resolves through the shared path policy: explicit config, `$DSH_HOME`, then `~/.dsh`. Session logs contain only the reference and verified metadata, never this host path. `readImage` forwards optional cancellation into the filesystem read, observes it around verification, and preserves it instead of wrapping it as `ATTACHMENT_READ_FAILED`.
+## 模型体验
 
-## Model Experience
+该包通过重启和 fork 后对历史用户图片与结构化模型图片输出的持久回放间接影响模型。
 
-Indirectly, through durable replay of historical user images and structured model image output after restart and fork.
+#### KV 缓存影响
 
-#### KV Cache effect
+规范化和请求投影都是确定性的。附件和路由策略不变时，之后各轮会复用相同的缓存请求字节。
 
-Normalization and request projection are deterministic. An unchanged attachment and route policy reuse identical cached request bytes on later turns.
+## 已知限制与待完成工作
 
-## Known Limitations and Deferred Work
-
-- Objects are retained indefinitely; reference-aware garbage collection is deferred.
-- The local backend assumes the host and provider adapter share this filesystem service.
-- Animated GIF sources keep only their first frame; animation is outside the version-one image contract.
-- The normalization and request encoders are pinned by the installed sharp/libvips build; an encoder or transform-version upgrade re-addresses future normalized attachments or request variants while existing objects stay valid.
+- 对象会无限期保留；基于引用的垃圾回收尚未实现。
+- 本地后端假定宿主与提供方适配器共享同一个文件系统服务。
+- 动态 GIF 源图只保留首帧；动画在版本一图片契约之外。
+- 规范化和请求版本编码器由安装的 sharp/libvips 构建钉定；编码器或变换策略版本升级会让未来的规范化附件或请求变体产生新地址，已有对象保持有效。

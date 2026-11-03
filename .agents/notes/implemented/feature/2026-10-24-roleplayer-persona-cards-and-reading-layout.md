@@ -2,32 +2,30 @@
 
 Status: implemented
 
-English | [中文](2026-10-24-roleplayer-persona-cards-and-reading-layout.zh.md)
-
 ## Problem
 
-The dilemma interface needs an inspectable persona selection experience and a readable conversation without mixing research activity, shared state, and persona-specific interpretation. A visual redesign must preserve the product's authoritative lifecycle and recently repaired choice and connection behavior.
+困惑界面需要让用户充分了解人物后再选择，并在可读对话中分开检索活动、共享状态与人物独立理解。视觉改版必须保留产品权威生命周期以及已修复的选择和连接行为。
 
 ## Decision
 
-The page composes public Button, Input, Menu, Pill, and StateDot primitives into product-specific cards. Portal menus escape sidebar clipping; the product controls keyboard entry and focus restoration. Persona metadata is presentation copy, while state counts, discussion status, and evidence availability derive from the store. CSS keeps shared button variants intact instead of restyling every descendant button.
+页面把公开 Button、Input、Menu、Pill 和 StateDot 基础组件组合为产品卡片。菜单通过 portal 避免侧栏裁切；产品负责键盘进入与焦点恢复。人物元数据属于展示文案，状态数量、讨论状态与资料可用性均从 store 派生。CSS 保留公共按钮变体，不统一覆盖所有后代按钮样式。
 
-The product keeps its own root and registers a private persona-card child slot. Cards consume the Host roster and local presentation metadata; browsing, flipping, and selecting are view state, while explicit confirmation invokes existing create or switch operations. The reading layout uses collapsible navigation and separate state, perspective, and evidence tabs. Remote failures remain observable and drafts stay keyed by dilemma.
+产品保留自身root并注册私有人物卡子slot。卡片消费Host人物目录及本地展示元数据；浏览、翻面、选定属于界面状态，明确确认后才调用已有create或switch操作。阅读布局使用可收起导航及独立的状态、人物视角、资料依据标签。Remote失败仍然可见，草稿按困惑保留。
 
-Portraits ship as PNG files in the Web frontend public directory and use the existing static fallback. They are original artistic interpretations, not historical likeness claims. The PNG MIME entry serves this shipped asset class. The client bundle contains URLs rather than base64 image data, and no new plugin asset route or runtime dependency is introduced.
+肖像以PNG文件随Web前端public目录发布，使用已有静态fallback。它们是原创艺术演绎，不主张历史真容。PNG MIME条目服务实际发布的这一类素材。客户端bundle只包含URL，不包含base64图像，不新增插件资源路由或运行依赖。
 
-Explicit replies use the existing persisted reply id. The client validates a completed answer from the selected dilemma's current persona before sending it; the product and Remote projection retain the association during replay. Switching persona clears the reply target. State actions remain versioned Host mutations; the interface does not implement apparent undo by restoring a local business snapshot.
+显式回复使用已有持久化回复ID。客户端发送前验证目标为当前困惑、当前人物已完成回答；产品与Remote投影在重放时保留关联。切换人物清除回复对象。状态操作仍是带版本的Host变更，界面不通过恢复本地业务快照伪造撤销。
 
-The product root owns the light document presentation while mounted and restores the previous appearance on unmount. The card gallery uses its own border-box sizing because its public Modal primitive portals outside the product root's CSS scope.
+产品root挂载期间拥有文档浅色呈现，卸载时恢复原外观。卡册自行设置border-box尺寸，因为公开Modal基础组件通过portal挂在产品root的CSS范围之外。
 
 ## Alternatives considered
 
-Enabling the ordinary DSH layout and conversation plugins would restore coding-workspace behavior and competing root ownership. Importing those plugins' internal components would bypass their slot contracts. The product instead reuses public primitives and theme tokens while owning its domain layout. Adding a general plugin-assets route or embedding every portrait in JavaScript would enlarge shared infrastructure or startup payload; the existing frontend asset pipeline already serves the required files.
+启用普通DSH布局和会话插件会恢复编码工作区行为并产生root所有权竞争；导入它们的内部组件则绕过slot契约。因此产品复用公开基础组件和主题令牌，自行拥有领域布局。新增通用插件资源路由或把所有肖像嵌入JavaScript会扩大共享基础设施或启动负载；已有前端素材管线足以提供所需文件。
 
 ## Consequences
 
-The frontend distribution must include the portrait directory alongside the UI bundle. Dynamic roster availability remains authoritative even when presentation metadata includes additional known personas. Backend confirmation, state history, evidence invalidation, waiting choices, unsettled cancellation, and deletion checkpoints remain the acceptance basis; prototype interactions are not substitutes for those operations. This decision complements the active connection-recovery and explicit-choice notes without superseding their lifecycle rules.
+前端发布物必须随UI bundle包含肖像目录。即使展示元数据包含更多已知人物，动态目录的可用性仍由Host决定。后端确认、状态沿革、依据失效、等待选择、取消未停稳与删除checkpoint仍是验收依据，原型交互不能替代这些操作。该决定补充仍有效的连接恢复和显式选择记录，不取代其生命周期规则。
 
 ## Testing
 
-Component tests cover explicit card confirmation, failure and offline states, responsive-panel focus, draft retention, and view actions. Store and real Loader tests verify reply ids in outgoing requests, reject stale or cross-persona targets, and reload the persisted association. The static-server Loader test verifies PNG bytes and MIME. Assembled browser verification uses the product profile and the same fixed local port.
+组件测试覆盖卡片明确确认、失败与离线、响应式面板焦点、草稿保留与界面操作。Store与真实Loader测试验证出站请求的回复ID，拒绝失效或跨人物目标，并重载持久化关联。静态服务Loader测试核验PNG字节和MIME。组装后浏览器验证使用产品profile与固定本地端口。

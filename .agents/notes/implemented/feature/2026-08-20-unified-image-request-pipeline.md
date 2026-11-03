@@ -1,69 +1,67 @@
-# Agent Note: Unified normalized attachments, request versions, and provider files
+# Agent Note: 统一规范化附件、请求版本与提供方文件
 
 Status: implemented
 
-English | [中文](2026-08-20-unified-image-request-pipeline.zh.md)
-
 ## Problem
 
-Durable image history, provider resolution, inline request size, and remote file reuse have different limits. Treating an admitted image as the bytes sent on every later request forced one byte cap and one raster to serve all four concerns. Large but ordinary input was refused, clean 16-bit PNG could pass into history and fail at DeepSeek, repeated base64 expanded long requests, and a provider rejection repeated because the same durable image stayed in every future request.
+持久图片历史、提供方分辨率、内联请求大小和远端文件复用有不同限制。过去把已接纳图片直接作为之后每次请求发送的字节，导致一个字节上限和一份光栅同时承担四种职责。普通大图会被拒绝；干净的 16-bit PNG 可以进入历史，之后才被 DeepSeek 拒绝；重复 base64 使长会话请求持续增长；提供方拒绝后，同一持久图片还会进入每次后续请求。
 
 ## Decision
 
-The image path has two explicit versions. The attachment backend owns a provider-independent durable normalized attachment. Each image-capable model route owns a deterministic request policy, and the attachment backend derives and caches the exact request version from that attachment. Session history contains only the normalized attachment reference; inline bytes and provider file ids remain transient request projections.
+图片路径有两个显式版本。附件后端拥有提供方无关的持久规范化附件。每条支持图片的模型路由拥有确定性请求策略，附件后端从该附件派生并缓存确切请求版本。会话历史只包含规范化附件引用；内联字节和提供方文件 ID 都是瞬时请求投影。
 
-### Provider-independent normalized attachment
+### 提供方无关的规范化附件
 
-Admission accepts at most 20 images and 200MiB of encoded source bytes per message. Each source is fully decoded under configurable 20MiB, 64,000,000-pixel, and 8192px-per-side limits. Normalization applies EXIF orientation, removes metadata and color profiles, converts to 8-bit sRGB/sRGBA, and preserves aspect ratio while limiting the long edge to `normalizedImageMaxDimension`, 2048px by default. When scaling reduces the raster, `originalDimensions` records its orientation-applied width and height before normalization.
+每条消息最多准入 20 张图片，源图编码字节总量不超过 200MiB。每张源图会在可配置的 20MiB、64,000,000 像素和单边 8192px 限制内完整解码。规范化过程会应用 EXIF 方向，删除元数据和色彩配置文件，转换为 8-bit sRGB/sRGBA，并保持宽高比把长边限制到 `normalizedImageMaxDimension`，默认 2048px。缩放减小光栅时，`originalDimensions` 记录规范化之前、应用方向之后的输入宽高。
 
-The normalized attachment has an independent `normalizedImageMaxBytes` safety cap, 4MiB by default. Alpha is never flattened. A nearest-neighbour bounded sample classifies color complexity without averaging high-frequency pixels. Confirmed low-color input tries PNG, with palette encoding only when no alpha channel is present, followed by WebP qualities 85, 80, and 75. Other alpha input tries WebP at those qualities; other opaque input tries JPEG. Candidates execute in order and stop at the first result within the cap. Dimensions shrink only after every candidate at one size exceeds the cap. The source extension does not classify a PNG as low color. A clean, single-frame 8-bit sRGB/sRGBA PNG, JPEG, or WebP within both normalization limits passes through byte-identically and retains content-addressed deduplication. GIF, animation, metadata, orientation, 16-bit PNG, and incompatible color spaces force conversion. The source and a converted output are each fully decoded once; the output must match its format, dimensions, depth, color space, and alpha facts before its digest enters the reference.
+规范化附件有独立的 `normalizedImageMaxBytes` 安全上限，默认 4MiB。透明通道绝不铺平。系统通过 nearest-neighbour 对有界样本判断色彩复杂度，不会通过像素平均把高频图片误判为低色数。确认的低色数输入先尝试 PNG，只有不带 alpha 通道时才使用 palette，随后依次尝试质量 85、80、75 的 WebP；其他透明输入依次尝试这些质量的 WebP；其他非透明输入依次尝试这些质量的 JPEG。候选按顺序执行，首个不超过上限的结果会立即返回。同一尺寸的候选全部超限后才会缩小尺寸。源扩展名不会把 PNG 归类为低色数图片。处于两个规范化上限内的干净、单帧、8-bit sRGB/sRGBA PNG、JPEG 或 WebP 按字节原样直通，并保留内容寻址去重。GIF、动图、元数据、方向、16-bit PNG 和不兼容色彩空间都会触发转换。源图和转换输出各完整解码一次；输出的格式、尺寸、位深、色彩空间和透明通道事实通过校验后，其摘要才会进入引用。
 
-Batch admission prepares and verifies every normalized attachment once before publishing any member. Validation failure starts no writes. Publication uses those prepared bytes directly, so a large batch does not repeat full decoding and encoding during commit. A later storage failure returns no partial references; already published immutable objects may remain unreachable under the existing storage rule.
+批量准入在发布任何成员前，为每张图片各准备并验证一次规范化附件。校验失败不会开始写入。发布直接使用这些已准备字节，因此大批次不会在提交时重复完整解码和编码。之后发生的存储失败不会返回部分引用；按现有存储规则，已经发布的不可变对象可能保持不可达。
 
-### Deterministic request versions
+### 确定性请求版本
 
-`AttachmentStore.readImageRequest` derives a request version under route-owned total-pixel and encoded-byte budgets. Scaling is `min(1, sqrt(maxPixels / (width * height)))`, with no enlargement, followed by inward integer rounding so the encoded raster never exceeds the total-pixel cap. DeepSeek V4 Flash Vision Exp uses 640,000 total pixels and 1MiB raw encoded bytes by default; low detail uses 512 by 512 total pixels. A 2048 by 1024 normalized attachment projects to 1130 by 565 under the hard cap. Request encoding uses the same color branches, with PNG (palette only without alpha) then WebP 85 and 80 for low-color input, WebP 85 then 80 for other alpha input, and JPEG 85 then 80 for other opaque input. Each fallback runs only after the previous result exceeds 1MiB, and dimensions shrink only after both quality attempts exceed it. The same derivation is used by normal agent turns, direct `ctx.llm.stream` calls, compaction, and other auxiliary streams.
+`AttachmentStore.readImageRequest` 按路由拥有的总像素和编码字节预算派生请求版本。缩放公式为 `min(1, sqrt(maxPixels / (width * height)))`，不会放大小图，随后向预算内取整，确保编码光栅不超过总像素上限。DeepSeek V4 Flash Vision Exp 默认使用总像素 640,000 和原始编码字节 1MiB；low detail 使用总像素 512×512。2048×1024 规范化附件在这个硬上限下会投影为 1130×565。请求编码使用相同的分类分支：低色数输入先尝试 PNG，只有不带 alpha 通道时才使用 palette，随后依次尝试质量 85、80 的 WebP；其他透明输入依次尝试质量 85、80 的 WebP；其他非透明输入依次尝试质量 85、80 的 JPEG。只有前一结果超过 1MiB 时才执行下一个候选；两个质量档都超限后才缩小尺寸。普通 agent 轮次、直接 `ctx.llm.stream` 调用、压缩和其他辅助流都使用同一派生过程。
 
-The `variantId` and cache path cover the normalized attachment id, transform version, route pixel and byte budgets, and fixed encoder parameters. A new cache entry is fully decoded before publication. Cache hits use a header probe to check format, 8-bit sRGB/sRGBA facts, dimensions, alpha, and byte limits without decoding the complete raster again; a mismatch regenerates the entry. DeepSeek Files and pi-ai inline base64 therefore use the same deterministic bytes for the same policy. Inline accounting uses the derived byte length after base64 expansion, not the normalized attachment byte count. Equal in-process `variantId` calls share one transform and cache write. Each caller can cancel its own wait; the shared transform is aborted only after every waiter has cancelled. Callers preserve order by applying `Promise.all` to singular `readImageRequest` calls. The local implementation runs normalization and request transforms through one FIFO limiter; `imageCompressionConcurrency` is configurable from 1 through 8 and defaults to 2. Batch publication remains sequential after every normalized attachment has been prepared.
+`variantId` 和缓存路径覆盖规范化附件 ID、变换策略版本、路由像素和字节预算及固定编码参数。新缓存条目在发布前会完整解码。缓存命中只探测文件头，校验格式、8-bit sRGB/sRGBA、尺寸、透明通道和字节上限，不会再次完整解码光栅；不匹配时会重新生成。因此，同一策略下的 DeepSeek Files 和 pi-ai 内联 base64 使用相同的确定性字节。内联计量使用派生字节经过 base64 膨胀后的长度，不使用规范化附件字节数。同一进程内相同 `variantId` 的调用共享一次变换和缓存写入。每个调用方可以取消自己的等待；只有全部等待方都取消时，共享变换才会中止。调用方对单数 `readImageRequest` 使用 `Promise.all` 保持结果顺序。本地实现通过一个 FIFO 限流器运行规范化和请求变换，`imageCompressionConcurrency` 的可配置范围为 1 至 8，默认值为 2。全部规范化附件准备完成后，批次仍按顺序发布。
 
-Request-size offload is a deterministic oldest-first projection. Before reading attachments, each route uses `min(attachmentBytes, requestVersionMaxBytes)` as a conservative upper bound and removes the oldest over-budget prefix. Only retained attachments are read and transformed, so an omitted missing or corrupt object cannot block the request. A second projection uses exact derived lengths without bringing omitted images back. DeepSeek defaults to 128MiB and 600 referenced images. Its removed prefix advances past successive 64MiB byte boundaries and in 20-image count quanta, so 129 one-megabyte images remove the oldest 65, retain 64MiB, and keep that prefix stable until total history passes 192MiB. Pi-ai retains a configurable base64 request bound. A text-only route receives deterministic attachment placeholders, including nested tool-result images, while append-only session history keeps the original references.
+请求大小 offload 是确定性的从旧到新投影。读取附件前，每条路由先以 `min(附件字节数, 请求版本字节上限)` 作为保守上界，移除超出预算的最旧前缀。系统只读取并转换保留的附件，因此已省略的缺失或损坏对象不会阻塞请求。第二次投影使用确切派生长度，但不会重新加入已省略图片。DeepSeek 默认上限为 128MiB 和 600 张引用图片。被移除前缀会越过连续的 64MiB 字节边界，并按 20 张图片数量步长递增，因此 129 张 1MiB 图片会移除最旧的 65 张并保留 64MiB；持久历史超过 192MiB 前，该前缀保持不变。Pi-ai 保留可配置的 base64 请求上限。纯文本路由会收到确定性的附件占位文本，其中包括嵌套工具结果图片；追加式会话历史继续保留原始引用。
 
-### Stable handles
+### 稳定句柄
 
-Every retained request image is preceded by its complete attachment id and actual request dimensions. User messages, tool results, agent-loop requests, compaction, and direct `ctx.llm.stream` calls share this projection.
+每张保留请求图片前都有完整附件 ID 和实际请求尺寸。用户消息、工具结果、agent loop 请求、压缩和直接 `ctx.llm.stream` 调用共享这套投影。
 
-### DeepSeek Files lifecycle
+### DeepSeek Files 生命周期
 
-The direct `deepseek-official` adapter normally uploads every retained request version through the OpenAI-compatible Files API and sends `file_id` content blocks. A [bounded inline fallback](../bug-fix/2026-08-21-deepseek-files-inline-fallback.md) sends the same deterministic request versions when file resolution fails. The default catalog advertises `deepseek-v4-flash-vision-exp` as image-capable. Uploaded ids are indexed by endpoint and API-key scope plus `variantId`. Uploads request seven days by default and record the returned `expires_at`; a mapping with no more than one hour remaining is replaced without a preceding retrieve call. The index never stores the API key.
+直接 `deepseek-official` 适配器通常通过 OpenAI 兼容 Files API 上传每张保留的请求版本，并发送 `file_id` 内容块。文件解析失败时，[有界内联回退](../bug-fix/2026-08-21-deepseek-files-inline-fallback.md)会发送相同的确定性请求版本。默认 catalog 把 `deepseek-v4-flash-vision-exp` 公布为支持图片。上传 ID 按端点和 API key 作用域以及 `variantId` 写入索引。上传默认请求 7 天有效期，并记录返回的 `expires_at`；本地映射剩余时间不超过一小时时会直接替换，不会先查询远端文件。索引绝不存储 API key。
 
-An upload is indexed only after the response returns a complete file object, matching byte count, and `expires_at`. A missing or inconsistent response leaves no local mapping, so a later request uploads again. Concurrent upload resolution for one scoped `variantId` shares one provider operation; one waiter cannot cancel another, and the upload stops when every waiter has cancelled. A malformed upload index is an empty cache and is replaced on the next successful upload; filesystem I/O failures remain errors. If chat reports expired, deleted, missing, or invalid ids and names one or more ids used by the request, only those mappings are removed. A stale-file response without a specific id removes every mapping used by that chat attempt. The affected request bytes are uploaded again and chat is retried once. A second stale rejection clears the mappings identified by its response and returns the error without a third chat attempt. One upload quota error first lists the configured number of oldest harness-owned `dsh-` files, then deletes that collected set and retries once; deleting after pagination keeps provider cursors valid. Public file operations expose list, retrieve, delete, one-variant release, and namespace-wide release. Every Files request carries the shared Harness `User-Agent`. The client enforces the documented 128MiB upload limit, 32MiB chat-image limit, 10,000-file and 25GiB quotas, and one-hour to 30-day expiry range.
+只有上传响应返回完整文件对象、匹配的字节数和 `expires_at` 时，上传结果才会写入索引。缺失或不一致的响应不会留下本地映射，后续请求会重新上传。同一作用域和 `variantId` 的并发解析共享一次提供方上传；单个等待方无法取消其他等待方，全部等待方取消时才会停止上传。格式损坏的上传索引按空缓存处理，并在下一次成功上传时替换；文件系统 I/O 失败仍是错误。如果 chat 报告 ID 已过期、删除、缺失或无效，并指出本次请求使用的一个或多个 ID，适配器只删除这些映射。如果响应只说明文件状态失效而没有指出具体 ID，适配器会删除该次 chat 使用的全部映射。受影响的请求字节会重新上传，chat 只重试一次。第二次仍报告文件失效时，适配器会按响应清理映射并返回错误，不会发起第三次 chat。一次上传配额错误会先列出配置数量的最旧 `dsh-` 文件，再删除收集到的文件并重试一次；分页完成后才删除，避免游标失效。公开文件操作提供列表、查询、删除、单个变体释放和整个作用域释放。每个 Files 请求都携带 Harness 的共享 `User-Agent`。客户端执行文档规定的 Files 单次上传 128MiB、chat 单图 32MiB、10,000 个文件、25GiB，以及一小时到 30 天有效期限制。
 
-### Diagnostics
+### 诊断
 
-A 16-bit RGB or RGBA PNG is normal admitted input and converts to 8-bit sRGB/sRGBA. If local conversion fails, `read_image` names the path, detected 16-bit PNG, required normalized form, and manual conversion remedy. If DeepSeek rejects a normalized request version, the primary error names the attachment or display name, durable message and image position, normalized media type, 8-bit sRGB/sRGBA depth, dimensions, and provider message. An ambiguous multi-image rejection lists every candidate. The raw provider body remains the error cause rather than the only visible message.
+16-bit RGB 或 RGBA PNG 属于普通可接纳输入，会转换为 8-bit sRGB/sRGBA。本地转换失败时，`read_image` 会写明路径、检测到的 16-bit PNG、所需规范形式和手工转换方法。如果 DeepSeek 拒绝已规范化请求版本，主错误会写明附件 ID 或显示名称、持久消息和图片位置、规范化媒体类型、8-bit sRGB/sRGBA 位深、尺寸和提供方消息。多图片错误无法确定对象时会列出全部候选图片。原始提供方正文保留为错误 cause，不会成为唯一可见消息。
 
-Historical attachment objects that later disappear or fail integrity verification remain fail-loud. Durable quarantine and verified recovery require session events and are tracked by [Quarantine unreadable historical attachments](../../proposed/bug-fix/2026-08-20-attachment-read-quarantine.md).
+持久附件对象之后缺失或无法通过完整性校验时，系统仍会明确失败。持久隔离和经校验恢复需要新增会话事件，由[隔离不可读历史附件](../../proposed/bug-fix/2026-08-20-attachment-read-quarantine.md)继续跟踪。
 
 ## Alternatives considered
 
-**Use one 1MiB normalized attachment for storage and requests.** This makes model resolution determine durable image detail and combines local storage, inline expansion, Files quota, and model pixels into one setting. Independent normalization and request policies keep those responsibilities explicit.
+**使用一份 1MiB 规范化附件同时负责存储和请求。** 这种做法让模型分辨率决定持久图片细节，并把本地存储、内联膨胀、Files 配额和模型像素合并成一个设置。独立的规范化和请求策略会明确区分这些职责。
 
-**Reject images above provider dimensions or at the encoding quality floor.** A provider limit is route-specific and future requests may use another model. Proportional normalization and request projection accept ordinary large images while bounding each later representation.
+**拒绝超过提供方尺寸或达到编码质量下限的图片。** 提供方限制属于具体路由，未来请求可能改用另一个模型。按比例规范化和投影请求版本可以接纳普通大图，同时约束每种后续表示。
 
-**Treat PNG as a screenshot and reject 16-bit PNG.** File format does not reveal pixel complexity, and 16-bit RGB/RGBA is a convertible sample depth rather than an unsupported image type. Pixel sampling and post-conversion probes give the required facts.
+**把 PNG 当作截图，并拒绝 16-bit PNG。** 文件格式不能说明像素复杂度，16-bit RGB/RGBA 是可转换位深，不是不支持的图片类型。像素采样和转换后探测能提供所需事实。
 
-**Keep DeepSeek data URLs as the primary transport.** Inline base64 repeats bytes on every request and caps usable image history by request-body size. Files API references reuse uploaded deterministic request bytes and provide explicit expiry and deletion; the bounded fallback uses data URLs only when file resolution fails.
+**把 DeepSeek data URL 作为首选传输方式。** 内联 base64 会在每次请求中重复字节，并按请求正文大小限制可用图片历史。Files API 引用会复用上传后的确定性请求字节，并提供显式有效期和删除操作；有界回退只在文件解析失败时使用 data URL。
 
-**Trust a locally indexed file id indefinitely.** Remote expiry, deletion, and lost upload responses make local and provider state diverge. Response-directed invalidation and one re-upload recover without an unbounded retry loop; an ambiguous stale-file response must invalidate every file used by that attempt because it provides no safe exact target.
+**永久信任本地索引中的文件 ID。** 远端过期、删除和上传响应丢失会使本地与提供方状态不一致。按响应失效和一次重新上传可以恢复，同时避免无界重试；响应没有给出可安全使用的精确目标时，必须使该次请求使用的全部文件失效。
 
-**Refuse text-only model selection after any image.** Durable history can outlive the model that first consumed it. Request-local placeholders keep the session usable without rewriting history.
+**历史中出现图片后拒绝选择纯文本模型。** 持久历史可能比最初读取它的模型存活更久。按请求生成的占位文本可以保持会话可用，无需改写历史。
 
-**Remove one image whenever a request crosses its limit.** That changes an early request message after nearly every new upload. Quantized removed prefixes keep cache invalidation occasional while honoring the configured high bound.
+**请求每次越过上限就移除一张图片。** 这种做法会在几乎每次新增图片后改写较早的请求消息。按固定步长递增的移除前缀会降低缓存失效频率，同时遵守配置的上限。
 
 ## Verification
 
-Package tests generate 16-bit RGB and RGBA PNG fixtures, prove 8-bit conversion and clean 8-bit passthrough, retain alpha under byte pressure, distinguish high-frequency and ordinary photos from low-color graphics, stop lazy encoding after the first fitting candidate, cover square and wide 640,000-pixel projections, enforce 1MiB request bytes, singleflight equal variants and uploads without shared-cancellation leaks, bound transform concurrency, preserve cache and upload identity, skip attachment reads for conservatively offloaded history, prepare batches once, reject inconsistent Files responses, refresh near-expiry ids without retrieve, recover once from single-id, multiple-id, and ambiguous stale responses, fall back to bounded all-inline requests after file resolution failure, paginate before quota deletion, normalize provider diagnostics, project text-only history, and share normal/compaction request bytes. Keyless assembled snapshots cover the real tool schemas and image request path. A credentialed test uses the built-in `deepseek-official` route and its configured endpoint, never a custom provider entry.
+包测试会生成 16-bit RGB 和 RGBA PNG fixture，验证 8-bit 转换与干净 8-bit 字节直通、字节压力下保留透明通道、区分高频和普通照片与低色数图形、首个候选合规后停止编码、正方形和宽屏 640,000 像素投影、请求字节不超过 1MiB、相同变体与上传 singleflight 且不会共享取消、变换并发上限、缓存与上传身份、跳过已保守 offload 的历史附件读取、批量只准备一次、Files 响应不一致、进入刷新余量时不查询远端并更新 ID、单个 ID、多个 ID 和模糊失效响应只恢复一次、文件解析失败后回退到有界全内联请求、删除配额文件前完成分页、规范化提供方诊断、纯文本投影，以及普通请求与压缩共享请求字节。无需密钥的组装快照覆盖真实工具 schema 和图片请求路径。使用凭据的测试只使用内置 `deepseek-official` 路由及其已配置端点，不使用自定义提供方条目。
 
 ## Consequences
 
-Normalized attachments consume up to the independent local safety cap, while request caches and remote Files consume additional derived storage. Deterministic identities and singleflight make that work reusable across turns and sessions sharing the same DSH home. Two simultaneous transforms reduce batch latency while increasing peak RSS relative to serial execution; deployments with tighter memory can set the limit to one. Encoder or transform-version changes create new future identities without rewriting existing history. DeepSeek image requests prefer Files reuse; bounded stale-id recovery handles inconsistent remote state, while file-resolution failures use the smaller inline budget. Missing or corrupt durable attachments still require the separate quarantine design.
+持久规范化附件最多占用独立的本地安全上限，请求缓存和远端 Files 还会占用额外派生存储。确定性身份和 singleflight 使这些成本可以被共享同一 DSH home 的轮次和会话复用。同时执行两个变换会降低批次延迟，但峰值 RSS 高于串行执行；内存更紧张的部署可以把上限设为 1。编码器或变换策略版本变化会为未来内容产生新身份，不会改写已有历史。DeepSeek 图片请求优先复用 Files；有界的陈旧 ID 恢复会处理远端状态不一致，文件解析失败则使用较小的内联预算。缺失或损坏的持久附件仍需要单独的隔离设计。

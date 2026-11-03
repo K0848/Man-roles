@@ -1,10 +1,10 @@
 {
   "AGENTS.md": 1950,
   "docs/AGENTS.md": 1320,
-  "docs/architecture.md": 2400,
-  "docs/cordis-primer.md": 600,
-  "docs/defensive-patterns.md": 550,
-  "docs/testing.md": 1150,
+  "docs/reference/dsh/architecture.md": 2400,
+  "docs/reference/dsh/cordis-primer.md": 600,
+  "docs/development/defensive-patterns.md": 550,
+  "docs/development/testing.md": 1150,
   "examples/AGENTS.md": 310,
   "packages/AGENTS.md": 675,
   "packages/README.md": 994

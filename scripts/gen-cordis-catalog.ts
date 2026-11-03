@@ -2,10 +2,8 @@
  * Generate the per-subsystem Cordis service/event reference regions from the
  * Typert catalog projection. Every harness `ctx.<key>` service and event scope
  * maps to exactly one `docs/subsystems/` page through the curated tables below;
- * the generator injects each page's Cordis API reference between its GENERATED markers —
- * into both language sides of the pair, localizing paired document paths for
- * the Chinese side while retaining every other byte — and re-records a pair's
- * `.i18n.yaml` only when nothing outside the region changed. The
+ * the generator injects each canonical Chinese page's Cordis API reference
+ * between its GENERATED markers, preserving API identifiers and source JSDoc. The
  * projection enforces event modes, JSDoc parameter/return completeness, and
  * signature type-link coverage; the inherited (vendor) tier renders to
  * `docs/cordis-api/inherited.md`. `--check` verifies every generated artifact.
@@ -18,7 +16,7 @@
  * a missing regeneration.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import {
   projectCordisCatalog,
@@ -30,18 +28,11 @@ import {
 import type { CordisCatalogPolicy } from '@deepseek-ai/dsh-typert-generator'
 import { renderCordisCoreApiPages } from './cordis-core-api.ts'
 import { contextKeyMap, contextMergeFiles, eventNameList } from './cordis-walk.ts'
-import {
-  blobHash,
-  parsePairMeta,
-  parseTranslationPairingManifest,
-  partitionGeneratedRegions,
-  renderPairMeta,
-  translationPairSourcePredicate,
-} from './translation-pairing.ts'
-import { rewriteTranslationLinkLocales } from './translation-links.ts'
+import { documentationPath, relocateGeneratedDocument } from './documentation-paths.ts'
 
 const root = resolve(import.meta.dirname, '..')
-const SUBSYSTEMS_DIR = 'docs/subsystems'
+const LEGACY_SUBSYSTEMS_DIR = 'docs/subsystems'
+const SUBSYSTEMS_DIR = documentationPath(LEGACY_SUBSYSTEMS_DIR)
 const OUT_INHERITED = 'docs/cordis-api/inherited.md'
 const OUT_RUNTIME_API = 'packages/extensions/tool-cordis/src/api-catalog.ts'
 
@@ -81,6 +72,8 @@ export const SERVICE_PAGE: Record<string, string> = {
   llm: 'llm-streaming.md',
   lsp: 'lsp.md',
   messageFeedback: 'feedback.md',
+  manRoleplayer: 'man-roleplayer.md',
+  manRoleplayerRemote: 'man-roleplayer.md',
   permissionPresets: 'permission-presets.md',
   planMode: 'plan.md',
   terminals: 'terminal.md',
@@ -134,7 +127,7 @@ export const SERVICE_PAGE: Record<string, string> = {
  * to a model as `cordis_runtime_inspect what:"client"`).
  */
 export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
-  agent: 'not a service: the DX accessor field on Agent.ctx (root accessor defaulting to undefined) — docs/subsystems/core.md owns the Agent handle',
+  agent: 'not a service: the DX accessor field on Agent.ctx (root accessor defaulting to undefined) — docs/reference/subsystems/core.md owns the Agent handle',
   appExit: 'not a service: launcher-provided bounded process-exit callback — packages/boot/cmdline/README.md owns the launcher contract',
   cmdlineArgs: 'not a service: launcher-provided immutable app argument accessor — packages/boot/cmdline/README.md owns the launcher contract',
   configuredAgentIdentities: 'not a service: launcher-provided boot-context value (ConfiguredAgentIdentities | undefined) — packages/core/agent-loop/README.md owns this launcher contract',
@@ -151,6 +144,7 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   conversationEvents: 'client-side interface-typed registry — packages/client/runtime/README.md owns the API',
   conversationViews: 'client-side interface-typed registry — packages/client/runtime/README.md owns the API',
   layout: 'client-side interface-typed browser service — packages/client/ui-layout/README.md owns the API',
+  manRoleplayerClient: 'client-side projection store, not a Host service — packages/client/ui-man-roleplayer/README.md owns the browser contract',
   locale: 'client-side interface-typed browser service — packages/client/locale/README.md owns the API',
   modelDirectories: 'client-side interface-typed browser service — packages/client/ui-model-selection/README.md owns the API',
   modules: 'client-side interface-typed browser service — packages/client/modules/README.md owns the API',
@@ -223,6 +217,49 @@ export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
  * appear on more than one page.
  */
 export const LINK_MAP: Readonly<Record<string, string>> = {
+  // Product identities, durable facts and RPC contracts are documented by their owning subsystem.
+  ChoiceAnswer: 'man-roleplayer.md',
+  ClaimSidecarInput: 'man-roleplayer.md',
+  CreateDilemmaOptions: 'man-roleplayer.md',
+  DeletionOperation: 'man-roleplayer.md',
+  DeletionReceipt: 'man-roleplayer.md',
+  DeliveryOperationId: 'man-roleplayer.md',
+  DilemmaConversation: 'man-roleplayer.md',
+  DilemmaId: 'man-roleplayer.md',
+  EvidenceLookupResult: 'man-roleplayer.md',
+  ExecutionState: 'man-roleplayer.md',
+  OperationId: 'man-roleplayer.md',
+  PersonaId: 'man-roleplayer.md',
+  PersonaSnapshot: 'man-roleplayer.md',
+  PersonaTurnSubmission: 'man-roleplayer.md',
+  ProductMessageId: 'man-roleplayer.md',
+  ReconcileMessageOptions: 'man-roleplayer.md',
+  RequestId: 'man-roleplayer.md',
+  RoleplayerCancelRequest: 'man-roleplayer.md',
+  RoleplayerChoiceAnswerRequest: 'man-roleplayer.md',
+  RoleplayerChoiceCancelRequest: 'man-roleplayer.md',
+  RoleplayerCreateRequest: 'man-roleplayer.md',
+  RoleplayerDeleteRequest: 'man-roleplayer.md',
+  RoleplayerDeleteResult: 'man-roleplayer.md',
+  RoleplayerEvidenceRequest: 'man-roleplayer.md',
+  RoleplayerHandleRequest: 'man-roleplayer.md',
+  RoleplayerListRequest: 'man-roleplayer.md',
+  RoleplayerListResult: 'man-roleplayer.md',
+  RoleplayerMutationRequest: 'man-roleplayer.md',
+  RoleplayerProjectionResult: 'man-roleplayer.md',
+  RoleplayerRenameRequest: 'man-roleplayer.md',
+  RoleplayerRetryRequest: 'man-roleplayer.md',
+  RoleplayerRosterResult: 'man-roleplayer.md',
+  RoleplayerStateModifyRequest: 'man-roleplayer.md',
+  RoleplayerStateRequest: 'man-roleplayer.md',
+  RoleplayerStateRetryRequest: 'man-roleplayer.md',
+  RoleplayerSubmitRequest: 'man-roleplayer.md',
+  RoleplayerSwitchRequest: 'man-roleplayer.md',
+  SharedStateItem: 'man-roleplayer.md',
+  StateItemModifyOptions: 'man-roleplayer.md',
+  SubmitMessageOptions: 'man-roleplayer.md',
+  TurnOperationId: 'man-roleplayer.md',
+
   Agent: 'core.md',
   AgentCancelCause: 'core.md',
   AgentFactory: 'core.md',
@@ -667,33 +704,33 @@ export const CORDIS_CATALOG_POLICY: CordisCatalogPolicy = {
     ],
   }],
   inheritedEvents: [
-    { name: 'internal/plugin', summary: 'A plugin fiber was created.', source: 'vendor/cordis/src/events.ts:328' },
-    { name: 'internal/status', summary: 'A fiber changed lifecycle state.', source: 'vendor/cordis/src/events.ts:330' },
-    { name: 'internal/service', summary: 'Interception hook for a service binding (no core producer).', source: 'vendor/cordis/src/events.ts:332' },
-    { name: 'internal/update', summary: 'Waterfall: a fiber config update is being applied.', source: 'vendor/cordis/src/events.ts:334' },
-    { name: 'internal/get', summary: 'Waterfall: a service is being read from the store.', source: 'vendor/cordis/src/events.ts:336' },
-    { name: 'internal/set', summary: 'Waterfall: a service is being written to the store.', source: 'vendor/cordis/src/events.ts:338' },
-    { name: 'internal/listener', summary: 'A listener was registered.', source: 'vendor/cordis/src/events.ts:340' },
-    { name: 'internal/dispatch', summary: 'An event is being dispatched to listeners.', source: 'vendor/cordis/src/events.ts:342' },
-    { name: 'hmr/change', summary: 'A watched source file changed on disk.', source: 'vendor/hmr/src/index.ts:20' },
-    { name: 'hmr/reload', summary: 'Plugins are being reloaded after a change.', source: 'vendor/hmr/src/index.ts:21' },
-    { name: 'exit', summary: 'The process is exiting on a signal.', source: 'vendor/loader/src/index.ts:23' },
-    { name: 'loader/config-update', summary: 'The loader config tree changed.', source: 'vendor/loader/src/index.ts:24' },
-    { name: 'loader/entry-init', summary: 'A config entry is being initialized.', source: 'vendor/loader/src/index.ts:25' },
-    { name: 'loader/partial-dispose', summary: 'An entry is being partially disposed on reload.', source: 'vendor/loader/src/index.ts:26' },
-    { name: 'loader/patch-context', summary: 'A context is being patched during a reload.', source: 'vendor/loader/src/index.ts:27' },
+    { name: 'internal/plugin', summary: '插件 fiber 已创建。', source: 'vendor/cordis/src/events.ts:328' },
+    { name: 'internal/status', summary: 'fiber 生命周期状态发生变化。', source: 'vendor/cordis/src/events.ts:330' },
+    { name: 'internal/service', summary: '服务绑定拦截钩子，核心不会主动发送。', source: 'vendor/cordis/src/events.ts:332' },
+    { name: 'internal/update', summary: 'waterfall：正在应用 fiber 配置更新。', source: 'vendor/cordis/src/events.ts:334' },
+    { name: 'internal/get', summary: 'waterfall：正在从存储读取服务。', source: 'vendor/cordis/src/events.ts:336' },
+    { name: 'internal/set', summary: 'waterfall：正在向存储写入服务。', source: 'vendor/cordis/src/events.ts:338' },
+    { name: 'internal/listener', summary: '监听器已注册。', source: 'vendor/cordis/src/events.ts:340' },
+    { name: 'internal/dispatch', summary: '正在向监听器分发事件。', source: 'vendor/cordis/src/events.ts:342' },
+    { name: 'hmr/change', summary: '监视的源码文件在磁盘上发生变化。', source: 'vendor/hmr/src/index.ts:20' },
+    { name: 'hmr/reload', summary: '源码变化后正在重载插件。', source: 'vendor/hmr/src/index.ts:21' },
+    { name: 'exit', summary: '进程因信号退出。', source: 'vendor/loader/src/index.ts:23' },
+    { name: 'loader/config-update', summary: 'Loader 配置树发生变化。', source: 'vendor/loader/src/index.ts:24' },
+    { name: 'loader/entry-init', summary: '正在初始化配置条目。', source: 'vendor/loader/src/index.ts:25' },
+    { name: 'loader/partial-dispose', summary: '重载期间正在部分销毁条目。', source: 'vendor/loader/src/index.ts:26' },
+    { name: 'loader/patch-context', summary: '重载期间正在为上下文应用补丁。', source: 'vendor/loader/src/index.ts:27' },
   ],
   inheritedServices: [
-    { name: 'ctx.on / ctx.once', summary: 'Register an event listener (disposable).', source: 'vendor/cordis/src/events.ts:34' },
-    { name: 'ctx.emit / ctx.parallel / ctx.serial / ctx.bail / ctx.waterfall', summary: 'Dispatch an event (sync / awaited / first-bail / short-circuit chain).', source: 'vendor/cordis/src/events.ts:34' },
-    { name: 'ctx.plugin / ctx.inject', summary: 'Load a plugin / declare required services.', source: 'vendor/cordis/src/registry.ts:164' },
-    { name: 'ctx.effect', summary: 'Register a disposable side effect tied to the fiber.', source: 'vendor/cordis/src/fiber.ts:9' },
-    { name: 'ctx.get / ctx.set / ctx.provide / ctx.accessor / ctx.mixin', summary: 'Low-level service-store access and binding.', source: 'vendor/cordis/src/reflect.ts:7' },
-    { name: 'ctx.extend / ctx.isolate / ctx.intercept', summary: 'Derive a child context (scoped services / isolation / interception).', source: 'vendor/cordis/src/context.ts:42' },
-    { name: 'ctx.root / ctx.scope / ctx.fiber / ctx.registry / ctx.reflect / ctx.events / ctx.logger', summary: 'Ambient handles onto the running context graph.', source: 'vendor/cordis/src/context.ts:16' },
-    { name: 'ctx.timer (+ interval / timeout / throttle / debounce)', summary: 'Disposable timer helpers. The `timer` key is provided at runtime; the four supported helpers are mixed onto ctx directly (declared via Pick).', source: 'vendor/timer/src/index.ts:4' },
-    { name: 'ctx.loader', summary: 'The config Loader that booted the app (present under the loader).', source: 'vendor/loader/src/index.ts:30' },
-    { name: 'ctx.hmr', summary: 'The hot-module-reload watcher (present under the hmr plugin).', source: 'vendor/hmr/src/index.ts:15' },
+    { name: 'ctx.on / ctx.once', summary: '注册可释放的事件监听器。', source: 'vendor/cordis/src/events.ts:34' },
+    { name: 'ctx.emit / ctx.parallel / ctx.serial / ctx.bail / ctx.waterfall', summary: '分发事件，分别支持同步、等待、首个 bail 或短路链。', source: 'vendor/cordis/src/events.ts:34' },
+    { name: 'ctx.plugin / ctx.inject', summary: '加载插件或声明必需服务。', source: 'vendor/cordis/src/registry.ts:164' },
+    { name: 'ctx.effect', summary: '注册随 fiber 生命周期释放的副作用。', source: 'vendor/cordis/src/fiber.ts:9' },
+    { name: 'ctx.get / ctx.set / ctx.provide / ctx.accessor / ctx.mixin', summary: '访问和绑定底层服务存储。', source: 'vendor/cordis/src/reflect.ts:7' },
+    { name: 'ctx.extend / ctx.isolate / ctx.intercept', summary: '派生子上下文，支持服务作用域、隔离与拦截。', source: 'vendor/cordis/src/context.ts:42' },
+    { name: 'ctx.root / ctx.scope / ctx.fiber / ctx.registry / ctx.reflect / ctx.events / ctx.logger', summary: '访问当前运行上下文图的环境句柄。', source: 'vendor/cordis/src/context.ts:16' },
+    { name: 'ctx.timer (+ interval / timeout / throttle / debounce)', summary: '可释放的定时器辅助方法。timer 键在运行时提供；四个辅助方法通过 Pick 声明直接混入 ctx。', source: 'vendor/timer/src/index.ts:4' },
+    { name: 'ctx.loader', summary: '启动应用的配置 Loader，仅在 Loader 下提供。', source: 'vendor/loader/src/index.ts:30' },
+    { name: 'ctx.hmr', summary: '热模块重载监视器，仅在 hmr 插件下提供。', source: 'vendor/hmr/src/index.ts:15' },
   ],
 }
 
@@ -745,17 +782,24 @@ export interface WalkPartitionMaps {
   readonly eventWalkExemptions: Readonly<Record<string, string>>
 }
 
-/** Project paired Markdown destinations in one generated region to the page's locale. */
-export function localizePageRegion(region: string, pageRel: string, scanRoot: string = root): string {
-  if (!pageRel.endsWith('.zh.md')) return region
-  const manifest = parseTranslationPairingManifest(
-    readFileSync(resolve(scanRoot, 'scripts/translation-pairing.manifest.json'), 'utf8'),
-  )
-  return rewriteTranslationLinkLocales(region, {
-    repoRoot: scanRoot,
-    sourcePath: pageRel,
-    isTranslationPairSource: translationPairSourcePredicate(manifest),
-  }).content
+/** Project Markdown destinations to existing files in the page's preferred locale. */
+export function localizePageRegion(region: string, pageRel: string): string {
+  return relocateGeneratedDocument(region, pageRel)
+}
+
+/**
+ * 为单份规范页面注入 API 区域，不创建语言副本或一致性记录。
+ * @param page - 归属映射使用的无后缀页面名称。
+ * @param region - 从源码渲染的区域。
+ * @param scanRoot - 仓库根目录。
+ * @returns 当前页面的所有可写生成结果。
+ * @throws Error 当规范页面不存在或区域标记无效。
+ */
+export function subsystemRegionOutputs(page: string, region: string, scanRoot: string = root): [string, string][] {
+  const rel = `${SUBSYSTEMS_DIR}/${page}`
+  if (!existsSync(resolve(scanRoot, rel))) throw new Error(`${rel}: mapped canonical subsystems page does not exist.`)
+  const current = readFileSync(resolve(scanRoot, rel), 'utf8')
+  return [[rel, spliceRegion(current, localizePageRegion(region, `${LEGACY_SUBSYSTEMS_DIR}/${page}`))]]
 }
 
 /**
@@ -830,8 +874,8 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
 
 /**
  * Compute every generated artifact: the inherited-tier page, the model-facing
- * runtime API module, plus, per mapped subsystems page, the pair's two updated
- * documents with the injected region. Fail-loud partition checks live here: an
+ * runtime API module, plus each mapped canonical subsystems document with its
+ * injected region. Fail-loud partition checks live here: an
  * unmapped service/event scope, a mapping whose page file does not exist, a
  * curated entry whose key/scope the projection no longer discovers, a declared
  * Context key or Events member the projection cannot see without a named walk
@@ -869,7 +913,7 @@ export function computeOutputs(): [string, string][] {
 
   const pages = [...new Set([...Object.values(SERVICE_PAGE), ...Object.values(EVENT_SCOPE_PAGE)])].sort()
   const outputs: [string, string][] = [
-    [OUT_INHERITED, renderInheritedPage(CORDIS_CATALOG_POLICY)],
+    [documentationPath(OUT_INHERITED), relocateGeneratedDocument(renderInheritedPage(CORDIS_CATALOG_POLICY), OUT_INHERITED)],
     [OUT_RUNTIME_API, projector.renderRuntimeApi(model)],
   ]
   for (const page of pages) {
@@ -879,72 +923,14 @@ export function computeOutputs(): [string, string][] {
       events.filter(e => EVENT_SCOPE_PAGE[e.scope] === page),
       CORDIS_CATALOG_POLICY,
     )
-    for (const side of [page, page.replace(/\.md$/, '.zh.md')]) {
-      const rel = `${SUBSYSTEMS_DIR}/${side}`
-      const localizedRegion = localizePageRegion(region, rel)
-      let current: string
-      try {
-        current = readFileSync(resolve(root, rel), 'utf8')
-      } catch {
-        // Both pair sides must exist before a region can be injected; the
-        // pairing gate owns pair completeness, this generator names the miss.
-        problems.push(`${rel}: mapped subsystems page does not exist.`)
-        continue
-      }
-      try {
-        outputs.push([rel, spliceRegion(current, localizedRegion)])
-      } catch (error) {
-        problems.push(`${rel}: ${error instanceof Error ? error.message : String(error)}`)
-      }
+    try {
+      outputs.push(...subsystemRegionOutputs(page, region))
+    } catch (error) {
+      problems.push(`${page}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
   if (problems.length > 0) throw new Error(`gen-cordis-catalog: ${problems.length} page violation(s):\n${problems.map(p => `  ${p}`).join('\n')}`)
   return outputs
-}
-
-/**
- * Re-record a pair's `.i18n.yaml` after a region write ONLY when the write is
- * region-confined: both sides' region-stripped content must be byte-equal to
- * the region-stripped previous content whose hashes the record holds. The
- * caller supplies the previous bytes (read before writing); human-content
- * drift leaves the record untouched so the pairing gate still demands the
- * normal translation flow.
- * @param pageRel - repo-relative English page path (`docs/subsystems/x.md`).
- * @param before - pre-write bytes per repo-relative path.
- * @param scanRoot - repository root override for tests.
- * @returns true when the record was refreshed.
- */
-export function maybeRecordPair(pageRel: string, before: Map<string, Buffer>, scanRoot: string = root): boolean {
-  const zhRel = pageRel.replace(/\.md$/, '.zh.md')
-  const metaRel = pageRel.replace(/\.md$/, '.i18n.yaml')
-  const metaAbs = resolve(scanRoot, metaRel)
-  let meta: string
-  try {
-    meta = readFileSync(metaAbs, 'utf8')
-  } catch {
-    // No record yet: a brand-new pair is recorded by the author's --write
-    // after review, never silently by regeneration.
-    return false
-  }
-  // The record must contain exactly the two valid entries for THIS pair;
-  // a malformed or renamed-key sidecar is the pairing gate's problem to
-  // report, never something regeneration silently repairs into validity.
-  const recorded = parsePairMeta(meta)
-  const names = [pageRel, zhRel].map(rel => rel.split('/').at(-1) ?? rel)
-  if (!recorded || recorded.size !== 2 || !names.every(name => recorded.has(name))) return false
-  for (const rel of [pageRel, zhRel]) {
-    const previous = before.get(rel)
-    if (!previous) return false
-    if (recorded.get(rel.split('/').at(-1) ?? rel) !== blobHash(previous)) return false
-    const current = readFileSync(resolve(scanRoot, rel))
-    const strippedBefore = partitionGeneratedRegions(previous.toString('utf8')).stripped
-    const strippedAfter = partitionGeneratedRegions(current.toString('utf8')).stripped
-    if (strippedBefore !== strippedAfter) return false
-  }
-  const source = readFileSync(resolve(scanRoot, pageRel))
-  const zh = readFileSync(resolve(scanRoot, zhRel))
-  writeFileSync(metaAbs, renderPairMeta(pageRel, blobHash(source), zhRel, blobHash(zh)))
-  return true
 }
 
 /** CLI entry: default regenerates every artifact, `--check` fails if any is
@@ -984,11 +970,10 @@ export function main(): void {
     try {
       before.set(out, readFileSync(resolve(root, out)))
     } catch {
-      // First generation of this artifact; nothing to guard, nothing to record.
+      // First generation of this artifact; no previous output to compare.
     }
   }
   let changedPages = 0
-  let recorded = 0
   for (const [out, content] of outputs) {
     const destination = resolve(root, out)
     if (before.get(out)?.toString('utf8') === content) continue
@@ -996,16 +981,7 @@ export function main(): void {
     writeFileSync(destination, content)
     changedPages++
   }
-  for (const page of [...new Set([...Object.values(SERVICE_PAGE), ...Object.values(EVENT_SCOPE_PAGE)])]) {
-    const rel = `${SUBSYSTEMS_DIR}/${page}`
-    const zhRel = rel.replace(/\.md$/, '.zh.md')
-    const wroteEither = [rel, zhRel].some((side) => {
-      const previous = before.get(side)
-      return previous !== undefined && previous.toString('utf8') !== readFileSync(resolve(root, side), 'utf8')
-    })
-    if (wroteEither && maybeRecordPair(rel, before)) recorded++
-  }
-  console.log(`gen-cordis-catalog: ${outputs.length} artifact(s) computed, ${changedPages} written, ${recorded} pair record(s) refreshed.`)
+  console.log(`gen-cordis-catalog: ${outputs.length} artifact(s) computed, ${changedPages} written.`)
 }
 
 // Run only when invoked as a script, not when imported by a test.

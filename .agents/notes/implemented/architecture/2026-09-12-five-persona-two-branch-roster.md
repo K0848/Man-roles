@@ -1,39 +1,37 @@
-# Agent Note: Five-persona registry with two immutable branches
+# Agent Note: 五人人物注册表与两条不可变分支
 
 Status: implemented
 
-English | [中文](2026-09-12-five-persona-two-branch-roster.zh.md)
-
 ## Problem
 
-The first man-roleplayer release assumed one fixed Wang Yangming and Zeng Guofan pair. Expanding the product to Zhuangzi, Su Shi, and Zhu Xi exposed three coupled risks: roster facts could diverge between the server and client, a dilemma could accidentally grow from two perspectives to five concurrent sessions, and quotation trust could be mistaken for evidence provenance. Existing conversations also needed to remain readable without rewriting their stored shape.
+首版 man-roleplayer 默认使用固定的王阳明与曾国藩组合。产品加入庄子、苏轼、朱熹后，出现了三个相互关联的风险：服务端与客户端可能各自维护一份人物事实并逐渐偏离；单个困惑可能从两种视角意外膨胀成五个并发会话；引用材料的可信度可能被误当成证据来源。与此同时，已有对话必须在不改写存储结构的前提下继续可读。
 
 ## Decision
 
-`PERSONA_REGISTRY` in `packages/extensions/man-roleplayer/src/types.ts` is the authoritative roster for the five audited personas. It owns stable persona IDs, display names, preset IDs, source-document bindings, and default relationship metadata. The product service exposes that roster through `listPersonas`; the client derives its selectors and labels from the remote result instead of carrying a second five-person list.
+`packages/extensions/man-roleplayer/src/types.ts` 中的 `PERSONA_REGISTRY` 是五位已审核人物的唯一权威名册。它维护稳定的人物 ID、展示名称、预设 ID、来源文档绑定与默认关系元数据。产品服务通过 `listPersonas` 暴露该名册；客户端从远端结果生成选择器和标签，不再维护第二份五人列表。
 
-The earlier two-branch limit is superseded by [Variable persona branches with durable allocation and recovery](2026-09-23-variable-persona-branch-lifecycle.md). Existing persisted pairs remain immutable and readable; legacy omitted-persona creates and historical deletion stages retain their compatibility behavior. New dilemmas use the variable branch allocation and recovery contract described by the newer note.
+此前的两条分支限制已由[可变人物分支的持久分配与恢复](2026-09-23-variable-persona-branch-lifecycle.md)取代。已有持久化人物组合仍保持不可变并可读取；省略人物的旧创建调用和历史删除阶段继续按兼容规则工作。新困惑使用新 Agent Note 定义的可变分支分配与恢复契约。
 
-Bundle configuration is generated from the registry-backed persona bindings. Each persona resolves to its own preset and audited Markdown source, while runtime identity lookup is keyed by persona ID. Adding another persona therefore requires an explicit registry entry, preset, audited source binding, and corresponding configuration coverage.
+产品装配配置由注册表对应的人物绑定生成。每个人物分别解析到自己的预设与已审核 Markdown 来源，运行时身份也按人物 ID 查找。因此，增加人物必须同时提供明确的注册表条目、预设、已审核来源绑定与对应配置覆盖。
 
-Evidence metadata keeps two independent dimensions. `evidenceKind` identifies provenance such as authorial text, disciple record, historical account, textual parable, another speaker, later evaluation, variant reading, contested attribution, or modern interpretation. `trust` records reliability separately. First-person delivery is allowed only where the evidence source actually supports the persona's own voice; the Host rejects any unquoted “I” narration in a Claim segment whose cited evidence has `firstPersonAllowed=false`. It also rejects first-person biographical experience hidden inside an uncited `modern-inference` segment. An annotated trust marker does not erase speaker or provenance information.
+证据元数据保留两个互相独立的维度。`evidenceKind` 标识作者原文、弟子记录、史料记载、文本寓言、他人发言、后世评价、异文、归属存疑或现代解读等来源；`trust` 另行记录可靠程度。只有证据来源确实支持人物本人声音时，才允许第一人称表达；当 Claim segment 引用的证据为 `firstPersonAllowed=false` 时，Host 会拒绝引号之外任何“我／吾／余”的叙述，也会拒绝把第一人生平经历藏进无证据的 `modern-inference` 段。带注释的可信度标记不会抹去说话者或来源信息。
 
 ## Verification
 
-Unit coverage pins registry completeness, pair validation, legacy defaults, immutable branch ownership, source parsing, evidence restrictions, startup configuration, remote contracts, and client selection behavior. Browser coverage exercises the five-person selectors, two-branch creation, profile launch, ordinary-session compatibility, and failure recovery through the built product.
+单元测试固定了注册表完整性、人物组合校验、历史默认值、不可变分支归属、来源解析、证据限制、启动配置、远端契约与客户端选择行为。浏览器测试通过构建后的真实产品覆盖五人选择器、两分支创建、人物入口、普通会话兼容与失败恢复。
 
 ## Alternatives considered
 
-**Create all five persona sessions for every dilemma.** This would make comparison noisy, increase model cost, and break the product's deliberate two-perspective interaction contract.
+**每个困惑同时创建五个人物会话。** 这会让对照变得嘈杂、增加模型成本，并破坏产品刻意保持的两种视角交互契约。
 
-**Keep the original fixed pair and pilot only one new persona.** This would postpone the roster and configuration contract that all three audited additions require, leaving each later addition to repeat the same cross-package work.
+**保留原固定组合，只试点一个新人物。** 这会推迟三位已审核人物都需要的名册与配置契约，使后续每次扩展重复相同的跨包工作。
 
-**Hardcode the roster in the client.** This would create two authorities and allow display names, preset bindings, or availability to drift from the service that creates sessions.
+**在客户端硬编码人物名册。** 这会形成两个权威来源，使展示名称、预设绑定或可用状态可能与实际创建会话的服务发生偏离。
 
-**Treat trust as the evidence type.** A reliable historical record is still not first-person authorial text. Collapsing those dimensions would let the model speak in a persona's voice from evidence that belongs to a biographer, disciple, editor, or quoted interlocutor.
+**把可信度直接当作证据类型。** 可靠的史料记载仍不等于人物本人的作者原文。合并这两个维度会让模型把传记作者、弟子、编者或被引用者的话误作人物第一人称表达。
 
 ## Consequences
 
-The product gains one discoverable five-person roster while preserving the focused two-branch experience and old conversations. Persona expansion now has a visible cross-package checklist instead of scattered literals, and the evidence layer can enforce voice restrictions without discarding useful lower-confidence material.
+产品获得一个可发现的五人人物名册，同时保留聚焦的两分支体验与旧对话兼容性。人物扩展从分散字面量变成明确的跨包清单，证据层也能在不丢弃低置信材料的前提下执行口吻限制。
 
-The registry is intentionally a coordination point: a new persona is not complete until its preset, audited source, runtime binding, tests, and user-facing metadata agree. Persisted pairs also mean changing registry defaults affects only newly created dilemmas, not conversations already in progress.
+注册表被刻意设为协作汇合点：新人物只有在预设、已审核来源、运行时绑定、测试与用户界面元数据一致后才算完成。人物组合一旦持久化，修改注册表默认值只会影响新建困惑，不会改变已经进行中的对话。

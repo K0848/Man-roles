@@ -1,10 +1,10 @@
-# AGENTS.md — Schedule packages
+# 定时任务包规则
 
-These rules supplement the repository and package instructions for `packages/schedule/*`.
+这些规则适用于 `packages/schedule/*`，并补充仓库及包级要求。
 
-- The owning Session's versioned `schedule/change` stream is the only durable Schedule state. Folds validate every durable JSON boundary and derive active records; timers, idle waiters, and tool values remain disposable projections.
-- A normal Session folds its complete log. A fork derives active Schedule state only from events at or after `SessionHeader.seedLength`; it never inherits an active parent reminder.
-- Every Schedule management operation that reads or decides from the fold first awaits `ctx.sessions.flush(session)`. Create and an actual delete await a second barrier after append; a failed barrier returns the stable uncertainty result instead of inferring durability from the live log.
-- Runtime owners attach only to future live root Agents while the plugin is loaded. They do not scan persisted Sessions, adopt already-published roots, wake cold Sessions, register global tools, or delete durable records during teardown.
-- Due handling rechecks the wall clock and exact live owner, claims the idle maintenance phase through the public Agent seam, constructs the complete escaped framing before `followup()`, appends dispatch only after synchronous enqueue returns, releases maintenance, and then awaits durability. A synchronous framing/enqueue failure appends no dispatch; a later model failure does not roll one back.
-- Rule math and durable transition logic stay pure and deterministic. Production uses the platform wall clock and segmented timers; tests supply explicit samples or fake timers without adding a production clock service.
+- 所属 Session 的版本化 `schedule/change` 事件流是唯一持久状态。折叠逻辑验证每个持久化 JSON 入口并导出活动记录；计时器、空闲等待者和工具值只是可丢弃投影。
+- 普通 Session 折叠完整日志；fork 只从 `SessionHeader.seedLength` 之后的事件导出活动任务，不继承父会话正在生效的提醒。
+- 根据折叠状态作决定的管理操作先等待 `ctx.sessions.flush(session)`。创建、更新、删除和派发先记录事件并等待持久化，不从内存日志推断已持久。
+- 运行时 owner 仅附着于插件加载后新发布的活动根 Agent。不扫描持久会话、不接管已发布根、不唤醒冷会话、不注册全局工具，也不在 teardown 删除持久记录。
+- 到期时重查时钟和活动 owner，取得空闲维护阶段，先构造完整转义边框再调用 `followup()`；只有同步入队成功才追加派发事件，释放维护阶段后等待持久化。构造或入队同步失败不追加派发，后续模型失败不回滚已派发状态。
+- 规则计算与持久转移保持纯函数和确定性。生产使用平台时钟及分段计时器；测试提供样本或假计时器，不增加生产时钟服务。

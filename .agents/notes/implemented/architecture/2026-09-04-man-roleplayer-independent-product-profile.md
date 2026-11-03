@@ -1,37 +1,35 @@
-# Agent Note: Independent product profile for man-roleplayer
+# Agent Note：man-roleplayer 独立产品 profile
 
-Status: implemented
+状态：已实现
 
-English | [中文](2026-09-04-man-roleplayer-independent-product-profile.zh.md)
+## 问题
 
-## Problem
+产品需要一个不会悄悄进入普通 DSH Web 的浏览器入口。通用会话界面与产品人物能力分别拥有不同的所有权、投影和失败边界，不能共用普通 composer 的默认入口。
 
-The product needs a browser entry that cannot silently become part of ordinary DSH Web. Generic session UI and product persona capabilities have different ownership, projection, and failure boundaries.
+## 决策
 
-## Decision
+双人物困惑界面是显式选择的独立 profile bundle，不是普通 Web roster 的额外 row。`@deepseek-ai/dsh-man-roleplayer-app` 覆盖 shipped Web composition，关闭通用 layout、侧栏、composer 与工具界面，并将 `@deepseek-ai/dsh-client-ui-man-roleplayer` 挂载为产品根界面。Host 显式提供两份调研路径、preset root 与 provider/model 引用。
 
-The two-person dilemma UI is an opt-in profile bundle, not an extra row in the ordinary Web roster. `@deepseek-ai/dsh-man-roleplayer-app` overlays the shipped Web composition, disables the generic layout/sidebar/composer/tool surfaces, and mounts `@deepseek-ai/dsh-client-ui-man-roleplayer` as the product root. Host configuration supplies the two research paths, preset root, and model/provider references explicitly.
+产品 Remote 创建一份 Host 所有的困惑和两条私有 Agent Session，只暴露不透明 handle 与脱敏 projection。客户端由一个不可变 projection store 所有状态，并通过 selector 提供侧栏、对话与详情视图。产品工具注册在每条准确 Agent context 中，并随 AgentHandle 释放；普通全局工具目录保持不变。
 
-The product Remote creates one Host-owned dilemma and two private Agent sessions, then exposes only an opaque handle and redacted projection. The client keeps one immutable projection store and uses selectors for the sidebar, conversation, and details views. Product tools are registered in each exact Agent context and disappear with its AgentHandle; the ordinary global tool catalog remains unchanged.
+没有活动产品 capability 的 Agent 会收到有明确类型且 evidence 为空的 unauthorized 证据检索结果。拒绝不包含正文或出处，也不会创建产品 claim/activity，因此普通 Session 不能建立没有困惑归属的产品关联。
 
-An Agent without an active product capability receives a typed unauthorized evidence-lookup result with an empty evidence list. The refusal contains no body or source and creates no product claim/activity, so ordinary Sessions cannot create an unowned product association.
+人物回答通过校验后，产品 profile 会为该 turn 最多异步启动一次状态分析。严格的结构化结果只从已完成 turn 与允许的产品投影派生，持久化候选状态项目和当前人物 snapshot。候选在用户通过版本化 Remote 显式确认、修改、拒绝、撤回或解决前保持待处理；CAS 与 request id 支持安全重试，分析失败或过期都不会重放人物 turn。
 
-After a validated persona turn, the product profile starts at most one detached state-analysis operation for that turn. A strict structured result persists candidate state items and a persona-bound snapshot sourced only from the completed turn and allowed product projection. Candidates stay pending until an explicit versioned Remote action confirms, modifies, rejects, withdraws, or resolves them; CAS and request ids make those actions safe to retry, while failed or stale analysis never replays the persona turn.
+证据详情在读取时从两份配置的正式调研索引派生。产品 wire 只暴露稳定证据元数据、受限标题/正文/出处字段、生命周期状态和脱敏检索活动；产品事件不保存第二份资料正文。质疑、显式复核和撤回通过带版本的 Remote 变更完成，依据持久化生命周期将被质疑或撤回的项目移出当前 allow-list。
 
-Evidence details are derived at read time from the two configured formal research indexes. The product wire exposes only stable evidence metadata, bounded title/text/source fields, lifecycle status, and redacted lookup activity; product events do not store a second research body. Challenge, explicit review, and withdrawal use versioned Remote mutations, with challenged and withdrawn rows removed from the current allow-list according to their durable lifecycle.
+`profile-boot` 只对内置 `web` 与 `headless` profile 名称保留 shipped preset-root 覆盖。因此自定义产品 profile 使用自己的显式 preset root，不改变普通 profile 的优先级。
 
-`profile-boot` retains the shipped preset-root overlay only for the built-in `web` and `headless` profile names. A custom product profile therefore owns its explicit preset root without changing the precedence of ordinary profiles.
+## 验证
 
-## Verification
+Loader 组合回归通过版本化 Remote 创建空白困惑，观察两条私有 live Agent，确认产品工具不在全局 schema 中但在准确产品 Agent scope 中可见，并提交结构化回答；返回 projection 不包含 Session id。client plugin 回归确认同一 store 通过 root slot 注入。普通 Web 配置断言产品 Host/client row 不存在。
 
-The Loader composition regression creates a blank dilemma through the versioned Remote, observes two live private agents, confirms product tools are absent from the global schema but present in the exact product Agent scope, and submits a structured answer that is returned in the accepted projection without a Session id. The client plugin regression confirms the same store is injected through the root slot. Ordinary Web config assertions confirm the product Host/client rows are absent.
+没有修改 Agent Loop，也没有新增外部依赖；bundle 只依赖已有 workspace package。
 
-No Agent Loop or external dependency was added; the bundle depends only on existing workspace packages.
+## 备选方案
 
-## Alternatives considered
+把产品 row 放进 shipped Web roster 会让普通会话看到产品控制和人物能力。复用通用 conversation composer 也会绕过不透明产品 Remote 及其两条 Session 的所有权边界，因此都不采用。
 
-Keeping the product row in the shipped Web roster would expose product controls and persona capabilities to ordinary sessions. Reusing the generic conversation composer would also bypass the opaque product Remote and its two-session ownership boundary.
+## 影响
 
-## Consequences
-
-Operators must explicitly compose the product bundle and provide its absolute preset/research bindings. Ordinary Web remains unchanged; product browser tests use a fake Provider and isolated temporary roots.
+操作员必须显式组合产品 bundle，并提供绝对的 preset/research 绑定。普通 Web 保持不变；产品浏览器测试使用 fake Provider 与隔离临时目录。

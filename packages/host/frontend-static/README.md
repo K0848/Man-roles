@@ -1,20 +1,18 @@
 # `@deepseek-ai/dsh-host-frontend-static`
 
-English | [中文](README.zh.md)
+Web 壳的 SPA dist 服务器：一个函数插件（配置为 `{distIndex}`），占据 [webserver](../webserver/README.md) 的唯一回退席位，并通过显式 index 入口服务已构建的前端目录。`distIndex` 可读时，dist 根目录和配置的 index 路径以 HTTP 200 渲染 `index.html`；其他现有文件直接提供。dist 根目录内缺失或不是文件的目标——包括缺失的配置 index——返回空的 404；越出 dist 根目录的遍历返回 403，未知扩展名按 `application/octet-stream` 提供，GET／HEAD 之外的方法在没有匹配的具名路由时返回 405。每个成功的 index 响应都经 webserver 的 `renderIndex` 渲染——先结构化注入行、后原始 index 转换器——启动 manifest（元数据清单）就是经这条路径送达页面的。`distIndex` 是组合应用的组装事实：[`dsh-web-app`](../../bundle/web-app/README.md) 通过前端包的 exports 解析它并挂载本插件；部署绝不硬编码它。
 
-SPA dist server for the Web shell: a function plugin (config `{distIndex}`) that claims the [webserver](../webserver/README.md)'s single fallback seat and serves the built frontend directory with explicit index entry points. While `distIndex` is readable, the dist root and configured index path render `index.html` with HTTP 200; other existing files are served directly. An absent or non-file target inside the dist root, including a missing configured index, returns an empty 404; traversal outside the dist root returns 403, unknown extensions ship as `application/octet-stream`, and non-GET/HEAD without a matching named route returns 405. Every successful index response is rendered through the webserver's `renderIndex` — structured injection rows first, then the raw index taps — which is how the boot manifest reaches the page. `distIndex` is an assembly fact of the composing application: [`dsh-web-app`](../../bundle/web-app/README.md) resolves it through the frontend package's exports and mounts this plugin; a deployment never hardcodes it.
+回退席位只有单一所有者（第二次占据会抛错），并受 effect 作用域约束：dispose（资源释放）插件的 fiber 会释放席位，此后无人占据的 webserver 回答 404。
 
-The fallback seat is single-owner (a second claim throws) and effect-scoped: disposing the plugin's fiber releases the seat, after which the unclaimed webserver answers 404.
+## 模型体验
 
-## Model Experience
+无。该包只服务浏览器资产；其中没有任何内容会进入模型请求。
 
-None, as the package serves browser assets; nothing here reaches a model request.
+#### KV Cache 影响
 
-#### KV Cache effect
+无；该包既不组装也不发送提供方请求。
 
-None; this package neither assembles nor sends a provider request.
+## 已知限制与延期工作
 
-## Known Limitations and Deferred Work
-
-- **The starter MIME table is minimal** — it covers the Vite-emitted asset set, PNG portraits, and the shipped PWA manifest; other extensions fall back to `application/octet-stream` until an asset class actually ships.
-- **Pathname routing is explicit** — the current client enters through the root or configured index path and has no History API pathname routes. Adding one requires an explicit server rule and real-composition coverage rather than a broad fallback for every miss.
+- **初始 MIME 表很精简**：它覆盖 Vite 输出的资产集合、PNG 人物肖像及实际交付的 PWA manifest；其他扩展名在相应资产类别实际发布前都会回退到 `application/octet-stream`。
+- **pathname 路由是显式的**：当前客户端只从根路径或配置的 index 路径进入，没有 History API pathname 路由。添加这类路由时必须同时添加显式服务器规则和真实组合测试，不得为每个未命中项启用宽泛回退。

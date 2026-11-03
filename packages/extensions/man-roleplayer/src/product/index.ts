@@ -5,22 +5,62 @@ import type { SessionId as DshSessionId } from '@deepseek-ai/dsh-session/types'
 import type { PersonaId } from '../types.ts'
 
 export type { PersonaId } from '../types.ts'
+/** Durable discussion admission state; pausing or ending a stage blocks new persona turns. */
 export type DiscussionStatus = 'in_progress' | 'paused' | 'stage_ended'
+/** Host-owned durable dilemma identity; browser callers receive an opaque handle instead. */
 export type DilemmaId = string & { readonly __dilemmaId: unique symbol }
+/** Stable request identity used for append-only event deduplication. */
 export type RequestId = string & { readonly __requestId: unique symbol }
+/** Stable product operation identity retained across recovery. */
 export type OperationId = string & { readonly __operationId: unique symbol }
+/** Stable product user-message identity shared by its delivery and turn attempts. */
 export type MessageId = string & { readonly __messageId: unique symbol }
+/** Distinct delivery attempt identity; retries must not reuse a completed attempt. */
 export type DeliveryOperationId = OperationId & { readonly __deliveryOperationId: unique symbol }
+/** Distinct persona-turn attempt identity, including retries of the same message. */
 export type TurnOperationId = OperationId & { readonly __turnOperationId: unique symbol }
+/** Branded product revision for optimistic concurrency. */
 export type Revision = number & { readonly __revision: unique symbol }
+/** DSH-owned Session identity used only on the Host product side. */
 export type SessionId = DshSessionId
 
+/**
+ * Brand a Host-owned string as a durable dilemma id; no validation or allocation occurs.
+ * @param value - Caller-owned durable dilemma identity.
+ * @returns The same string branded as a dilemma id.
+ */
 export const dilemmaId = (value: string): DilemmaId => value as DilemmaId
+/**
+ * Brand a caller-owned string as a request deduplication id without validation.
+ * @param value - Caller-owned stable deduplication identity.
+ * @returns The same string branded as a request id.
+ */
 export const requestId = (value: string): RequestId => value as RequestId
+/**
+ * Brand a caller-owned string as a stable product operation id without validation.
+ * @param value - Caller-owned stable operation identity.
+ * @returns The same string branded as a product operation id.
+ */
 export const operationId = (value: string): OperationId => value as OperationId
+/**
+ * Brand a caller-owned string as a product message id without validation.
+ * @param value - Caller-owned stable user-message identity.
+ * @returns The same string branded as a product message id.
+ */
 export const messageId = (value: string): MessageId => value as MessageId
+/**
+ * Brand a caller-owned string as a delivery attempt id without validation.
+ * @param value - Caller-owned identity for one delivery attempt.
+ * @returns The same string branded as a delivery operation id.
+ */
 export const deliveryOperationId = (value: string): DeliveryOperationId => value as DeliveryOperationId
+/**
+ * Brand a caller-owned string as a persona-turn attempt id without validation.
+ * @param value - Caller-owned identity for one persona-turn attempt.
+ * @returns The same string branded as a turn operation id.
+ */
 export const turnOperationId = (value: string): TurnOperationId => value as TurnOperationId
+/** Reuse the DSH Session id constructor so product branches retain the canonical identity type. */
 export const sessionId = dshSessionId
 
 /** Durable identity of the persona composition bound to one branch. */
@@ -30,6 +70,7 @@ export interface PersonaPresetIdentity {
   readonly persona: PersonaId
   readonly researchFingerprint: string
 }
+/** One isolated persona Session and its optional persisted preset/research identity. */
 export interface PersonaBranch {
   readonly persona: PersonaId
   readonly sessionId: SessionId
@@ -44,7 +85,9 @@ export interface BranchAllocation {
   readonly expectedLifecycleRevision: number
   readonly status: 'claimed' | 'ready' | 'failed'
 }
+/** Product timeline categories; persona entries retain Session references instead of answer copies. */
 export type TimelineKind = 'user-message' | 'persona-message' | 'choice-answer' | 'state-action' | 'system-status'
+/** Durable product timeline reference; only user expressions are stored as inline text. */
 export interface TimelineReference {
   readonly id: string
   readonly kind: TimelineKind
@@ -58,6 +101,7 @@ export interface TimelineReference {
   /** User expression only; persona/session body is never projected here. */
   readonly text?: string
 }
+/** Replayed product facts and operation checkpoints, excluding private persona answer bodies. */
 export interface DilemmaConversation {
   readonly id: DilemmaId
   readonly activePersona: PersonaId
@@ -86,11 +130,15 @@ export interface DilemmaConversation {
   })[]
 }
 
+/** Durable lifecycle of one product-to-Session message delivery attempt. */
 export type DeliveryStatus = 'pending' | 'claimed' | 'delivered' | 'failed' | 'cancelled'
+/** Durable persona-turn result; execution quiescence is tracked independently. */
 export type TurnStatus = 'claimed' | 'running' | 'completed' | 'failed' | 'cancelled'
 /** Durable execution state kept separate from the user-visible turn result. */
 export type ExecutionState = 'running' | 'waiting-user' | 'stopping' | 'stopped' | 'stop-failed' | 'unknown'
+/** Durable analysis lifecycle; stale results cannot replace current shared state. */
 export type StateStatus = 'claimed' | 'running' | 'completed' | 'failed' | 'stale'
+/** Model-proposed state with explicit source references; confirmation remains Host/user controlled. */
 export interface StateCandidate {
   readonly id: string
   readonly kind: 'fact' | 'goal' | 'conflict' | 'unresolved' | 'understanding'
@@ -100,7 +148,9 @@ export interface StateCandidate {
   readonly confirmation?: 'explicit' | 'needs-confirmation'
   readonly sourceQuote?: string
 }
+/** User-governed lifecycle of one immutable shared-state version. */
 export type SharedStateItemStatus = 'candidate' | 'confirmed' | 'rejected' | 'superseded' | 'withdrawn' | 'resolved'
+/** Latest version of a sourced shared-state item, retaining its decision and producing operation. */
 export interface SharedStateItem {
   readonly id: string
   readonly persona: PersonaId
@@ -113,6 +163,7 @@ export interface SharedStateItem {
   readonly revision: number
   readonly sourceOperationId: OperationId
 }
+/** Structured current understanding from one persona's completed turn, with stable sources. */
 export interface PersonaSnapshot {
   readonly persona: PersonaId
   readonly sourceTurnOperationId: TurnOperationId
@@ -122,6 +173,7 @@ export interface PersonaSnapshot {
   readonly coreView: string
   readonly advice?: string
 }
+/** Audit of allowed/excluded event references for one persona's model input. */
 export interface ContextProjection {
   readonly operationId: OperationId
   readonly persona: PersonaId
@@ -134,10 +186,12 @@ export interface ContextProjection {
 /** Stable, provider-facing state input captured at the operation claim. */
 export type StateAnalysisInputProjection = readonly Record<string, unknown>[]
 
+/** One selectable label and optional explanation in a product-owned question. */
 export interface ChoiceOption {
   readonly label: string
   readonly description?: string
 }
+/** Structured question accepted from the owning persona turn. */
 export interface ChoiceQuestion {
   readonly id: string
   readonly question: string
@@ -146,6 +200,7 @@ export interface ChoiceQuestion {
   readonly options?: readonly ChoiceOption[]
   readonly multiSelect?: boolean
 }
+/** Explicit user selection, custom response, or skip; omission of content alone is not a skip. */
 export interface ChoiceAnswer {
   readonly id: string
   readonly selected: readonly string[]
@@ -153,7 +208,9 @@ export interface ChoiceAnswer {
   /** 用户显式跳过；空答案本身不代表跳过。 */
   readonly skipped?: boolean
 }
+/** Durable lifecycle of one product-owned structured choice. */
 export type ChoiceStatus = 'pending' | 'answered' | 'cancelled' | 'failed'
+/** Latest questions and settlement belonging to one persona-turn operation. */
 export interface ChoiceState {
   readonly operationId: OperationId
   readonly turnOperationId: TurnOperationId
@@ -163,6 +220,7 @@ export interface ChoiceState {
   readonly answers?: readonly ChoiceAnswer[]
 }
 
+/** Append-only product facts; request ids deduplicate mutations and Session references retain private history ownership. */
 export type ProductEvent =
   | { readonly type: 'created'; readonly id: DilemmaId; readonly branches: readonly PersonaBranch[]; readonly activePersona: PersonaId; readonly requestId: RequestId }
   | { readonly type: 'branch-allocation'; readonly allocation: BranchAllocation; readonly requestId: RequestId }
@@ -195,11 +253,13 @@ export type ProductEvent =
   | { readonly type: 'claim-sidecar'; readonly turnOperationId: OperationId; readonly textRange: { readonly start: number; readonly end: number }; readonly kind: 'reliable-quote' | 'historical-fact' | 'attribution' | 'modern-inference' | 'insufficient-evidence'; readonly evidenceIds: readonly string[]; readonly status: 'accepted' | 'stale'; readonly requestId: RequestId }
   | { readonly type: 'choice'; readonly operationId: OperationId; readonly turnOperationId: TurnOperationId; readonly persona: PersonaId; readonly status: ChoiceStatus; readonly questions?: readonly ChoiceQuestion[]; readonly answers?: readonly ChoiceAnswer[]; readonly requestId: RequestId }
 
+/** Recoverable deletion checkpoint, including legacy branch labels retained for persisted operations. */
 export type DeletionStage = 'requested' | 'stopping-agents'
   | 'deleting-branch' | 'deleting-first-branch' | 'deleting-second-branch'
   | 'deleting-wang' | 'deleting-zeng'
   | 'deleting-product' | 'completed' | 'failed'
 type ResumeStage = Exclude<DeletionStage, 'completed' | 'failed'>
+/** Stable deletion identity and progress; irreversible checkpoints can only resume the same operation. */
 export interface DeletionOperation {
   readonly operationId: OperationId
   readonly stage: DeletionStage
@@ -233,6 +293,12 @@ function resumeStageOf(operation: DeletionOperation): ResumeStage {
   return operation.resumeStage
 }
 
+/**
+ * Replay one append-only product log, deduplicating request ids and validating branch relationships.
+ * @param events - Ordered log beginning with exactly one created event and isolated distinct persona branches.
+ * @returns The current product projection without private persona response bodies.
+ * @throws If the creation event or persisted branch relationships are invalid.
+ */
 export function project(events: readonly ProductEvent[]): DilemmaConversation {
   const [created] = events
   if (created?.type !== 'created') throw new Error('dilemma projection requires a leading created event')
@@ -391,7 +457,13 @@ export function project(events: readonly ProductEvent[]): DilemmaConversation {
   }
 }
 
-/** Return the event ids that are legal model input for one persona branch. */
+/**
+ * Return the event ids that are legal model input for one persona branch.
+ * @param events - Ordered product facts for one created dilemma.
+ * @param persona - Persona whose own Session input is being assembled.
+ * @returns Allowed shared/user sources and excluded private-persona event ids.
+ * @throws If the log does not begin with a created event.
+ */
 export function allowedContext(events: readonly ProductEvent[], persona: PersonaId): ContextProjection {
   const created = events[0]; if (created?.type !== 'created') throw new Error('context requires a created dilemma')
   const excluded: string[] = []; const allowed: string[] = []
@@ -433,7 +505,12 @@ function isPersonaAcknowledgementText(text: string | undefined): boolean {
   return normalized === '你说得对' || normalized === '我认同' || normalized === '我赞同'
 }
 
-/** Return user ids with a matching delivered delivery and complete Session references. */
+/**
+ * Return user ids with a matching delivered delivery and complete Session references.
+ * @param events - Product user-message and delivery facts.
+ * @param blocked - Message identities to exclude, normally the safety-blocked set; defaults to empty.
+ * @returns User event ids with latest delivered facts and complete Session references.
+ */
 export function deliveredUserMessageIds(events: readonly ProductEvent[], blocked = new Set<string>()): readonly string[] {
   const users = new Map<string, Extract<ProductEvent, { type: 'user-message' }>>()
   const deliveries = new Map<string, Extract<ProductEvent, { type: 'message-delivery' }>>()
@@ -448,7 +525,12 @@ export function deliveredUserMessageIds(events: readonly ProductEvent[], blocked
   }).map(([id]) => id)
 }
 
-/** Check that an acknowledgement still references one delivered user and one completed source turn. */
+/**
+ * Check that an acknowledgement still references one delivered user and one completed source turn.
+ * @param events - Product facts used to verify the source user delivery and turn.
+ * @param acknowledgement - Acknowledgement whose active status and source references are checked.
+ * @returns Whether every referenced delivery, persona, reply target, and completed turn still matches.
+ */
 export function isActivePersonaAcknowledgement(events: readonly ProductEvent[], acknowledgement: Extract<ProductEvent, { type: 'persona-acknowledgement' }>): boolean {
   if (acknowledgement.status !== 'active') return false
   const user = events.findLast(event => event.type === 'user-message' && event.id === acknowledgement.sourceUserMessageId)
@@ -463,19 +545,37 @@ export function isActivePersonaAcknowledgement(events: readonly ProductEvent[], 
     && turn.status === 'completed' && turn.sessionEventId !== undefined
 }
 
-/** Whether a state-analysis result can commit against the current durable watermark. */
+/**
+ * Whether a state-analysis result can commit against the current durable watermark.
+ * @param result - Analysis result proposed for commitment.
+ * @param inputWatermark - Current durable input watermark.
+ * @param revision - Current product analysis revision.
+ * @param branchRevision - Current completed-turn revision for the target branch.
+ * @returns Whether the completed result matches all three current revision values.
+ */
 export function stateResultIsCurrent(result: Extract<ProductEvent, { type: 'state-analysis' }>, inputWatermark: string, revision: number, branchRevision: number): boolean {
   return result.status === 'completed' && result.inputWatermark === inputWatermark && result.revision === revision && result.branchRevision === branchRevision
 }
 
 /** Select a safe title after a provider failure or unknown result. */
 const MAX_TITLE_CHARACTERS = 48
+/**
+ * Build a whitespace-normalized, grapheme-bounded title from the first user message.
+ * @param firstMessage - Original user expression used when automatic titling cannot provide a valid title.
+ * @param maxCharacters - Maximum grapheme clusters; defaults to 48.
+ * @returns The clipped title, or 未命名困惑 when normalization produces no content.
+ */
 export function fallbackTitle(firstMessage: string, maxCharacters = MAX_TITLE_CHARACTERS): string {
   const normalized = firstMessage.replace(/\s+/gu, ' ').trim()
   const segments = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(normalized)].map(segment => segment.segment)
   return segments.slice(0, maxCharacters).join('') || '未命名困惑'
 }
-/** Resolve a completed/cancelled race with the durable terminal fact winning. */
+/**
+ * Resolve a completed/cancelled race with the durable terminal fact winning.
+ * @param events - Ordered turn facts for the dilemma.
+ * @param operation - Exact turn attempt whose first terminal fact wins.
+ * @returns The first completed, cancelled, or failed status, or undefined before a terminal fact exists.
+ */
 export function visibleTurnStatus(events: readonly ProductEvent[], operation: TurnOperationId): TurnStatus | undefined {
   const terminals = events.filter((event): event is Extract<ProductEvent, { type: 'turn' }> => event.type === 'turn' && event.turnOperationId === operation && ['completed', 'cancelled', 'failed'].includes(event.status))
   const first = terminals[0]
@@ -484,14 +584,22 @@ export function visibleTurnStatus(events: readonly ProductEvent[], operation: Tu
   return terminal?.status
 }
 
-/** Keep only evidence that has not been challenged or withdrawn. */
+/**
+ * Keep only evidence that has not been challenged or withdrawn.
+ * @param events - Evidence lifecycle facts in persisted order.
+ * @returns Evidence ids whose latest status remains available.
+ */
 export function availableEvidence(events: readonly ProductEvent[]): readonly string[] {
   const status = new Map<string, 'available' | 'challenged' | 'withdrawn'>()
   for (const event of events) if (event.type === 'evidence') status.set(event.evidenceId, event.status)
   return [...status].filter(([, value]) => value === 'available').map(([id]) => id)
 }
 
-/** Apply the pre-model safety gate; blocked input has no provider side effect. */
+/**
+ * Apply the pre-model safety gate; blocked input has no provider side effect.
+ * @param text - User text checked before any provider request.
+ * @returns Admission or a typed refusal with its user-visible reason; this pure function performs no provider call.
+ */
 export function safetyDecision(text: string): { readonly allowed: true } | { readonly allowed: false; readonly kind: 'danger' | 'professional'; readonly reason: string } {
   const normalized = text.trim().toLowerCase()
   if (normalized.length === 0) return { allowed: false, kind: 'professional', reason: 'empty message' }
@@ -500,12 +608,23 @@ export function safetyDecision(text: string): { readonly allowed: true } | { rea
   return { allowed: true }
 }
 
+/** Host-owned effects for quiescing Agents and permanently removing Session and product facts. */
 export interface DeletionDriver {
+  /** Resolve only after every product-owned Agent is disposed and no longer writes its Session. */
   stopAgents(): Promise<void>
+  /**
+   * Permanently remove one captured branch history; repeated deletion must tolerate an absent Session.
+   * @param sessionId - Captured target Session id.
+   */
   deleteSession(sessionId: SessionId): Promise<void>
+  /**
+   * Remove product facts only after every target Session is gone; retain any response-loss recovery receipt externally.
+   * @param dilemmaId - Product record whose captured branches have all been deleted.
+   */
   deleteProduct(dilemmaId: DilemmaId): Promise<void>
 }
 
+/** Checkpointed deletion coordinator; persists progress before effects and returns failed checkpoints for recovery. */
 export class DeletionMachine {
   constructor(
     private readonly id: DilemmaId,
@@ -513,15 +632,28 @@ export class DeletionMachine {
     private readonly persist: (operation: DeletionOperation) => Promise<void>,
   ) {}
   private current: DeletionOperation | undefined
+  /**
+   * Read the most recently armed or persisted checkpoint without mutating it.
+   * @returns Current deletion checkpoint, or undefined before arming and after cancellation.
+   */
   get operation(): DeletionOperation | undefined { return this.current }
 
-  /** Record a confirmed but not yet executing delete request, so it may still be cancelled. */
+  /**
+   * Arm a confirmed requested deletion in memory; callers own persistence of the request and any cancellation.
+   * @param operation - Reversible requested checkpoint for the same operation id as any existing request.
+   * @throws If execution already started or another operation id is active.
+   */
   arm(operation: DeletionOperation): void {
     if (operation.stage !== 'requested' || operation.irreversible) throw new Error('only a reversible requested deletion can be armed')
     if (this.current !== undefined && this.current.operationId !== operation.operationId) throw new Error('a different deletion operation is already active')
     this.current = operation
   }
 
+  /**
+   * Cancel only an armed request whose execution has not started.
+   * @returns The cancelled requested checkpoint; the machine becomes unarmed.
+   * @throws If no operation is active or its stage is no longer requested.
+   */
   cancel(): DeletionOperation {
     if (this.current === undefined) throw new Error('no deletion request is active')
     if (this.current.stage === 'requested') {
@@ -531,6 +663,13 @@ export class DeletionMachine {
     }
     throw new Error('deletion is irreversible after execution starts')
   }
+  /**
+   * Stop Agents, delete each captured branch, then remove product facts with durable checkpoints.
+   * @param op - Current or failed checkpoint; a failed checkpoint must carry its resume stage.
+   * @param driver - Host effects; Session deletion must tolerate already-removed targets during recovery.
+   * @returns Completed or failed checkpoint; effect failures are persisted and returned for retry.
+   * @throws If another operation is active, a failed checkpoint lacks its resume stage, or failure persistence itself rejects.
+   */
   async run(op: DeletionOperation, driver: DeletionDriver): Promise<DeletionOperation> {
     if (this.current?.operationId !== undefined && this.current.operationId !== op.operationId) throw new Error('a different deletion operation is already active')
     if (op.stage === 'completed') return op

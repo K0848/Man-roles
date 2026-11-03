@@ -26,7 +26,7 @@ describe('THIRD_PARTY_NOTICES.md', () => {
   // this assertion means the notices were committed without that hook.
   it('matches what the generator produces from the current manifests', () => {
     const generated = render()
-    expect(generated).toContain('It depends on the third-party software listed below.')
+    expect(generated).toContain('并依赖下列第三方软件。')
     expect(readFileSync(resolve(root, 'THIRD_PARTY_NOTICES.md'), 'utf8'), 'stale notices — run `pnpm run gen-third-party-notices`').toBe(generated)
   })
 })

@@ -1,27 +1,25 @@
-# Agent Note: Persona turn communication respects the current request
+# Agent Note: 人物回合沟通遵从当轮请求
 
 Status: implemented
 
-English | [中文](2026-10-24-man-roleplayer-turn-communication.zh.md)
-
 ## Problem
 
-Persona composition describes a characteristic path from historical perspective to action. A user asking only for a brief sourced example or for listening can receive unsolicited advice, and an analogy can present unknown motives as facts. Evidence attribution alone does not determine whether modern interpretations are warranted.
+人物装配描述了从历史视角到行动的典型思考路径。用户只要一个简短且有出处的例子或希望被倾听时，可能收到主动追加的建议；历史类比也可能把未知动机说成事实。证据归属校验本身无法判断现代解释是否有充分依据。
 
 ## Decision
 
-The product injects a logged communication policy before each admitted user message. Explicit response scope, style, and length guide the answer without flattening persona voices. The policy separates user-stated facts, source-backed history, and tentative interpretations; it prohibits asserting unknown motives, character, or circumstances as facts. Advice-shaped wording receives a conditional reminder to respect the current request. A requested single short text ends without count reports, explanation, historical backing, or extra advice. Lookup supports historical claims actually needed in this turn; persona identity alone does not justify adding research.
+产品在每条被接纳的用户消息之前注入写入日志的沟通规则。用户明确要求的回应范围、方式和长度指导回答，同时保留人物差异。规则区分用户陈述事实、史料支持内容与暂时理解，禁止把未知动机、性格或现实条件当成事实。含有建议型措辞的消息收到遵从当轮请求的条件性提示。用户只要一条短文本时，交付内容即止，不自报字数或追加解释、历史佐证和建议。检索服务于本轮实际需要的史实断言；人物身份本身不构成主动添加史料的理由。
 
-Preset composition bytes, digest comparisons, stored branch identities, remain unchanged. Submission admission is described by the [concise-advice decision](2026-10-24-man-roleplayer-concise-advice.md). Existing branches receive the policy on their next turn through the ordinary Session input path.
+人物 preset 装配字节、摘要比较、已存分支身份保持有效。提交接纳规则见[简短建议决策](2026-10-24-man-roleplayer-concise-advice.md)。已有分支在下一回合通过普通 Session 输入路径收到规则。
 
 ## Alternatives considered
 
-**Edit the persona presets.** Changing composition bytes changes their identities and prevents existing branches from resuming under the configured preset; this communication correction does not justify migrating conversation data.
+**修改人物 preset。** 改变装配字节会改变身份，使已有分支无法按当前配置恢复；沟通修正不构成迁移对话数据的理由。
 
-**Parse length requests or reject motive phrases.** Pattern rules cannot establish the intended scope or whether an interpretation is supported, and they risk erasing legitimate persona expression.
+**解析长度要求或拒绝动机短语。** 模式规则无法确定用户意图范围或解释依据，还可能抹平合理的人物表达。
 
-**Remove deterministic advice checks.** The observed brief-example request does not activate them. Removing the checks would independently weaken protection against empty advice and requires separate evidence and a deliberate tradeoff.
+**移除确定性建议检查。** 已观察到的简短例子请求没有触发这些检查。移除会独立削弱对无实质建议的保护，需要另行提供证据并明确取舍。
 
 ## Consequences
 
-The real Loader regression covers a persisted preset branch receiving the policy after restart, valid short listening output, and continued rejection of an uncited quote. Policy text is logged and visible in model requests. These checks prove integration and compatibility; actual compliance with length and restraint still requires model-backed conversation review. Advice requests remain subject to modern-inference, topic, filler, and evidence checks; a [separate decision](2026-10-24-man-roleplayer-concise-advice.md) removes the fixed minimum length after a real conflict with a short-opening request.
+真实 Loader 回归覆盖已有 preset 分支重启后收到规则、有效倾听短答被接纳、无来源引文仍被拒绝。规则写入日志并出现在模型请求中。这些检查证明接入及兼容性；长度和克制表达是否真正遵从，仍需要真实模型对话验收。建议请求仍受 modern-inference、主题关联、占位与证据检查约束；真实开场白请求触发长度冲突后，[另一项决策](2026-10-24-man-roleplayer-concise-advice.md)移除了固定最低字数。

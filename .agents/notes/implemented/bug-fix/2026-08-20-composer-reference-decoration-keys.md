@@ -1,39 +1,37 @@
-# Agent Note: Composer reference decorations key by draft-order ordinal
+# Agent Note: 输入框引用装饰按草稿顺序序号取 key
 
 Status: implemented
 
-English | [中文](2026-08-20-composer-reference-decoration-keys.zh.md)
+## 问题
 
-## Problem
+输入框 backdrop 把草稿渲染成一组片段：纯文本字符串、开头的 claim token 标记、每个结构化引用一个元素、每个纯文本引用范围一个标记。React 按 key 协调这个数组。
 
-The composer backdrop renders the draft as an array of segments: plain strings, a leading claim-token mark, one element per structured reference, and one mark per plain-text reference range. React reconciles that array by key.
+结构化引用带有身份——occurrence 表铸造的 `occurrenceId` 在任何编辑后都保持不变——因此它们的 chip 用它作 key。纯文本引用范围没有这种身份：`scanTextRefs` 在每次渲染时从草稿重新推导它们，扫描之外没有任何东西在两次按键之间记住某个范围。
 
-Structured references carry an identity — the occurrence table mints an `occurrenceId` that survives every edit — so their chips key by it. Plain-text reference ranges have no such identity: `scanTextRefs` re-derives them from the draft on every render, and nothing outside that scan remembers a range between two keystrokes.
+用草稿偏移量给这些范围取 key，会让前面文本长度一变 key 就变。React 于是把该范围当作另一个元素，卸载带嵌套 span 和内联图标的标记，再挂载一个替代品。在引用前面输入或删除任意字符，都会重建光标之后的每一个引用，工作量随引用数量增长。[目录语法范围](../feature/2026-07-27-web-file-and-session-references.md)让这条路径成为常态：它们按 `@path/` 语法匹配，不依赖 lexicon，而且每个都渲染一个图标。
 
-Keying those ranges by their draft offset made the key change whenever earlier text changed length. React then treated the range as a different element, unmounted the mark with its nested spans and inline glyph, and mounted a replacement. Every character typed or deleted ahead of a reference rebuilt every reference after the caret, and the work grew with the reference count. [Directory-syntax ranges](../feature/2026-07-27-web-file-and-session-references.md) made that path routine: they match on `@path/` syntax without a lexicon, and each one renders an icon.
+## 决策
 
-## Decision
+纯文本引用标记以它在按偏移排序的 `textRefs` 列表中的下标作 key，在组装 boundary 列表处计算，因此被跳过的 boundary 不会让它偏移。扫描本身已按草稿顺序返回范围，所以该序号命名的是范围占据的渲染槽位，而这正是扫描推导出的范围唯一拥有的身份。
 
-A plain-text reference mark keys by its index in the offset-sorted `textRefs` list, computed where the boundary list is assembled so a skipped boundary cannot shift it. The scan already returns the ranges in draft order, so the ordinal names the render slot a range occupies, which is the only identity a scan-derived range has.
+结构化 chip 保留 `occurrenceId`。两种 key 策略不同，是因为两类范围的身份不同，而非疏漏：occurrence 表拥有的范围在重排后保住自己的节点，只有扫描知道的范围在偏移变化后保住自己的节点。
 
-Structured chips keep `occurrenceId`. The two key strategies differ because the two range kinds differ in identity, not by oversight: a range the occurrence table owns keeps its node across reordering, and a range only a scan knows keeps its node across offset shifts.
+不再匹配扫描规则的范围仍然失去装饰，因为它从 `textRefs` 中消失，它占据的序号也不复存在。
 
-A range that stops matching the scan still loses its decoration, because it disappears from `textRefs` and the ordinal it held no longer exists.
+## 测试
 
-## Testing
+组件测试持有标记元素及其图标，在范围之前输入一个字符，断言仍是同一批节点；随后把 token 编辑成不再匹配的形态，断言装饰消失。该测试在偏移量 key 下失败。
 
-A component test holds the mark element and its glyph, types a character ahead of the range, and asserts the same nodes are still mounted; it then edits the token out of match shape and asserts the decoration is gone. The test fails against an offset-derived key.
+## 备选方案
 
-## Alternatives considered
+**按范围文本取 key。** 拒绝：重复引用会撞同一个 key，且在范围内部编辑会改变 key，重新引入本次修复消除的重挂载。
 
-**Key by the range text.** Rejected: duplicate references collide on one key, and editing inside a range changes its key, which reintroduces the remount this fixes.
+**为扫描推导的范围建立身份表。** 拒绝：这会引入唯一消费者是渲染 key 的可变状态，而且扫描必须与上一版草稿做 diff 才能维护它。破坏匹配的编辑在下一次扫描时直接丢掉该范围，正是这一点让 `scanTextRefs` 保持为纯推导。
 
-**Give scan-derived ranges an identity table.** Rejected: it adds mutable state whose only consumer is a render key, and the scan would have to diff against the previous draft to maintain it. An edit that breaks a match simply dropping the range on the next scan is what keeps `scanTextRefs` a pure derivation.
+**去掉 key，让 React 按位置匹配。** 拒绝：React 要求数组内的元素带 key，而它们之间的纯文本片段本就按下标匹配，因此无 key 元素只会告警，不改变结果。
 
-**Drop the keys and let React match by position.** Rejected: React requires keys on elements inside an array, and the plain string segments between them already match by index, so an unkeyed element warns without changing the outcome.
+## 后果
 
-## Consequences
+在引用之前输入只更新文本节点；标记及其图标保持挂载。backdrop 每次按键的 DOM 工作量不再随草稿中的引用数量增长。
 
-Typing ahead of a reference updates text nodes only; the mark and its icon stay mounted. The backdrop's per-keystroke DOM work no longer scales with the number of references in the draft.
-
-Because the key names a position, inserting a reference ahead of existing ones reuses the earlier nodes with new content instead of re-creating them. That is correct for these marks, which hold no focus, selection, or animation state, and it is the condition any future decoration on this layer meets before it keys by ordinal.
+由于 key 命名的是位置，在已有引用之前插入新引用会以新内容复用先前的节点，而不是重建它们。对这些不持有焦点、选择区或动画状态的标记而言这是正确的，这也是该图层上任何未来装饰按序号取 key 前需要满足的条件。

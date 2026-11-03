@@ -1,25 +1,23 @@
-# Agent Note: Client choice submission requires complete answers or explicit skip
+# Agent Note: 客户端选择提交要求完整答案或显式跳过
 
 Status: implemented
 
-English | [中文](2026-10-24-choice-validation-client.zh.md)
-
 ## Problem
 
-The browser could send an empty answer when the user pressed submit, and single-select questions could submit immediately while later questions remained unanswered. The pending card then disappeared, making an incomplete response look accepted.
+浏览器在用户点击提交时可能发送空答案；单选问题也可能在用户回答后续问题前立即提交。待处理选择卡随即消失，让未完成的回答看起来像已被接受。
 
 ## Decision
 
-The client keeps option and custom-text drafts under the Host choice operation id. Single-select and multi-select changes update only that draft. For a single-select question, choosing custom text clears the radio selection; returning to the radio answer mode retains the typed text in the local draft but omits it from the request. Multi-select questions continue to submit selected options together with non-blank custom text. Normal submission sends the full question set only when each question has at least one selected option or non-blank custom text; whitespace-only custom text is omitted and does not satisfy validation. The dedicated skip action sends `skipped: true` for every question with no answer content. Submission is guarded against duplicate activation, and failed attempts leave the card available for retry.
+客户端按 Host 选择操作 ID 保存选项和自定义文字草稿。单选和多选的变更只更新草稿。单选题选择自定义文字时会清空 radio 选项；切回选项作答时，界面保留已输入的自定义文字，但请求不会同时提交它。多选题仍可同时提交已选选项和非空自定义文字。正常提交会发送完整问题集，且每题必须至少包含一个已选选项或非空自定义文字；纯空白自定义文字会被省略，也不能满足校验。专用跳过操作会为每个问题发送 `skipped: true`，并且不附答案内容。提交过程会阻止重复触发；失败后选择卡仍可重试。
 
-When the selected Host projection reports a pending choice or a waiting-choice active turn, the header and details say that the user is expected to choose. The matching live activity is replaced by a waiting message so the turn is not presented as actively thinking or accruing client-visible generation time.
+当当前 Host 投影报告待处理选择或等待选择的活动轮次时，顶部和详情会提示用户作出选择。对应的实时活动会被等待提示替代，避免界面将该轮呈现为仍在思考或持续累加模型生成时间。
 
 ## Alternatives considered
 
-**Submit each single-select change immediately.** This can close a multi-question card before the user answers the remaining questions and bypasses custom-text validation.
+**每次单选变更都立即提交。** 多问题卡可能在用户回答其余问题前关闭，并绕过自定义文字校验。
 
-**Treat an empty answer as an implicit skip.** An accidental submit would become indistinguishable from an intentional decision to skip. The explicit skip action preserves that distinction in the Host request.
+**把空答案视为隐式跳过。** 意外点击提交将无法与用户有意跳过区分。显式跳过操作会在 Host 请求中保留这一区别。
 
 ## Consequences
 
-Incomplete answers stay editable and visible until the user completes every question or explicitly skips. Option and custom-text drafts are scoped to one Host operation, so a different choice cannot inherit them. The client duplicates the completeness rule for immediate feedback; the Host remains authoritative and rejects invalid wire answers. Browser-component tests cover empty and whitespace-only answers, valid option/custom answers, explicit skip markers, duplicate-submit locking, and the waiting-choice presentation.
+未完成的答案会继续保持可编辑和可见，直到用户答完每个问题或明确跳过。选项和自定义文字草稿绑定单个 Host 操作，因此另一个选择不会继承它们。客户端重复执行完整性规则以提供即时反馈；Host 仍是权威校验者，会拒绝无效 wire 答案。浏览器组件测试覆盖空答案和纯空白答案、有效选项与自定义答案、显式跳过标记、重复提交锁定，以及等待选择状态。

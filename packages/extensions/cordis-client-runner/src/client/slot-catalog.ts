@@ -139,9 +139,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerProps: [
       '/**\n * Owner currency of the assistant-message action strip: the durable identity\n * of the one finalized message the contributed actions address. Only finalized\n * messages reach this slot, so the id is always present.\n */\nexport interface AssistantActionOwnerProps {\n  /** Stable identity carried from the `assistant/message` event. */\n  messageId: MessageId\n}',
     ],
-    ownerPropsReferences: [
-      'MessageId',
-    ],
+    ownerPropsReferences: [],
     standardProps: [
       'useSessions: SnapshotSelectorHook<SessionListState>',
       'useWorkspaces: SnapshotSelectorHook<import(\'./workspaces/service.ts\').WorkspaceListState>',
@@ -1019,9 +1017,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ownerProps: [
       '/** Plain breadcrumb data handed to the optional lineage renderer. */\nexport interface ConversationHeaderLineageOwnerProps {\n  /** Session represented by this breadcrumb title. */\n  lineageSessionId: SessionId\n  /** Display title available to a renderer that combines the title with a control. */\n  displayTitle: string\n  /** Navigate to an ancestor title when its combined control is clicked. */\n  openTitle?: () => void\n}',
     ],
-    ownerPropsReferences: [
-      'SessionId',
-    ],
+    ownerPropsReferences: [],
     standardProps: [
       'useSessions: SnapshotSelectorHook<SessionListState>',
       'useWorkspaces: SnapshotSelectorHook<import(\'./workspaces/service.ts\').WorkspaceListState>',
@@ -1175,6 +1171,33 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     source: 'packages/client/ui-layout/src/client/index.ts:72',
   },
   {
+    key: 'manRoleplayer.personaDeck',
+    kind: 'single',
+    scope: 'root',
+    summary: 'Register one controlled persona picker receiving the available roster, joined identities, selection mode and owner callbacks.',
+    doc: 'Register one controlled persona picker receiving the available roster,\njoined identities, selection mode and owner callbacks. A replacement\nowns card rendering in place of the bundled PersonaDeck and invokes\nonConfirm only for the selected persona; the owner keeps creation/invitation\nauthority. With no occupant this declared slot has no picker renderer.',
+    registerOptions: [],
+    ownerProps: [
+      '/** Client-safe persona vocabulary; no Host product imports cross this face. */\nexport type PersonaId = typeof PERSONA_REGISTRY[number][\'id\']',
+      '/** Client-selectable persona id and display name, excluding Host research/preset paths. */\nexport interface RoleplayerPersonaOption {\n  readonly id: PersonaId\n  readonly displayName: string\n}',
+    ],
+    ownerPropsReferences: [],
+    standardProps: [
+      'useSessions: SnapshotSelectorHook<SessionListState>',
+      'useWorkspaces: SnapshotSelectorHook<import(\'./workspaces/service.ts\').WorkspaceListState>',
+    ],
+    keyDomain: '',
+    hookContext: '',
+    slotInject: '',
+    declaredBy: 'an entry in \'root\' (client-ui-man-roleplayer), so it exists while that entry is mounted',
+    occupants: [
+      'client-ui-man-roleplayer PersonaDeck',
+    ],
+    replaceRisk: 'shadows-shipped-ui',
+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'manRoleplayer.personaDeck\', () => ctx.slots.register(\n      { name: \'manRoleplayer.personaDeck\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+    source: 'packages/client/ui-man-roleplayer/src/client/PersonaDeck.tsx:18',
+  },
+  {
     key: 'root',
     kind: 'single',
     scope: 'root',
@@ -1195,6 +1218,8 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     declaredBy: 'the runtime itself (built in; always present)',
     occupants: [
       'client-ui-layout AppFrame',
+      'client-ui-man-roleplayer RoleplayerUnavailableView',
+      'client-ui-man-roleplayer RoleplayerView',
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'root\', () => ctx.slots.register(\n      { name: \'root\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',

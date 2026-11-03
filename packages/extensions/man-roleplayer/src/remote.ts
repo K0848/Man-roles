@@ -109,7 +109,11 @@ async function projection(product: ManRoleplayer, conversation: DilemmaConversat
   }
 }
 
-/** Remote service that exposes only redacted product projections and handles. */
+/**
+ * Remote service exposing only redacted product projections and handles.
+ * Request and operation failures are mapped to typed results; reads/projection failures outside
+ * the operation mapper can reject the returned promise and must be handled by the transport caller.
+ */
 export class ManRoleplayerRemoteService extends TypertRemoteService {
   static inject = ['manRoleplayer']
 
@@ -117,6 +121,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     super(ctx, 'manRoleplayerRemote')
   }
 
+  /**
+   * List the audited persona roster without exposing deployment bindings.
+   * @param request - Protocol version; only version 1 is accepted.
+   * @returns The persona roster, or invalid-request for an unsupported version.
+   */
   @Remote('listPersonas')
   listPersonas(request: { readonly version: number }): Promise<RoleplayerRosterResult> {
     const result = request.version !== VERSION
@@ -125,6 +134,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     return Promise.resolve(result)
   }
 
+  /**
+   * List redacted dilemma projections, excluding archived records unless requested.
+   * @param request - Protocol version and optional archive inclusion.
+   * @returns Redacted projections or a typed request/Host failure.
+   */
   @Remote('list')
   async list(request: RoleplayerListRequest): Promise<RoleplayerListResult> {
     if (request.version !== VERSION) {
@@ -136,6 +150,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     } catch (error) { return rejected(failure(error)) }
   }
 
+  /**
+   * Create an idempotent blank dilemma with one explicitly selected persona or the omitted legacy pair.
+   * @param request - Protocol version, request id, active persona, and optional single-persona selection.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('create')
   async create(request: RoleplayerCreateRequest): Promise<RoleplayerProjectionResult> {
     const activePersona: unknown = request.activePersona
@@ -155,12 +174,22 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     } catch (error) { return rejected(failure(error)) }
   }
 
+  /**
+   * Resolve an opaque handle to its current redacted product projection.
+   * @param request - Protocol version and opaque dilemma handle.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('getProjection')
   async getProjection(request: RoleplayerHandleRequest): Promise<RoleplayerProjectionResult> {
     const conversation = await this.resolve(request)
     return conversation.ok ? ok(await projection(this.product(), conversation.value)) : conversation
   }
 
+  /**
+   * Archive a dilemma while retaining its readable history.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('archive')
   async archive(request: RoleplayerMutationRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().archive(
@@ -168,6 +197,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Restore an archived dilemma for mutations.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('restore')
   async restore(request: RoleplayerMutationRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().restore(
@@ -175,6 +209,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Persist a user-owned title and suppress late automatic title replacement.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('rename')
   async rename(request: RoleplayerRenameRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().rename(
@@ -182,6 +221,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Pause the discussion and request cancellation of its active turn.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('pause')
   async pause(request: RoleplayerMutationRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().pause(
@@ -189,6 +233,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Resume a paused or ended discussion without replaying a persona turn.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('resume')
   async resume(request: RoleplayerMutationRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().resumeDiscussion(
@@ -196,6 +245,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * End the current stage and request cancellation of its active turn.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('endStage')
   async endStage(request: RoleplayerMutationRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().endStage(
@@ -203,6 +257,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Activate a persona after the current turn has stopped, allocating its branch when needed.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('switchPersona')
   async switchPersona(request: RoleplayerSwitchRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().switchPersona(
@@ -211,6 +270,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Persist validated answers and wake the matching product choice waiter.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('answerChoice')
   async answerChoice(request: RoleplayerChoiceAnswerRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().answerChoice(
@@ -218,6 +282,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Cancel the matching pending choice and request its Agent to stop.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('cancelChoice')
   async cancelChoice(request: RoleplayerChoiceCancelRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().cancelChoice(
@@ -225,6 +294,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Confirm a candidate for future shared context.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('confirmState')
   async confirmState(request: RoleplayerStateRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().confirmState(
@@ -232,6 +306,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Supersede a candidate or confirmed item with a user-confirmed correction.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('modifyState')
   async modifyState(request: RoleplayerStateModifyRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().modifyState(
@@ -240,6 +319,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Reject a candidate while retaining its durable history.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('rejectState')
   async rejectState(request: RoleplayerStateRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().rejectState(
@@ -247,6 +331,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Withdraw a confirmed item from future shared context.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('withdrawState')
   async withdrawState(request: RoleplayerStateRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().withdrawState(
@@ -254,6 +343,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Resolve an unresolved candidate without deleting history.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('resolveState')
   async resolveState(request: RoleplayerStateRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().resolveState(
@@ -261,6 +355,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Remove challenged evidence from the current allow-list.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('challengeEvidence')
   async challengeEvidence(request: RoleplayerEvidenceRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().challengeEvidence(
@@ -268,6 +367,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Restore only explicitly challenged evidence after user review.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('reviewEvidence')
   async reviewEvidence(request: RoleplayerEvidenceRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().reviewEvidence(
@@ -275,6 +379,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Withdraw evidence so review cannot restore it.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('withdrawEvidence')
   async withdrawEvidence(request: RoleplayerEvidenceRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().withdrawEvidence(
@@ -282,6 +391,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Acknowledge durable delivery/turn claims while the persona answer continues in the background.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('submit')
   async submit(request: RoleplayerSubmitRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.submitUntilChoiceOrCompletion(conversation, {
@@ -300,6 +414,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     return this.product().submitMessage(conversation.id, { ...request, acknowledgeOnly: true })
   }
 
+  /**
+   * Retry one failed persona attempt without appending another product user message.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('retryMessage')
   async retryMessage(request: RoleplayerRetryRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().retryMessage(
@@ -308,6 +427,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Retry failed analysis using its persisted input and a stable retry id.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('retryState')
   async retryState(request: RoleplayerStateRetryRequest): Promise<RoleplayerProjectionResult> {
     return this.mutate(request, conversation => this.product().retryState(
@@ -315,6 +439,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     ))
   }
 
+  /**
+   * Cancel the matching live message lease without requiring the stale pre-submit revision.
+   * @param request - Protocol version, handle, and matching live message/delivery/turn identities; expectedRevision is ignored.
+   * @returns The redacted product projection on success, or a typed request/lifecycle/Host failure.
+   */
   @Remote('cancel')
   async cancel(request: RoleplayerCancelRequest): Promise<RoleplayerProjectionResult> {
     // A submit changes the product revision while its Agent is still running.
@@ -331,6 +460,11 @@ export class ManRoleplayerRemoteService extends TypertRemoteService {
     } catch (error) { return rejected(failure(error)) }
   }
 
+  /**
+   * Delete all dilemma branch histories and product facts using a recoverable operation and minimal receipt.
+   * @param request - Versioned request with an opaque handle, idempotency key, expected lifecycle revision, and operation fields.
+   * @returns A minimal deleted acknowledgement on completion/replay, or a typed failure with a retryable deletion checkpoint.
+   */
   @Remote('delete')
   async delete(request: RoleplayerDeleteRequest): Promise<RoleplayerDeleteResult> {
     const receipt = await this.product().readDeletionReceipt(operationId(request.operationId))

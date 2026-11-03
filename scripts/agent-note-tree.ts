@@ -37,13 +37,15 @@ export interface AgentNote {
  * Walk the Agent Note tree, enforcing the structure rules. Returns every valid Agent Note
  * plus one error string per violation (unknown lifecycle or class folder, bad
  * depth, or bad filename). Callers treat a non-empty error list as fatal.
+ * @param scanRoot - Agent Note 根目录，默认使用当前仓库。
+ * @returns 每份现存语言文档与目录错误；不要求语言副本。
  */
-export function walkAgentNoteTree(): { notes: AgentNote[]; errors: string[] } {
+export function walkAgentNoteTree(scanRoot: string = agentNoteRoot): { notes: AgentNote[]; errors: string[] } {
   const notes: AgentNote[] = []
   const errors: string[] = []
   // The lifecycle set is closed too: any directory under .agents/notes/ that is not
   // a known lifecycle would otherwise hold Agent Notes invisible to the walk below.
-  for (const entry of readdirSync(agentNoteRoot, { withFileTypes: true })) {
+  for (const entry of readdirSync(scanRoot, { withFileTypes: true })) {
     if (entry.name === 'INDEX.md') {
       errors.push('structure: INDEX.md — centralized Agent Note indexes are forbidden; browse the lifecycle/class tree or search the repository')
       continue
@@ -55,13 +57,11 @@ export function walkAgentNoteTree(): { notes: AgentNote[]; errors: string[] } {
     }
   }
   for (const lifecycle of AGENT_NOTE_LIFECYCLES) {
-    for (const match of globSync(`${lifecycle}/**/*.md`, { cwd: agentNoteRoot }).map(path => path.split(sep).join('/')).sort()) {
+    for (const match of globSync(`${lifecycle}/**/*.md`, { cwd: scanRoot }).map(path => path.split(sep).join('/')).sort()) {
       const segs = match.split('/')
       // Allowlisted file directly at the lifecycle root (e.g. implemented/AGENTS.md).
       if (segs.length === 2 && ROOT_ALLOWLIST.has(segs[1] ?? '')) continue
-      // A Chinese counterpart (foo.zh.md, docs/i18n/README.md) is the SAME Agent Note,
-      // indexed via its English filename; the pairing gate owns its consistency.
-      if (match.endsWith('.zh.md')) continue
+      // 每份现存语言文件各自校验，避免另一语言的完整结构掩盖当前文件缺项。
       const cls = segs[1]
       const base = segs[2]
       if (segs.length !== 3 || cls === undefined || base === undefined) {

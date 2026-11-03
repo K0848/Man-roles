@@ -24,11 +24,12 @@ function workspaceFixture(options: {
   const split = join(root, 'packages/api/split')
   mkdirSync(shared, { recursive: true })
   mkdirSync(split, { recursive: true })
-  writeJson(join(root, 'tsconfig.base.json'), {})
-  writeJson(join(root, 'tsconfig.base.client.json'), { extends: './tsconfig.base.json' })
+  mkdirSync(join(root, 'config/typescript'), { recursive: true })
+  writeJson(join(root, 'config/typescript/tsconfig.base.json'), {})
+  writeJson(join(root, 'config/typescript/tsconfig.base.client.json'), { extends: './tsconfig.base.json' })
   writeJson(join(shared, 'package.json'), { name: '@deepseek-ai/dsh-shared' })
   writeJson(join(shared, 'tsconfig.json'), {
-    extends: '../../../tsconfig.base.json',
+    extends: '../../../config/typescript/tsconfig.base.json',
     references: [],
   })
   writeJson(join(split, 'package.json'), { name: '@deepseek-ai/dsh-split' })
@@ -38,11 +39,11 @@ function workspaceFixture(options: {
   })
   writeJson(join(split, 'tsconfig.host.json'), { references: [{ path: '../../core/shared' }] })
   writeJson(join(split, 'tsconfig.client.json'), { references: [{ path: '../../core/shared' }] })
-  writeJson(join(root, 'tsconfig.host.json'), {
-    references: options.host.map(path => ({ path })),
+  writeJson(join(root, 'config/typescript/tsconfig.host.json'), {
+    references: options.host.map(path => ({ path: path.replace(/^\.\//, '../../') })),
   })
-  writeJson(join(root, 'tsconfig.client.json'), {
-    references: options.client.map(path => ({ path })),
+  writeJson(join(root, 'config/typescript/tsconfig.client.json'), {
+    references: options.client.map(path => ({ path: path.replace(/^\.\//, '../../') })),
   })
   return root
 }
@@ -67,8 +68,8 @@ describe('Project Reference compiler faces', () => {
     })
 
     expect(collectProjectReferenceFaceViolations(root)).toEqual([
-      'tsconfig.client.json: Project Reference "./packages/api/split" enters split project packages/api/split from a Client config; reference "packages/api/split/tsconfig.client.json" instead',
-      'tsconfig.host.json: Project Reference "./packages/api/split/tsconfig.client.json" enters split project packages/api/split from a Host config; reference "packages/api/split/tsconfig.host.json" instead',
+      'config/typescript/tsconfig.client.json: Project Reference "../../packages/api/split" enters split project packages/api/split from a Client config; reference "packages/api/split/tsconfig.client.json" instead',
+      'config/typescript/tsconfig.host.json: Project Reference "../../packages/api/split/tsconfig.client.json" enters split project packages/api/split from a Host config; reference "packages/api/split/tsconfig.host.json" instead',
     ])
   })
 
@@ -81,14 +82,14 @@ describe('Project Reference compiler faces', () => {
     mkdirSync(hostConsumer, { recursive: true })
     writeJson(join(hostConsumer, 'package.json'), { name: '@deepseek-ai/dsh-host-consumer' })
     writeJson(join(hostConsumer, 'tsconfig.json'), {
-      extends: '../../../tsconfig.base.json',
+      extends: '../../../config/typescript/tsconfig.base.json',
       references: [{ path: '../../api/split/tsconfig.client.json' }],
     })
     const clientConsumer = join(root, 'packages/core/client-consumer')
     mkdirSync(clientConsumer, { recursive: true })
     writeJson(join(clientConsumer, 'package.json'), { name: '@deepseek-ai/dsh-client-consumer' })
     writeJson(join(clientConsumer, 'tsconfig.json'), {
-      extends: '../../../tsconfig.base.client.json',
+      extends: '../../../config/typescript/tsconfig.base.client.json',
       references: [{ path: '../../api/split/tsconfig.host.json' }],
     })
 

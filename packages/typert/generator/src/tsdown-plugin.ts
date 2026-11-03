@@ -12,6 +12,7 @@ import ts from 'typescript'
 import { WorkspaceTypertGenerator } from './workspace.ts'
 import type { WorkspaceEmitResult } from './workspace.ts'
 import type { TypertFace } from './model.ts'
+import { workspaceFaceConfig } from './workspace-config.ts'
 
 /** The subset of the rolldown plugin contract used here (structural; avoids a rolldown type dependency). */
 interface TypertPlugin {
@@ -148,7 +149,7 @@ function packageRoot(start: string, workspace: string): string | undefined {
 
 function workspaceRoot(start: string): string {
   let current = resolve(start)
-  while (!existsSync(join(current, 'tsconfig.host.json'))) {
+  while (!existsSync(resolve(current, workspaceFaceConfig(current, 'host')))) {
     const parent = dirname(current)
     if (parent === current) throw new Error(`typert-generator: cannot find workspace root above ${start}`)
     current = parent

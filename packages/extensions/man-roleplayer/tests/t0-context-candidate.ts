@@ -13,7 +13,7 @@ export type Projection = {
   readonly applied: boolean
 }
 
-export type SummaryDependency = {
+type SummaryDependency = {
   readonly kind: 'shared-state' | 'user-message'
   readonly id: string
   readonly revision: number
@@ -24,7 +24,7 @@ export type SummaryMetadata = {
   readonly dependsOn: readonly SummaryDependency[]
   readonly body: string
 }
-export type ExpectedProjection = {
+type ExpectedProjection = {
   readonly fingerprint: string
   readonly body: string
   readonly revision: number

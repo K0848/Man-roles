@@ -1,47 +1,45 @@
-# Agent Note: Composer edits carry the range they applied to
+# Agent Note: 输入框的编辑自带它所作用的范围
 
 Status: implemented
 
-English | [中文](2026-08-20-composer-edit-range-from-selection.zh.md)
+## 问题
 
-## Problem
+输入机器靠一个编辑范围来对齐引用 occurrence：范围之前的条目右移，之后的条目不动，被范围相交的条目失去结构化身份、以普通草稿文本留在原地。最后一条是"在引用内部编辑"的刻意含义。
 
-The input machine keeps its reference occurrences aligned by reconciling them against one edit range: entries before the range shift, entries after it hold, and an entry the range intersects loses its structured identity and stays behind as ordinary draft text. That last rule is the deliberate meaning of editing inside a reference.
+普通打字不提供范围。受控 textarea 的 change 事件只带结果字符串，于是机器靠扫描两份草稿的公共前后缀来还原范围。只要插入的文本与它落点处的文本重复，这个还原就是有歧义的，而贪心扫描永远以同一种方式消解歧义：把编辑尽量往后滑。
 
-Ordinary typing supplied no range. A controlled textarea's change event carries only the resulting string, so the machine recovered the range by scanning the two drafts for a common prefix and suffix. That recovery is ambiguous whenever the inserted text repeats the text it lands against, and the greedy scan always resolves the ambiguity the same way: it slides the edit as late as the characters allow.
+引用渲染为 `@` 加标签，所以紧挨着引用前面打一个 `@` 恰好构成这种撞车。用户在引用自身的偏移处插入；扫描报告的插入位置晚一个字符，落在引用内部；reconcile 执行相交规则，删掉这个 occurrence。删除这类引用前面的一个字符会以同样方式滑动。
 
-A reference renders as `@` followed by its label, so typing `@` immediately before one produces exactly that collision. The user inserts at the reference's own offset; the scan reports an insertion one character later, inside the reference; reconcile applies the intersect rule and drops the occurrence. Deleting a character in front of such a reference slides the same way.
+此时草稿看上去仍然正确，却已不携带任何结构化引用，提交走的是无 occurrence 的那条路，把草稿原样发出。宿主收到的是给人看的标签而不是所有者的模型形式，什么也解析不出来。专为阻止这种降级而存在的序列化守卫从不运行，因为它只在还有 occurrence 需要序列化时才触发。
 
-The draft then still reads correctly to the eye while carrying no structured reference, and submission takes the occurrence-free path that sends the draft verbatim. The host receives the human-facing label instead of the owner's model form and resolves nothing. The serialization guard that exists to prevent exactly this downgrade never runs, because it only fires when an occurrence survives to be serialized.
+这条路径是在引用[变成字面内联文本](../feature/2026-07-27-web-file-and-session-references.md)之后才可达的。此前一个引用占据一个 `U+FFFC`——任何按键都打不出的字符，扫描无从撞车。
 
-This became reachable when references [became literal inline text](../feature/2026-07-27-web-file-and-session-references.md). A reference previously occupied one `U+FFFC`, a character no keystroke produces, so the scan had nothing to collide with.
+## 决策
 
-## Decision
+`InputBar` 在 `beforeinput` 期间记录 textarea 的 selection 与 `inputType`，并把由此得到的范围传给 `setDraft`；机器本就接受该参数，并优先于自身的扫描。textarea 没有别的途径暴露这次编辑——`getTargetRanges()` 对表单控件返回空。
 
-`InputBar` records the textarea's selection and `inputType` during `beforeinput` and passes the resulting range to `setDraft`, which the machine already accepts and prefers over its own scan. A textarea exposes the edit no other way — `getTargetRanges()` is empty for form controls.
+替换一段选区的编辑会报告那段 selection，它直接就是范围；插入长度是扣除被替换范围后草稿增长的量。折叠光标的删除不替换任何东西、只报告光标本身，因此它的范围来自 `inputType` 指明的方向加上草稿实际减少的字符数。这个数量是**测量**得到而非假定为 1，因为一次折叠手势同样可能删掉一个多码元字形、一个词或一整行。Chromium、WebKit 与 Firefox 对 `deleteContentBackward` 和 `deleteContentForward` 都报告折叠光标，三者由此推导出相同的范围。
 
-An edit that replaces a selection reports that selection, and it is the range outright; the inserted length is whatever the draft grew by once the replaced range is accounted for. A caret delete replaces nothing and reports the bare caret, so its range comes from the direction `inputType` names and the number of characters the draft actually lost. The count is measured rather than assumed to be one, because a single caret gesture removes a multi-unit grapheme, a word, or a line just as readily. Chromium, WebKit, and Firefox all report the collapsed caret for `deleteContentBackward` and `deleteContentForward`, and all three derive the same range from it.
+只有 `insert` 与 `delete` 两族会被记录。历史回放报告的是光标当时碰巧所在的位置，那会通过全部校验却指向错误区间；忽略它即让该路径留在扫描上。
 
-Only the `insert` and `delete` families are recorded. A history replay reports wherever the caret happens to sit, which would survive every check while naming the wrong span; ignoring it leaves that path on the scan.
+记录只消费一次即清空。记录的草稿长度与 change 报告的草稿不符、selection 越过草稿末尾、选区之上出现光标无法解释的收缩、以及方向不明的删除，这几种情况都不产出范围，机器回落到扫描。粘贴以及边界处的 Backspace 与 Delete 手势本就自带范围，未受影响。
 
-The record is consumed once and cleared. A record whose draft length disagrees with the draft the change reports, a selection past the draft, a shrinking edit over a selection the caret cannot explain, or an undirected delete all yield no range, and the machine falls back to its scan. Paste and the boundary Backspace and Delete gestures already supplied their own ranges and are untouched.
+## 测试
 
-## Testing
+组件测试覆盖在引用正前方输入触发字符、折叠 Backspace、折叠 Delete、折叠整词删除，以及选区替换式删除，每种都断言 occurrence 在右移后的偏移处存活。折叠类用例在扫描还原的范围下失败，整词用例在固定一字符步长的实现下失败。
 
-Component tests cover the trigger character typed in front of a reference, a caret Backspace, a caret Delete, a caret word delete, and a delete over a selection, asserting in each case that the occurrence survives at the shifted offset. The caret cases fail against the scan-recovered range, and the word case fails against a fixed one-character step.
+组装层浏览器场景以真实按键对已发布组合驱动同样的手势——那是唯一能观察到引擎为这些手势报告何种范围的地方；其 golden 投影的是 backdrop 的分段，因为装饰层是 aria-hidden 的，无障碍树看不到 chip。经浏览器 IME 路径驱动的真实组合在每个中间态都把组合段报告为 selection，引用在每一步都存活。
 
-An assembled browser scenario drives the same gestures as real key presses against the shipped composition, which is the only place the range an engine reports for them can be observed; its golden projects the backdrop's segments, since the decoration layer is aria-hidden and the accessibility tree cannot see the chip. A real composition driven through the browser's IME path reports the composing segment as the selection at every intermediate state, and the reference survives each one.
+## 备选方案
 
-## Alternatives considered
+**用编辑后的光标位置消解扫描的歧义。** 光标能钉住若干文本等价读法中真正发生的那一种，而 change 事件本就携带它。拒绝：在已有精确事实可用时仍保留一次重建，而且它根本无法把"替换一段选区"拆成删除与插入两半。
 
-**Disambiguate the scan with the post-edit caret.** The caret pins which of the textually equivalent readings happened, and the change event already carries it. Rejected because it keeps a reconstruction where an exact fact is available, and it cannot separate the deleted and inserted halves of a replaced selection at all.
+**给引用一个按键打不出的前导标记。** 用私有区字符取代字面 `@`，在表示层消除撞车，而粘贴文本的剔除名单本就点名了那个区段。拒绝：为了换取一个精确范围本就能直接换到的东西，却重新引入一个必须在所有序列化、选择和无障碍路径上剥离的字符，而且普通打字仍会因为其他原因继续重建自己的范围。
 
-**Give references a leading marker no keystroke produces.** A private-use character in place of the literal `@` removes the collision at the representation level, and the reject list for pasted text already names that range. Rejected because it re-adds a character that every serialization, selection, and accessibility path has to strip, to buy what an exact range buys directly, and it would leave ordinary typing reconstructing its range for every other reason.
+**放宽 reconcile，让范围只触及边缘时保留 occurrence。** 拒绝：误判出的偏移严格落在引用内部而非边界上，规则放宽够不到这个缺陷，只会让相交规则本身更含糊。
 
-**Widen reconcile to keep an occurrence when the range only touches its edge.** Rejected because the misattributed offset lands strictly inside the reference, not on its boundary, so the rule change would not reach this defect while making the intersect rule vaguer.
+## 后果
 
-## Consequences
+每一次经 `onChange` 到达的原生 textarea 编辑现在都指明它作用的范围，因此 occurrence 偏移跟随的是真实发生的编辑，而不是某个仅仅与结果字符一致的编辑。源自 facade 而非 DOM 的草稿写入——`insertText` 和命令 token 的替换等——仍不带范围并保留扫描，上述各类回落同样如此。
 
-Every native textarea edit that reaches `onChange` now names the range it applied to, so occurrence offsets follow the edit that actually happened rather than one merely consistent with the resulting characters. Draft writes that originate in the facade rather than the DOM — `insertText` and the command-token splices among them — still carry no range and keep the scan, as do the fallbacks above.
-
-The composer now depends on `beforeinput` preceding each value change, and on `inputType` naming the direction of a caret delete. Any future edit path that mutates the value without either silently returns to the scan rather than breaking, which keeps the failure mode the old behavior instead of a wrong range.
+输入框由此依赖 `beforeinput` 先于每次取值变更发生，并依赖 `inputType` 指明折叠删除的方向。未来任何绕过其中之一改写取值的编辑路径会静默回落到扫描而不是出错，也就是说失效模式退回旧行为，而不是一个错误的范围。

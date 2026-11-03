@@ -1,5 +1,3 @@
-# AGENTS.md — Web Packages
+# Web 包规则
 
-These rules supplement the package conventions in [packages/AGENTS.md](../AGENTS.md).
-
-- **Reject redirects on credential-bearing provider requests.** Configure the HTTP client to fail before following any redirect response. Regression coverage must prove that the redirect target is not contacted and that every credentialed provider opts into the policy. The configured endpoint necessarily receives the initial request; this prevents automatic forwarding of credentials or request data to another origin, not compromise of the configured endpoint.
+遵守 [包级规则](../AGENTS.md)。携带凭据的提供方请求必须在收到重定向时失败，不能自动跟随。回归应证明没有访问重定向目标，且所有携带凭据的提供方均采用该策略。初始配置端点本身必然收到请求；此规则防止自动向其他来源转发凭据或请求数据，不承诺防御配置端点本身被攻陷。

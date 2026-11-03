@@ -931,7 +931,7 @@ function typeLinks(signature: string, onPage: string, linkedTypePages: Readonly<
     .filter(name => linkedTypePages[name] !== onPage)
     .map(name => `[${name}](${linkedTypePages[name]})`)
   if (links.length === 0) return ''
-  return `Types: ${links.join(' · ')}`
+  return `类型：${links.join(' · ')}`
 }
 
 /**
@@ -964,14 +964,15 @@ function renderEvent(e: EventEntry, onPage: string, linkedTypePages: Readonly<Re
   out.push('```' + FENCE, e.jsDoc, e.signature, '```', '')
   const links = typeLinks(e.signature, onPage, linkedTypePages)
   if (links) out.push(links, '')
-  out.push(`Source: ${sourceLink(e.source)}`, '')
+  out.push(`源码：${sourceLink(e.source)}`, '')
   return out
 }
 
 /** Render one harness service entry onto its owning page. */
 function renderService(s: ServiceEntry, onPage: string, linkedTypePages: Readonly<Record<string, string>>): string[] {
   const kind = s.abstract ? ' (abstract seam)' : ''
-  const out = [...anchorFor(`ctx.${s.key} — ${s.type}${kind}`), `### \`ctx.${s.key}\` — \`${s.type}\`${kind}`, '']
+  const visibleKind = s.abstract ? '（抽象服务）' : ''
+  const out = [...anchorFor(`ctx.${s.key} — ${s.type}${kind}`), `### \`ctx.${s.key}\` — \`${s.type}\`${visibleKind}`, '']
   if (s.doc) out.push(s.doc, '')
   const methods = s.methods.filter(member => member.kind !== 'property')
   if (methods.length) {
@@ -984,7 +985,7 @@ function renderService(s: ServiceEntry, onPage: string, linkedTypePages: Readonl
     const links = typeLinks(methods.map(method => method.signature).join('\n'), onPage, linkedTypePages)
     if (links) out.push(links, '')
   }
-  out.push(`Source: ${sourceLink(s.source)}`, '')
+  out.push(`源码：${sourceLink(s.source)}`, '')
   return out
 }
 
@@ -996,13 +997,13 @@ const BANNER = [
 ]
 
 /** The shared GENERATED + freshness-gate + fence notice paragraph. */
-const GATE_NOTICE = 'This file is GENERATED from source (`scripts/gen-cordis-catalog.ts`) and verified fresh by `pnpm run verify-cordis-catalog` (part of `doc-sync`) — do not edit it by hand. Signature blocks use a `ts cordis-catalog` fence and include the original source JSDoc immediately before each event or service method. doc-typecheck skips these bare declaration fragments; type names in a signature link to the page that documents them.'
+const GATE_NOTICE = '本页由 `scripts/gen-cordis-catalog.ts` 从源码生成，通过 `pnpm run verify-cordis-catalog` 校验新鲜度。`ts cordis-catalog` 围栏保留接口签名及原始 JSDoc，由所属生成检查验证；类型链接指向所属参考页。请修改源码或生成器，不要手改生成正文。'
 
 /**
  * Render one page's generated Cordis API region: the services mapped to
  * the page, then the event scopes mapped to it, markers included. Pure and
- * deterministic given sorted inputs; identical bytes land in both pair sides.
- * @param page - the owning `docs/subsystems/` page basename, e.g. `core.md`.
+ * deterministic given sorted inputs; each page has one canonical output.
+ * @param page - the owning `docs/reference/subsystems/` page basename, e.g. `core.md`.
  * @param services - validated services mapped to this page.
  * @param events - validated events whose scopes map to this page.
  * @param policy - type links supplied by the caller.
@@ -1014,15 +1015,15 @@ export function renderPageRegion(page: string, services: ServiceEntry[], events:
     '',
     '<a id="cordis-surface"></a>',
     '',
-    '## Cordis API',
+    '## Cordis 接口',
     '',
-    'Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).',
+    '本区域由 `scripts/gen-cordis-catalog.ts` 从源码生成，运行 `pnpm run gen-cordis-catalog` 更新，通过 `pnpm run verify-cordis-catalog` 校验新鲜度。`ts cordis-catalog` 围栏保留接口标识、签名与原始 JSDoc；分发模式见[入门参考](../cordis-primer.md#dispatch-modes)，框架继承的 `ctx` 接口见[继承参考](../cordis-api/inherited.md)。',
     '',
   ]
   for (const s of services) lines.push(...renderService(s, page, policy.linkedTypePages))
   const scopes = [...new Set(events.map(e => e.scope))].sort()
   for (const scope of scopes) {
-    lines.push(...anchorFor(`${scope}/* events`), `### \`${scope}/*\` events`, '')
+    lines.push(...anchorFor(`${scope}/* events`), `### \`${scope}/*\` 事件`, '')
     for (const e of events.filter(x => x.scope === scope).sort((a, b) => a.name.localeCompare(b.name))) {
       lines.push(...renderEvent(e, page, policy.linkedTypePages))
     }
@@ -1040,13 +1041,13 @@ export function renderPageRegion(page: string, services: ServiceEntry[], events:
 export function renderInheritedPage(policy: CordisCatalogPolicy): string {
   const lines: string[] = [
     ...BANNER,
-    '# Inherited Cordis API',
+    '# Cordis 继承接口',
     '',
-    'The framework `ctx` members and events every plugin sees beyond the harness tier — pinned vendor source ([vendoring policy](../../vendor/README.md)), summarized tersely so the harness pages stay focused on repository-owned vocabulary. Detailed Context, Fiber, Registry, and Service APIs are generated in [context.md](context.md), [fiber.md](fiber.md), [registry.md](registry.md), and [service.md](service.md); the event-dispatch methods in [events.md](events.md).',
+    '本页汇总每个插件从固定 vendor 框架继承的 `ctx` 成员与事件，来源和更新边界见 [vendor 维护说明](../../vendor/README.md)。Context、Fiber、Registry 和 Service 的完整接口分别见 [Context](context.md)、[Fiber](fiber.md)、[Registry](registry.md) 和 [Service](service.md)；事件分发方法见 [Events](events.md)。',
     '',
     GATE_NOTICE,
     '',
-    '## Inherited `ctx` members (cordis core + loader/hmr/timer)',
+    '## 继承的 `ctx` 成员（cordis core、loader、hmr、timer）',
     '',
   ]
   for (const s of policy.inheritedServices) {
@@ -1054,7 +1055,7 @@ export function renderInheritedPage(policy: CordisCatalogPolicy): string {
   }
   lines.push(
     '',
-    '## Inherited events (cordis core + loader/hmr/timer)',
+    '## 继承事件（cordis core、loader、hmr、timer）',
     '',
   )
   for (const e of policy.inheritedEvents) {

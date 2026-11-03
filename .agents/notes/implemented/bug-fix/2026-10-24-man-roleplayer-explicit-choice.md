@@ -1,25 +1,23 @@
-# Agent Note: Explicit choice answers preserve bounded model work
+# Agent Note: 显式选择答案保留模型工作预算
 
 Status: implemented
 
-English | [中文](2026-10-24-man-roleplayer-explicit-choice.zh.md)
-
 ## Problem
 
-An empty choice answer can consume a pending question as though the user explicitly skipped it. Counting the time spent waiting for a human against the persona turn budget can also cancel a valid choice before the user responds.
+空选择答案可能像用户主动跳过一样消耗待回答问题。将人的等待时间计入人物轮次预算，也可能在用户回答之前取消有效选择。
 
 ## Decision
 
-The Host validates every answer before appending any choice or execution event. Each question requires selected options, nonblank custom text, or explicit `skipped: true` without answer content. The skip fact persists through the product projection, tool result, and shared context. The latest choice event determines whether the active turn is waiting; answered choices return the running model to `running`. Built Host and Client codecs are regenerated together when the public answer fields change.
+Host 在追加选择或执行事件前校验每题答案。每题必须包含所选选项、非空白自定义文字，或不夹带答案内容的显式 `skipped: true`。跳过事实通过产品投影、工具结果和共享上下文保留。最新选择事件决定活动轮次是否等待，已回答选择让继续生成的模型恢复 `running`。公开答案字段变动时同时重新生成 Host 和 Client codec。
 
-A pending choice pauses the turn's remaining active-time budget. Settlement resumes the same remaining budget, while cancellation and teardown retain their existing stop ownership. Request timeouts remain scoped to model streams, which finish before choice-tool execution.
+待回答选择暂停轮次剩余活动时间预算，结算后继续使用同一份剩余预算；取消和关闭沿用已有停止所有权。请求时限只约束模型流，模型流在选择工具执行前已结束。
 
 ## Alternatives considered
 
-**Treat an empty answer as a skip.** This prevents the Host from distinguishing accidental submission from an explicit user decision.
+**空答案等同跳过。** Host 无法区分误提交和用户明确决定。
 
-**Increase or reset the active budget.** Human response time remains unbounded, while resetting the budget would grant additional model work after every choice.
+**增加或重置活动预算。** 人的回答时间仍不确定，而重置预算会在每次选择后额外授予模型工作时间。
 
 ## Consequences
 
-Loader regressions assert rejected answers leave the event log unchanged, explicit skips reach the model, a choice survives human waiting beyond active and request timeouts, and the turn then completes. Separate Loader regressions retain active/request exhaustion, cancellation, and cold recovery coverage. Browser acceptance is owned by the product integration workflow.
+Loader 回归验证拒绝答案不改变事件流、显式跳过传至模型、等待超过活动及请求时限后选择仍可回答并完成轮次。另有 Loader 回归覆盖活动和请求耗尽、取消及冷恢复。浏览器验收由产品集成流程负责。

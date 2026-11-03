@@ -8,11 +8,12 @@
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { resolve, sep } from 'node:path'
 import { markdownHeadingLines, markdownProseLines } from './markdown.ts'
+import { normalizeReadmeContractHeadings } from './readme-contract-headings.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
 /** The one canonical section heading, required verbatim as an h2. */
-const CANONICAL = '## Known Limitations and Deferred Work'
+const CANONICAL = '## 已知限制与暂缓事项'
 
 /** Packages audited as having no limitations section, keyed by repo-relative directory. */
 const NO_LIMITATIONS: Readonly<Record<string, string>> = {
@@ -23,6 +24,7 @@ const NO_LIMITATIONS: Readonly<Record<string, string>> = {
 function isLimitationsLike(headingText: string): boolean {
   return (
     /\blimitations?\b/i.test(headingText)
+    || /已知限制/.test(headingText)
     || /deferred work/i.test(headingText)
     || /what is not here/i.test(headingText)
     || /^deferred\b/i.test(headingText)
@@ -49,7 +51,7 @@ for (const pkg of scannedPackages) {
     failures.push(`${readme}: package manifest has no sibling README with the \`${CANONICAL}\` section`)
     continue
   }
-  const source = readFileSync(resolve(root, readme), 'utf8')
+  const source = normalizeReadmeContractHeadings(readFileSync(resolve(root, readme), 'utf8'))
   const lines = markdownProseLines(source)
   const headings = markdownHeadingLines(source)
   const limitations = headings.filter(heading => isLimitationsLike(heading.text))

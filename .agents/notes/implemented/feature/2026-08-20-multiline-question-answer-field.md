@@ -2,44 +2,42 @@
 
 Status: implemented
 
-English | [中文](2026-08-20-multiline-question-answer-field.zh.md)
-
 ## Problem
 
-`ask_user_question` offers a free-text answer beside the model's own options. On a question that carried options, that answer was a single-line `<input>`: a long sentence scrolled sideways inside one 24px line, Shift+Enter did nothing, and an answer with structure — two requirements, a short list, a paragraph — could not be typed at all. The optionless question already used a textarea, but a fixed 64–140px box that neither followed the draft nor opened wider.
+`ask_user_question`在模型给出的选项旁提供一个自由文本答案。在带选项的问题上，该答案曾是单行 `<input>`：长句子在 24px 的一行内横向滚动，Shift+Enter 毫无作用，带结构的答案——两条要求、一个短列表、一段话——根本无法输入。无选项问题虽已使用 textarea，但那是固定 64–140px 的框，既不跟随草稿，也无法展开。
 
-The chat composer next to it grows with the draft and takes Shift+Enter as a newline. A user who has just typed a multi-line prompt there meets a field that silently flattens the same answer.
+紧邻它的聊天输入框会随草稿增高，并把 Shift+Enter 当作换行。刚在那里敲完多行提示词的用户，转身遇到的却是一个会悄悄抹平同一个答案的输入框。
 
 ## Decision
 
-Both question shapes answer into one `AnswerField`: a `<textarea rows={1}>` sharing a single CSS-grid cell with a hidden mirror `<div>` that renders the draft plus a trailing newline.
+两种问题形状都写入同一个 `AnswerField`：一个 `<textarea rows={1}>`，与一个渲染「草稿 + 结尾换行」的隐藏镜像 `<div>` 共享同一个 CSS grid 单元格。
 
-The mirror sits in normal flow and so sizes the grid row; the textarea stretches to that row, and `rows={1}` keeps the control's own intrinsic height out of the row sizing, leaving the mirror the only input to the height. Soft wraps are invisible to a `'\n'` count, so the mirror is what makes a wrapped answer grow the box rather than scroll one line. The trailing newline covers the last line the textarea's caret can reach and the block container drops. Mirror and textarea must keep identical type, padding, and wrapping rules; a divergence sizes the box wrong for the text being typed.
+镜像位于常规流中，因而决定 grid 行的高度；textarea 拉伸到该行，而 `rows={1}` 使控件自身的固有高度不参与行尺寸计算，于是镜像是高度的唯一输入。软换行对 `'\n'` 计数不可见，因此正是镜像让换行后的答案把输入框撑高，而不是在一行内滚动。结尾的换行补上 textarea 光标可达、而块级容器会丢弃的最后一行。镜像与 textarea 必须保持完全一致的字体、内边距与换行规则；一旦偏离，输入框的高度就与正在输入的文本不符。
 
-Growth stops at the mirror's `max-height` of six lines, and past that the textarea scrolls itself. The mirror takes `box-sizing: content-box` against the card-wide `border-box` so that cap counts text lines rather than text plus padding: the optionless variant carries 16px of vertical padding, which under `border-box` spends two thirds of a line and delivers the last one as an 8px sliver, while the inline variant has no padding and would land on a different line count from the same declaration. It is the only scrollport in the stack: unlike the chat composer, this field paints its own glyphs, so there is no second layer whose scroll offset would have to match.
+增高在镜像 `max-height` 的六行处停止，此后由 textarea 自身滚动。镜像用 `box-sizing: content-box` 覆盖卡片范围内的 `border-box`，使该上限计量的是文本行而不是「文本加内边距」：无选项变体带 16px 纵向内边距，在 `border-box` 下这会吃掉三分之二行、并把最后一行变成 8px 残条，而 inline 变体没有内边距，同一条声明会落到不同的行数上。它是这个结构里唯一的滚动容器：与聊天输入框不同，本输入框自己绘制字形，因此不存在第二个需要对齐滚动偏移的图层。
 
-Enter continues the flow and submits the batch on the last question, Shift+Enter breaks the line, and the IME guard is unchanged — Enter during composition confirms the candidate without advancing. The `variant` prop names which of the two looks the field takes, so the field owns both and neither caller assembles one out of class names.
+Enter 继续流程并在最后一题提交整批，Shift+Enter 换行，IME 保护不变——组合输入期间按 Enter 只确认候选，不前进。`variant` 属性指明该输入框采用两种外观中的哪一种，因此外观归输入框自己所有，任何调用方都不必用类名拼装。
 
 ## Alternatives considered
 
-**`field-sizing: content`.** Rejected for the same reason [the composer's Safari recovery](../bug-fix/2026-08-13-safari-textarea-soft-wrap-reflow.md) rejected it: Safari reproduces a stale intrinsic height after a deletion crosses a wrap threshold. The mirror is a plain block whose height Safari computes correctly, and it is already the technique this repository runs in the chat composer.
+**`field-sizing: content`。** 与[聊天输入框的 Safari 恢复方案](../bug-fix/2026-08-13-safari-textarea-soft-wrap-reflow.md)出于同一理由否决：当删除跨过换行阈值后，Safari 会复现陈旧的固有高度。镜像是一个 Safari 能正确计算高度的普通块，而且它已经是本仓库在聊天输入框中运行的技术。
 
-**Resize in JS on every keystroke** — set `height: auto`, read `scrollHeight`, write it back. Rejected: it pays two forced layouts per keystroke and reintroduces the stale-geometry class of defect the mirror avoids, in exchange for no capability the mirror lacks.
+**在 JS 中逐次按键重算高度**——置 `height: auto`、读 `scrollHeight`、再写回。否决：每次按键要付两次强制布局，并重新引入镜像所避开的那类陈旧几何缺陷，换来的却是镜像本就具备的能力。
 
-**Reuse the InputBar stack verbatim.** Rejected because that stack carries a decoration backdrop between mirror and textarea, which forces both layers into one outer scrollport so the caret and the glyphs cannot drift apart. This field has no backdrop, so letting the textarea own its own scroll removes the outer scrollport and that obligation with it.
+**原样复用 InputBar 的图层结构。** 否决，因为该结构在镜像与 textarea 之间还有一层装饰背板，这迫使两个图层共用一个外层滚动容器，以免光标与字形彼此漂移。本输入框没有背板，因此让 textarea 自己滚动，既去掉了外层滚动容器，也一并去掉了那项对齐义务。
 
-**A separate expand-to-dialog entry for long answers.** Rejected as unnecessary: growing in place already satisfies the requirement, and a dialog would take the options the answer is an alternative to off screen at the moment the user is weighing them.
+**为长答案单独提供展开为对话框的入口。** 作为多余方案否决：就地增高已满足需求，而对话框会在用户正权衡选项时，把答案所要替代的那些选项挤出屏幕。
 
-**Uncapped growth.** Rejected because the card tops out at `min(60vh, 520px)` and still owes that budget to the title, the option rows, and the footer actions; an unbounded field pushes the choices the answer belongs to out of view.
+**不设增高上限。** 否决，因为卡片上限为 `min(60vh, 520px)`，还要把这份额度分给标题、选项行与底部操作；不设上限的输入框会把答案所属的选项挤出视野。
 
-**A per-variant cap that absorbs each variant's padding.** Rejected because it couples the line count to a padding value: changing `.customBlock`'s inset would silently change how many lines the field grows to. `content-box` states the intent once, in the units the cap is written in.
+**按变体各自吸收内边距的上限。** 否决，因为那会把行数与某个内边距值耦合：改动 `.customBlock` 的内边距会悄悄改变输入框能长到几行。`content-box` 只需声明一次意图，且与上限本身的单位一致。
 
 ## Testing
 
-Component tests pin the round trip: both shapes render a textarea, the mirror follows the draft, Shift+Enter never advances the flow, and line breaks reach the answer batch verbatim. The assembled `question-composer` web e2e measures the live engine — a soft-wrapped draft grows the field without scrolling it, two Shift+Enter presses leave `"\n\n"` in a taller field with the question still open, and a draft past the cap scrolls instead of growing at exactly six text lines in both variants.
+组件测试固定了整条往返：两种形状都渲染 textarea、镜像跟随草稿、Shift+Enter 绝不前进流程、换行原样进入答案批次。组装后的 `question-composer` web e2e 则在真实引擎上测量——软换行的草稿把输入框撑高而不滚动，两次 Shift+Enter 之后 `"\n\n"` 留在更高的输入框里且问题仍未关闭，超过上限的草稿在两种变体下都恰好于六行文本处改为滚动而不再增高。
 
 ## Consequences
 
-An answer can now carry the structure the question asks for, and the field the user sees behaves like the chat composer above it. The cost is a second element per field and the standing obligation to keep mirror and textarea metrics identical, which the JSDoc at `AnswerField` states and the e2e growth assertion detects.
+答案现在能承载问题所要求的结构，用户看到的输入框与其上方的聊天输入框行为一致。代价是每个输入框多一个元素，以及保持镜像与 textarea 度量完全一致的长期义务——`AnswerField` 的 JSDoc 陈述了这项义务，e2e 的增高断言负责发现违反。
 
-The [single-select highlight item](https://github.com/deepseek-harness/deepseek-harness/issues/1687) of the same issue is untouched: focusing the custom field still leaves the previously chosen option visually selected until the first character lands.
+同一 Issue 中的[单选高亮项](https://github.com/deepseek-harness/deepseek-harness/issues/1687)未被触及：聚焦自定义输入框时，先前选中的选项在第一个字符落下之前仍保持视觉选中。
