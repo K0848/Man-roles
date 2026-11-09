@@ -38,7 +38,7 @@ import type { TsdownBundle } from 'tsdown'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
 /** Client-face type emit feeding every tsdown lib entry in the watch set. */
-const CLIENT_TYPE_PROGRAM = 'tsconfig.client.json'
+const CLIENT_TYPE_PROGRAM = 'config/typescript/tsconfig.client.json'
 
 /** Compile-shell workspace whose dist `dsh web` serves. */
 const SHELL_PACKAGE = '@deepseek-ai/dsh-web-frontend'
@@ -112,6 +112,7 @@ export async function watchClientPlugins(
   const readiness: { expectedBuilds?: number; initializedBuilds: number } = { initializedBuilds: 0 }
   const bundles = await build({
     cwd: root,
+    config: join(root, 'config/build/tsdown.config.ts'),
     workspace: [...pluginDirs],
     watch: true,
     hooks: {

@@ -92,8 +92,11 @@ class CatalogAttachmentStore extends AttachmentStore {
   }
 }
 
+import { documentationPath, relocateGeneratedDocument } from './documentation-paths.ts'
+
 const root = resolve(import.meta.dirname, '..')
-const OUT = 'docs/tool-catalog.md'
+const LEGACY_OUT = 'docs/tool-catalog.md'
+const OUT = documentationPath(LEGACY_OUT)
 
 /**
  * Register the descriptor needed to mount schema-producing consumers. Declares
@@ -197,7 +200,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolAskUser)
     },
     note:
-      'ask_user_question pauses the tool call until the active UI provider returns a human answer.',
+      'ask_user_question 会暂停工具调用，直到当前 UI 提供方返回人类答案。',
   },
   {
     pkg: '@deepseek-ai/dsh-tools',
@@ -211,7 +214,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
     toolsConfig: { mode: 'code' },
     async mount() {},
     note:
-      'Owned by the tool registry as a reserved transport outside filterable capability layers under `mode: code` / `mode: both` (see the Code Mode Agent Note). Under `code` it is the registry\'s only wire contribution; the other visible capabilities are declared in a generated SDK section in the loaded runtime\'s language, and a program calls them through bindings scheduled under the native concurrency contract (submission-ordered starts and policy; concurrency-safe bodies overlap up to `maxParallelSubCalls`) that re-enter the complete guarded tool pipeline and link each nested execution to this outer result.',
+      '在 `mode: code`／`mode: both` 下，它由工具注册表所有，作为可过滤能力层之外的保留传输机制（参见 Code Mode Agent Note）。在 `code` 下，它是注册表对协议格式（wire format）的唯一贡献；其他可见能力在使用已加载运行时语言生成的 SDK 章节中声明。程序通过 binding 调用这些能力，调用按照原生并发约定调度：启动顺序和策略遵循提交顺序，并发安全的函数体最多重叠执行 `maxParallelSubCalls` 个。调用会重新进入完整且受守卫保护的工具流水线，并将每个嵌套执行关联到此外层结果。',
   },
   {
     pkg: '@deepseek-ai/dsh-plan-mode',
@@ -223,7 +226,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(PlanModeController, { section: 'Tool catalog schema harvest.' })
     },
     note:
-      'exit_plan_mode stays in the model-facing schema while planning is inactive so transitions add no tool-catalog churn on top of the plan-policy change. Its execute path rejects calls outside plan mode; in plan mode it presents the plan over the user-questions seam (approve / keep planning with feedback), and approval logs plan mode inactive at the step boundary.',
+      '规划未激活时，exit_plan_mode 仍保留在面向模型的 schema 中，这样状态转换不会在规划策略变更之外额外造成工具目录变动。其执行路径会拒绝规划模式之外的调用；在规划模式下，它通过用户交互 seam 提交计划（批准／根据反馈继续规划），批准后会在步骤边界记录规划模式已停用。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-bash',
@@ -238,7 +241,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolBash)
     },
     note:
-      'The bash tool is the model-facing consumer of the bash executor seam. A `run_in_background` run registers with the generic `ctx.jobs` runtime and is collected/stopped through the `job_*` tools from `@deepseek-ai/dsh-tool-jobs`; the `enableRunInBackground` config (default true) removes the parameter entirely when disabled.',
+      'bash 工具是 bash 执行器 seam 面向模型的消费方。使用 `run_in_background` 的运行会注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具（来自 `@deepseek-ai/dsh-tool-jobs`）收集／停止；禁用 `enableRunInBackground` 配置（默认为 true）后，该参数会被完全移除。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-pwsh',
@@ -256,7 +259,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolPwsh)
     },
     note:
-      'The pwsh tool is the PowerShell-dialect consumer of the bash executor seam for Windows compositions (a PowerShell executor such as `@deepseek-ai/dsh-pwsh-local` backs `ctx.shell`); it mirrors the bash tool call-for-call minus sandbox controls — `run_in_background` runs register with the generic `ctx.jobs` runtime and are collected/stopped through the `job_*` tools, and the managed `DSH_*` environment comes from `@deepseek-ai/dsh-shell-env`. Each call runs in a fresh process (no persistent PTY session), with native `C:\\...` paths and `$env:NAME` variables.',
+      'pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费方（由 `@deepseek-ai/dsh-pwsh-local` 等 PowerShell 执行器为 `ctx.shell` 提供后端）；除沙箱接口外，它逐项对应 bash 工具调用。使用 `run_in_background` 的运行会注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具收集／停止；托管的 `DSH_*` 环境来自 `@deepseek-ai/dsh-shell-env`。每次调用都在新进程中运行，不使用持久 PTY 会话。路径采用原生 `C:\\...` 形式，变量采用 `$env:NAME`。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-cordis',
@@ -269,7 +272,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolCordis)
     },
     note:
-      'Not in any shipped tree (a deliberate opt-in — dynamic package code reaches the real runtime, see .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md). The toolset injects `ctx.dynamicCordisRunner` from `@deepseek-ai/dsh-cordis-host-runner`, which owns the definition registry and the vm sandbox; a composition missing it never activates the tools. A running package may register ADDITIONAL model-visible tools until it is stopped, undefined, or DSH restarts; a full changed request header logs those tool-set changes.',
+      '不在任何随产品发布的树中，需要显式选择启用；动态 Package 代码可以访问真实运行时，见 .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md。该工具集注入 `@deepseek-ai/dsh-cordis-host-runner` 提供的 `ctx.dynamicCordisRunner`，后者拥有定义注册表和 vm 沙箱；组合缺少它时这些工具不会激活。运行中的 Package 在停止、undefine 或 DSH 重启前可以注册**额外的**模型可见工具；发生这类工具集变化时，系统会记录完整且有变动的请求头。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-bash-persistent',
@@ -282,7 +285,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolBashPersistent)
     },
     note:
-      'One owner-isolated persistent bash tool; deployment composition supplies the PTY backend and may override the model-facing environment description.',
+      '一个按所有者隔离的持久 bash 工具；部署组合提供 PTY 后端，并可覆盖面向模型的环境描述。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-pwsh-persistent',
@@ -295,7 +298,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolPwshPersistent)
     },
     note:
-      'One owner-isolated persistent pwsh tool, the Windows counterpart of the persistent bash tool; deployment composition supplies a pwsh-dialect PTY backend and may override the model-facing environment description.',
+      '一个按所有者隔离的持久 pwsh 工具，持久 bash 工具的 Windows 对应物；部署组合提供 pwsh 方言的 PTY 后端，并可覆盖面向模型的环境描述。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-str-replace-editor',
@@ -308,7 +311,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolStrReplaceEditor)
     },
     note:
-      'Standalone view/create/unique literal replace/line insert tool over the filesystem seam; it composes with any shell or terminal API.',
+      '基于文件系统 seam 的独立查看／创建／唯一字面量替换／按行插入工具；可与任何 shell 或终端接口组合。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-fs',
@@ -325,7 +328,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolFs)
     },
     note:
-      'The read-before-write/edit policy is added by `@deepseek-ai/dsh-fs-observation-policy` (an `fs/*` event-gate plugin, no schema change); a deployment that loads these tools is expected to also load it. The image tool is not registered without `ctx.attachments`; its schema is route-independent, and execution refuses unless the exact routed model declares image input.',
+      '先读后写／编辑策略由 `@deepseek-ai/dsh-fs-observation-policy` 添加；它是一个 `fs/*` 事件门禁插件，不会改变 schema。加载这些工具的部署按预期也应加载该插件。没有 `ctx.attachments` 时图片工具不会注册；其 schema 与路由无关，执行时除非确切路由的模型声明图片输入，否则拒绝。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-fs-search',
@@ -343,7 +346,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolFsSearch, { sampleOverCapGlobResults: true })
     },
     note:
-      'glob and grep are unconditional discovery tools that spawn the packaged ripgrep binary (`@vscode/ripgrep`) through ctx.subprocess as ordinary foreground calls (never background jobs) — no host `rg` install and no shell layer. The catalog uses `sampleOverCapGlobResults: true`; deployments must choose that behavior explicitly. Capped results save the complete formatted list through the optional ctx.spillStore backend; returned locators are follow-up-readable/searchable when the backend exposes local paths in co-located deployments.',
+      'glob 和 grep 是无条件可用的发现工具，通过 ctx.subprocess spawn 随包提供的 ripgrep 二进制文件（`@vscode/ripgrep`），并作为普通前台调用运行，绝不作为后台任务；无需在宿主机安装 `rg`，也不经过 shell 层。本目录使用 `sampleOverCapGlobResults: true`；部署必须显式选择该行为。结果超过上限时，会通过可选的 ctx.spillStore 后端保存完整的格式化列表；在共置部署中，如果后端公开本地路径，返回的定位信息可供后续读取／搜索。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-terminal',
@@ -356,7 +359,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolPty)
     },
     note:
-      'The six terminal tools are opt-in and complement one-shot shell/filesystem tools. `terminal_send(run_in_background: true)` registers with `ctx.jobs`; TUI, named key sequences, BEL, resize, auto-start, and cross-agent sharing are absent from the schema.',
+      '这 6 个终端工具需要选择启用，用于补充一次性 bash／文件系统工具。`terminal_send(run_in_background: true)` 会注册到 `ctx.jobs`；schema 不包含 TUI、具名按键序列、BEL、调整尺寸、自动启动和跨 agent 共享。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-goal',
@@ -370,7 +373,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolGoal)
     },
     note:
-      'create, edit, pause, and resume require direct-human root authority; complete and blocked also accept the exact current goal round. The default blocked lower bound is three admitted rounds.',
+      'create、edit、pause 和 resume 要求直接来自人类的根权限；complete 和 blocked 也接受确切的当前 Goal Round。blocked 的默认下限是 3 个获准的 Round。',
   },
   {
     pkg: '@deepseek-ai/dsh-schedule',
@@ -388,10 +391,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     scope: ctx => catalogChildScopes.get(ctx) as Agent,
     note:
-      'Registered only inside live root Agent scopes created after the opt-in Schedule plugin loads. '
-      + 'Version 1 accepts after_seconds, explicit absolute at, and bounded fixed-rate every_seconds, '
-      + 'and discloses session-local delivery; '
-      + 'management reads and mutations require the shared Session persistence barrier.',
+      '仅在选择启用的 Schedule 插件加载后创建的 live 根 Agent scope 内注册。版本 1 接受 after_seconds、显式绝对 at 和有界固定速率 every_seconds，并披露 session-local 交付；管理读取与变更必须通过共享的 Session 持久化 barrier。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-lsp',
@@ -405,7 +405,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolLsp)
     },
     note:
-      'The lsp tool keeps provider selection and language-server subprocesses behind ctx.lsp, so its model-visible schema stays stable across providers. Requires a registered provider (e.g. `@deepseek-ai/dsh-lsp-stdio`) at runtime; without one, a query returns the structured `LSP_UNAVAILABLE` error rather than changing the schema.',
+      'lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，因此其模型可见 schema 在更换提供方时保持稳定。运行时要求已注册提供方，例如 `@deepseek-ai/dsh-lsp-stdio`；如果没有提供方，查询会返回结构化 `LSP_UNAVAILABLE` 错误，而不会改变 schema。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-ralph',
@@ -420,7 +420,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolRalph, { subagentProvider: 'mock' })
     },
     note:
-      'A fixed foreground workflow starts one fresh structured child per round; the model selects only the immutable objective and an optional round cap.',
+      '固定的前台工作流会在每个 Round 启动一个全新的结构化子级；模型只能选择不可变目标和可选的 Round 上限。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-skill',
@@ -450,7 +450,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolSessionQuery)
     },
     note:
-      'The five read-only tools hide provider cursors and authorize every result from the immutable calling agent session. The package is opt-in; compositions that need enforced deadlines or bounded inline output also mount the generic timeout or spill policies.',
+      '这 5 个只读工具会隐藏提供方游标，并根据不可变的调用 agent 会话为每个结果授权。该包需要选择启用；需要强制截止时间或限制行内输出的组合还会挂载通用超时或 spill 策略。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-subagent',
@@ -465,7 +465,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolSubagent, { provider: 'mock' })
     },
     note:
-      'The registered tool name is the load-time `toolName` config (default `subagent`); the schema above is that default. The shipped compositions load this package once per subagent backend, so the model additionally sees `subagent_fork` bound to the fork backend. Each instance\'s description, `run_in_background` parameter, and system-prompt policy follow its own `backgroundMode` and `enableRunInBackground`, so the two shipped schemas are not identical: `subagent` is `continuable` and defaults omitted calls to background with automatic settlement delivery, while `subagent_fork` stays `one-shot` and defaults them to foreground — see `packages/bundle/base/cordis.patch.yml` and `examples/acp-agent/cordis.yml`.',
+      '注册的工具名称取决于加载时 `toolName` 配置（默认为 `subagent`）；上述 schema 对应默认值。随产品发布的组合会为每个 subagent 后端加载一次该包，因此模型还会看到绑定到 fork 后端的 `subagent_fork`。每个实例的描述、`run_in_background` 参数与 system prompt 策略取决于它自己的 `backgroundMode` 和 `enableRunInBackground`，因此两个随附 schema 并不相同：`subagent` 为 `continuable`，省略参数时默认后台运行，并由 runtime 自动投递结束结果；`subagent_fork` 保持 `one-shot`，省略参数时默认前台运行。详见 `packages/bundle/base/cordis.patch.yml` 和 `examples/acp-agent/cordis.yml`。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-subagent-control',
@@ -487,7 +487,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolSubagentListAgents)
     },
     note:
-      'The globally named control tools over continuable background subagents: provider-bound `tool-subagent` instances register distinct delegation tools, while this package registers `send_message` and `interrupt_agent` once, plus `list_agents` from its separately loaded `/list-agents` plugin (whose catalog rows use the sessionProjections and live Agent registries).',
+      '这些是控制可继续后台 subagent 的全局命名工具：绑定提供方的 `tool-subagent` 实例注册不同的委派工具；本包注册一次 `send_message` 和 `interrupt_agent`，另由 `list_agents` 通过单独加载的 `/list-agents` 插件提供，其目录行使用 sessionProjections 和实时 Agent 注册表。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-subagent-report',
@@ -505,10 +505,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     scope: ctx => catalogChildScopes.get(ctx) as Agent,
     note:
-      'Registered per continuable in-process child rather than globally, so this schema is visible only '
-      + 'inside such a child and survives its global `toolFilter`. The same contribution installs the '
-      + 'child-scoped `tool:report` prompt section, which this catalog does not render. The parent-facing '
-      + '`send_message` tool is installed independently.',
+      '按可继续的进程内子级注册，而非全局注册，因此该 schema 仅在这种子级内部可见，并且不受其全局 `toolFilter` 影响。同一份贡献还会安装子级作用域的 `tool:report` 系统提示词 section，本目录不渲染该 section。面向父级的 `send_message` 工具单独安装。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-jobs',
@@ -521,7 +518,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolTasks)
     },
     note:
-      'The kind-agnostic background-job controller: background bash commands, PTY sends, and subagents are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers\' `ctx.jobs.start()`.',
+      '与任务种类无关的后台任务控制器：后台 bash 命令、PTY 发送和 subagent 都通过相同的 3 个工具读取、列出和终止。加载该插件会挂接控制器，从而启用生产方的 `ctx.jobs.start()`。',
   },
   {
     pkg: '@deepseek-ai/dsh-experimental-tool-agent-team',
@@ -559,7 +556,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     scope: ctx => catalogChildScopes.get(ctx) as Agent,
     note:
-      'All ten tools are scoped to implicit Team Leads and durable teammates. The shipped dsh-base bundle keeps the package disabled; the documented Agent Teams profile patch enables it while disabling the legacy continuable-child control names.',
+      '这 10 个工具限定于隐式 Team Lead 与持久 teammate 作用域。随产品发布的 dsh-base bundle 默认禁用该包；文档中的 Agent Teams profile patch 会启用它，并禁用旧 continuable child 的同名控制工具。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-todo',
@@ -571,7 +568,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolTodo, { allowParallelInProgress: true })
     },
     note:
-      'todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task.',
+      'todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-workflow',
@@ -604,7 +601,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolWeb)
     },
     note:
-      'web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps.',
+      'web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。',
   },
 ]
 
@@ -724,7 +721,7 @@ function renderTool(schema: ToolSchema, source: string): string[] {
   const out = [`### \`${schema.name}\``, '']
   if (schema.description) out.push(schema.description, '')
   out.push('```json', JSON.stringify(schema.parameters, null, 2), '```', '')
-  out.push(`Source: [\`${source}\`](../${source})`, '')
+  out.push(`源码：[\`${source}\`](../${source})`, '')
   return out
 }
 
@@ -742,19 +739,19 @@ export function render(catalog: ToolCatalog): string {
     '<!-- Generated by scripts/gen-tool-catalog.ts — do not edit by hand.',
     '     Run `pnpm run gen-tool-catalog` to regenerate. -->',
     '',
-    '# Tool Schema Catalog',
+    '# 工具 Schema 目录',
     '',
-    'Every model-facing tool a shipped plugin contributes to `ctx.tools`: the `name`, `description`, and JSON-Schema `parameters` the model receives via the system-prompt assembly. It complements the [subsystem pages](subsystems/core.md) (the types plus each page\'s generated Cordis API region) — this page is the *tools* the agent is offered.',
+    '已发布插件向 `ctx.tools` 提供的所有面向模型的工具：模型通过系统提示词组装获得的 `name`、`description` 和 JSON Schema `parameters`。本目录是[子系统页面](subsystems/core.zh.md)（类型及每页生成的 `cordis-surface` 接线区域）的补充；本页列出的是向 agent（智能体）提供的*工具*。',
     '',
-    'This file is GENERATED and verified fresh by `pnpm run verify-tool-catalog` (part of `doc-sync`) — do not edit it by hand. Unlike the cordis catalog (a pure source-AST pass), this generator BOOTS each tool plugin on a real context and reads `ctx.tools.schemas()`, because a tool schema is not statically knowable (runtime-spread enums, concatenated descriptions, config-driven names, raw-JSON-Schema MCP tools). A completeness guard globs `packages/*/tool-*` and fails if any package is missing from the generator\'s boot manifest, so a new tool cannot be silently undocumented. See [the tool-schema-catalog Agent Note](../.agents/notes/implemented/process/2026-07-02-tool-schema-catalog.md).',
+    '本页由 `scripts/gen-tool-catalog.ts` 生成，由 `pnpm run verify-tool-catalog` 校验新鲜度。生成器在真实上下文启动各工具插件并读取 `ctx.tools.schemas()`，保留模型实际接收的名称、描述和 JSON Schema；完整性检查确保 `packages/*/tool-*` 未被启动清单遗漏。请修改源码或生成器，不要手改生成正文。',
     '',
-    'Scope: shipped product tools under `packages/*/tool-*`, each booted with its DEFAULT config, except where a Config field is REQUIRED with no default — there the generator must choose, and the per-package note records which branch this page shows. The registered tool NAME can be a load-time config (e.g. `tool-subagent`\'s `toolName`), so a deployment may expose a package under a different or additional name — a per-package note records those shipped aliases where they exist. The `examples/` demo tools (e.g. `echo`) are excluded, matching the cordis catalog\'s packages-only scope.',
+    '范围：`packages/*/tool-*` 下已发布的产品工具，每个工具均使用其**默认**配置启动；但如果某个 Config 字段是**必填项**且没有默认值，生成器就必须作出选择，对应包的说明会记录本页展示的是哪个分支。注册的工具**名称**可以是加载时配置，例如 `tool-subagent` 的 `toolName`，因此部署可能以不同名称或额外名称提供某个包；如果存在随产品发布的别名，对应包的说明会予以记录。`examples/` 中的演示工具（例如 `echo`）不在范围内，这与 Cordis 目录仅涵盖包的范围一致。',
     '',
-    '## Tool Package Map',
+    '<a id="tool-package-map"></a>\n\n## 工具包映射',
     '',
-    'This table connects model-visible tool names to the plugin package and service seams behind them. Exact JSON Schemas follow in the package sections below.',
+    '本表连接模型可见的工具名、插件包及其服务依赖。完整 JSON Schema 见下方各包小节。',
     '',
-    '| Tool package | Model-visible names | Requires | Writes / affects | Shipped aliases | Deployment note |',
+    '| 工具包 | 模型可见名称 | 依赖 | 写入或影响 | 发布别名 | 部署说明 |',
     '| --- | --- | --- | --- | --- | --- |',
     ...catalog.map(entry => `| \`${entry.pkg}\` | ${codeList(entry.schemas.map(schema => schema.name))} | ${codeList(entry.requires)} | ${codeList(entry.writes)} | ${codeList(entry.shippedNames)} | ${tableCell(entry.note)} |`),
     '',
@@ -768,7 +765,7 @@ export function render(catalog: ToolCatalog): string {
     }
     if (entry.note) lines.push(entry.note, '')
   }
-  return lines.join('\n')
+  return relocateGeneratedDocument(lines.join('\n'), LEGACY_OUT)
 }
 
 /** CLI entry: default writes the catalog, `--check` fails if the committed copy

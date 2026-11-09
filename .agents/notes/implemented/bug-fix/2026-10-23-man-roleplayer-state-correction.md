@@ -1,29 +1,27 @@
-# Agent Note: State analysis preserves explicit user corrections
+# Agent Note: 状态分析保留用户明确修订
 
 Status: implemented
 
-English | [中文](2026-10-23-man-roleplayer-state-correction.zh.md)
-
 ## Problem
 
-A corrected shared fact and its original user message can disagree. State extraction from the untouched original message can recreate the old wording under a new model-generated item id. Historical confirmed versions and repeated extraction can also duplicate a fact or omit the user's current correction from the persona snapshot input.
+用户修订的共享事实可能与原消息不同。状态分析从未变更的原消息提取信息，会用新的模型条目 ID 重新创建旧原文；历史已确认版本和重复提取也可能造成事实重复，或让人物快照输入缺少用户当前修订。
 
 ## Decision
 
-The analysis input includes each allowed confirmed state item only at its latest durable version. A source containing exact text spans represented by state history is marked partially processed and carries an array of independent remaining original fragments instead of a fabricated complete message. Fragment boundaries remain intact; the model is instructed not to join them or infer that the user omitted information from their incomplete appearance. The current confirmed replacement remains visible as shared state; rejected, withdrawn, and superseded text cannot acquire automatic confirmation merely by reusing its historical user source.
+分析输入仅包含每个允许的已确认状态的最新持久版本。来源包含已进入状态历史的逐字片段时，输入标为部分已处理，并以数组保留相互独立的剩余原文片段，不伪造一条完整消息。片段边界保持不变；提示模型不得拼接，也不得从残缺外观推断用户遗漏信息。当前已确认替代项作为共享状态可见；已拒绝、已撤回及已替代的原文不能仅靠复用历史用户来源重新自动确认。
 
-Candidate admission compares kind, normalized text, and intersecting event-source lineage. State references resolve to their original sources so changing a model candidate id or citing an existing state item does not create a new fact. The same rule applies to candidates in one result. New user-message ids remain independent sources, including when a user explicitly reasserts earlier wording. When a new source reuses an existing model item id, the Host scopes its persisted id to the analysis operation instead of overwriting a user-owned version.
+候选落地比较种类、规范化原文及重合的事件来源谱系。状态引用解析到原始来源，模型更换候选 ID 或引用已有状态不会创建重复事实；同一分析结果内的候选也适用相同规则。新的用户消息 ID 仍为独立来源，包含用户后来明确重述旧原文。新来源复用模型旧条目 ID 时，Host 将持久 ID 限定到本次分析操作，不覆盖用户拥有的旧版本。
 
-Automatic confirmation checks one continuous original fragment of the effective model input rather than the original unfiltered message or joined fragments. Model inferences remain candidates. Historical events remain intact; the transformation affects analysis input and admission only.
+自动确认核对本次有效模型输入中的单一连续原文片段，不再核对未经筛选的原消息，也不能拼接片段。模型推断保持待确认。历史事件完整保留，转换仅影响分析输入和候选落地。
 
 ## Alternatives considered
 
-Globally blocking all historically seen text prevents users from explicitly changing or reasserting facts in later messages. Source lineage distinguishes those new statements from repeated extraction.
+全历史同文屏蔽会阻止用户在后续消息中明确改变或重新表达事实。来源谱系可以区分新的陈述与重复提取。
 
-Similarity scores would introduce an ungrounded semantic threshold and risk merging conflicting facts. Exact normalized wording and durable source relationships provide deterministic duplicate handling. Semantically different inferences retain the existing user-confirmation requirement.
+相似度分数会引入没有依据的语义阈值，可能合并冲突事实。规范化原文精确匹配和持久来源关系提供确定性的重复处理；语义不同的推断仍遵守用户确认要求。
 
 ## Consequences
 
-Current user decisions take precedence in both the state-analysis request and its published snapshot. The Host does not invent semantic field identities or migrate historical user data. Residual fragments can include punctuation and incomplete clauses; their explicit partial-source label prevents presenting them as a complete user statement. Unrelated continuous statements remain available for extraction.
+状态分析请求和发布的快照均优先使用当前用户决策。Host 不发明语义字段标识，也不迁移历史用户数据。剩余片段可能包含标点和不完整分句，但明确的部分来源标记避免将其伪装成用户完整陈述；其他连续陈述仍可提取新信息。
 
-Loader regressions exercise production analysis requests, public modification/rejection/withdrawal operations, duplicate and obsolete model proposals, snapshot input, and later explicit user statements. Real-provider wording remains subject to model behavior; Host admission never promotes unverifiable rewritten text to confirmed state.
+Loader 回归通过生产分析请求和公开修改、拒绝、撤回操作，覆盖重复与过期模型提案、快照输入及后续明确用户陈述。真实 Provider 的表述仍受模型行为影响；Host 不会把无法核验的改写自动升级为已确认状态。

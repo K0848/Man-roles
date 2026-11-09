@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { documentationPath } from './documentation-paths.ts'
 import {
   CORDIS_CORE_API_PAGES,
   renderCordisCoreApiPage,
@@ -20,17 +21,17 @@ afterEach(() => {
 describe('Cordis core API generation', () => {
   it('renders the five detailed pages from pinned vendor declarations', () => {
     const pages = renderCordisCoreApiPages()
-    expect([...pages.keys()]).toEqual(CORDIS_CORE_API_PAGES.map(page => page.out))
-    expect(pages.get('docs/cordis-api/context.md')).toContain('### ctx.extend(meta?)')
-    expect(pages.get('docs/cordis-api/events.md')).toContain('## DispatchMode')
-    expect(pages.get('docs/cordis-api/fiber.md')).toContain('## EffectMeta')
-    expect(pages.get('docs/cordis-api/registry.md')).toContain('## Plugin')
-    expect(pages.get('docs/cordis-api/service.md')).toContain('### Service.resolveConfig')
+    expect([...pages.keys()]).toEqual(CORDIS_CORE_API_PAGES.map(page => documentationPath(page.out)))
+    expect(pages.get('docs/reference/cordis-api/context.md')).toContain('### ctx.extend(meta?)')
+    expect(pages.get('docs/reference/cordis-api/events.md')).toContain('## DispatchMode')
+    expect(pages.get('docs/reference/cordis-api/fiber.md')).toContain('## EffectMeta')
+    expect(pages.get('docs/reference/cordis-api/registry.md')).toContain('## Plugin')
+    expect(pages.get('docs/reference/cordis-api/service.md')).toContain('### Service.resolveConfig')
 
-    const fiber = pages.get('docs/cordis-api/fiber.md') ?? ''
+    const fiber = pages.get('docs/reference/cordis-api/fiber.md') ?? ''
     expect(fiber).toContain('```\n\nRegister a cleanup-aware effect on this fiber.')
     expect(fiber).toContain('- `execute` — the effect body; see `Effect` for accepted shapes.')
-    expect(fiber).toContain('**Returns** a disposer that tears the effect down and settles once done.')
+    expect(fiber).toContain('**返回** a disposer that tears the effect down and settles once done.')
   })
 
   it('rejects a public core class without source JSDoc', () => {
@@ -39,7 +40,7 @@ describe('Cordis core API generation', () => {
     mkdirSync(join(root, 'vendor/cordis/src'), { recursive: true })
     writeFileSync(join(root, 'vendor/cordis/src/service.ts'), 'export class Service {\n  run(): string { return "ok" }\n}\n')
     const page: CordisCoreApiPage = {
-      out: 'docs/cordis-api/service.md',
+      out: 'docs/reference/cordis-api/service.md',
       title: 'Service',
       intro: 'Service API.',
       sections: [{ kind: 'class', file: 'vendor/cordis/src/service.ts', symbol: 'Service' }],

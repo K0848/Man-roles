@@ -1,15 +1,13 @@
-# credentials/ — credentials and authorization
+# credentials/：凭据与授权
 
-English | [中文](README.zh.md)
+凭据能力家族将引用解析与提供方分离，并把二者与"必须开口去要才能拿到的凭据"再分开：
 
-The credential capability family separates reference resolution from its provider, and separates both from obtaining a credential that has to be asked for:
-
-| Package | Role | ctx key |
+| 包 | 角色 | ctx 键 |
 |---|---|---|
-| [`credentials/`](credentials/README.md) | Credential-reference and credential-record seam | `ctx.credentials` |
-| [`credentials-local/`](credentials-local/README.md) | Environment and local-file provider | registers `ctx.credentials` |
-| [`authorization/`](authorization/README.md) | Plugin-owned flows that obtain a credential by asking a human | `ctx.authorization` |
+| [`credentials/`](credentials/README.md) | 凭据引用与凭据记录 seam | `ctx.credentials` |
+| [`credentials-local/`](credentials-local/README.md) | 环境与本地文件提供方 | 注册 `ctx.credentials` |
+| [`authorization/`](authorization/README.md) | 由插件拥有、通过询问人来取得凭据的 flow | `ctx.authorization` |
 
-Configuration carries references, not secret values. Consumers resolve those references at their operation boundary; the child READMEs own mutation, precedence, and storage semantics. An authorization flow writes a credential record and is keyed by it, so the two seams meet at the record and nowhere else.
+配置携带引用而非机密值。消费方在其操作边界解析这些引用；变更、优先级与存储语义由子级 README 负责。授权 flow 写入一条凭据记录并以它为键，因此两个 seam 只在记录处相交，别无其他接触面。
 
-The subsystem reference — `CredentialRef`, per-operation resolution, UI-safe `CredentialInfo`, provider layers — is [docs/subsystems/credentials.md](../../docs/subsystems/credentials.md).
+子系统参考——`CredentialRef`、按操作解析、对 UI 安全的 `CredentialInfo`、提供方层——见 [docs/subsystems/credentials.md](../../docs/reference/subsystems/credentials.md)。

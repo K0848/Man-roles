@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { partitionPairedMarkdownDerivatives } from './paired-markdown-derivatives.ts'
+import { compileBlocksAgainstBuiltTypes } from './doc-typecheck.ts'
 
 interface Block {
   doc: string
@@ -62,5 +63,22 @@ describe('partitionPairedMarkdownDerivatives', () => {
     const chinese = { ...english, doc: 'docs/example.zh.md', kind: 'public-api' }
 
     expect(partition([english, chinese])).toEqual({ primary: [english, chinese], derivatives: [] })
+  })
+
+  it('compiles a Chinese-only block and rejects an invalid independent Chinese block', () => {
+    const chinese = { doc: 'docs/only.zh.md', kind: 'ts', code: 'export const count: number = 1' }
+    const only = partition([chinese]).primary
+    expect(compileBlocksAgainstBuiltTypes(only.map(block => ({
+      file: block.doc, line: 1, kind: 'check', code: block.code,
+    })))).toEqual([])
+
+    const english = { ...chinese, doc: 'docs/both.md' }
+    const invalid = { ...chinese, doc: 'docs/both.zh.md', code: 'export const count: number = "wrong"' }
+    const independent = partition([english, invalid]).primary
+    expect(independent).toEqual([english, invalid])
+    const diagnostics = compileBlocksAgainstBuiltTypes(independent.map(block => ({
+      file: block.doc, line: 1, kind: 'check', code: block.code,
+    })))
+    expect(diagnostics.some(diagnostic => diagnostic.code === 2322 && diagnostic.file?.fileName.endsWith('block-1.ts'))).toBe(true)
   })
 })

@@ -1,27 +1,25 @@
-# Agent Note: Roleplayer client observes connection loss and restores selection
+# Agent Note: 困惑客户端感知断线并恢复选择
 
 Status: implemented
 
-English | [中文](2026-10-23-man-roleplayer-client-recovery.zh.md)
-
 ## Problem
 
-A product projection can retain an active turn after its Host disconnects. Rendering that cached projection as ready and advancing its elapsed time implies progress that the browser cannot verify. Reloading also needs to restore the user's chosen dilemma rather than implicitly choosing the oldest list entry.
+Host 断线后，产品投影可能仍保留进行中的回答。界面继续显示就绪并增长用时，会让用户误以为浏览器已确认生成仍在推进。页面刷新也需要恢复用户选择的困惑，不能隐式回到列表最旧的一条。
 
 ## Decision
 
-The projection owner subscribes to the existing connection Host-description source. An absent description retracts readiness; a connected description triggers a Host reload. Generation checks discard obsolete list and turn responses. The view stops advancing activity time while disconnected, preserves local drafts, and disables sending, switching, cancellation, and other remote operations until synchronization finishes. Stop-failed and unknown execution remain locked pending Host confirmation. Background projection refreshes retain readiness within a connected generation.
+投影对象订阅现有连接的 Host 描述来源。描述缺失时撤销就绪状态，建立连接后重新读取 Host；连接代际检查丢弃过期列表和回答响应。界面断线时停止增长活动用时，保留本地草稿，并在同步完成前禁用发送、人物切换、取消及其他远程操作。停止失败及执行未知时继续锁定，等待 Host 确认。已连接代际内的后台投影刷新保留就绪状态。
 
-The browser persists only the selected opaque handle. List loading validates that selection and safely chooses an existing entry if it is missing. Storage denial does not block the product. New dilemmas and explicit selections move to the top without removing another dilemma's pending turn. Chinese display labels explain evidence type and trust without editing source content.
+浏览器只保存选中的不透明句柄。加载列表时核对句柄是否存在，无效时回退至已有条目；本机存储不可用不阻塞产品。新建及明确选择的困惑排在前面，同时保留其他困惑的进行中回答。证据类型与可信度使用中文标签，不修改来源正文。
 
 ## Alternatives considered
 
-Creating another connection loop duplicates the runtime's stream ownership. The existing observable Host description already publishes connection loss and established generations.
+再创建连接循环会重复拥有运行时的事件流。现有可观察 Host 描述已能发布连接丢失及连接代际建立。
 
-Treating disconnection as cancellation invents a Host outcome. Cached activity remains visible as an interrupted observation until the Host reload supplies its actual result.
+把断线视为取消会编造 Host 的结果。缓存活动保留为观察中断状态，直到 Host 重读提供实际结果。
 
 ## Consequences
 
-The client distinguishes transport availability from turn completion and state-analysis status. Browser-local selection is a viewing preference, not product authority. Drafts survive disconnection within the mounted view; full-page draft persistence is not provided.
+客户端区分连接可用性、回答完成与状态整理进度。本机选择是浏览偏好，不是产品权威状态。草稿在已挂载界面内断线时保留，不提供整页刷新后的草稿持久化。
 
-Focused projection and component tests cover connection recovery, obsolete response rejection, draft retention, selection validation, and list discoverability. Actual process-loss and reconnect behavior requires assembled browser verification.
+定向投影与组件测试覆盖断线恢复、过期响应拒绝、草稿保留、选择校验和列表可发现性。真实进程退出与重连仍需产品装配后的浏览器验证。

@@ -322,21 +322,24 @@ export function bundlePluginDependencyErrors(
 function validateSourcePlaneResolution(): string[] {
   const violations: string[] = []
   const localPackages = localPackageDirectories()
-  const config = ts.readConfigFile(resolve(root, 'tsconfig.base.json'), path => ts.sys.readFile(path))
+  const configPath = resolve(root, 'config/typescript/tsconfig.base.json')
+  const configDirectory = dirname(configPath)
+  const config = ts.readConfigFile(configPath, path => ts.sys.readFile(path))
   if (config.error !== undefined) {
     throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'))
   }
   const { options, errors: optionErrors } = ts.convertCompilerOptionsFromJson(
     (config.config as { compilerOptions?: unknown }).compilerOptions,
-    root,
-    'tsconfig.base.json',
+    configDirectory,
+    configPath,
   )
   if (optionErrors.length > 0) {
     throw new Error(optionErrors.map(error => ts.flattenDiagnosticMessageText(error.messageText, '\n')).join('\n'))
   }
-  // convertCompilerOptionsFromJson leaves `pathsBasePath` unset, so relative
-  // `paths` targets resolve against the host's current directory; anchor it to
-  // the repository root to keep the gate cwd-independent.
+  // 别名相对配置文件，而不是调用进程的 cwd；转为绝对路径以保留源码解析规则。
+  options.paths = Object.fromEntries(Object.entries(options.paths ?? {}).map(([name, paths]) => [
+    name, paths.map(path => resolve(configDirectory, path)),
+  ]))
   const host: ts.ModuleResolutionHost = {
     fileExists: path => ts.sys.fileExists(path),
     readFile: path => ts.sys.readFile(path),

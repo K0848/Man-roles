@@ -1,29 +1,27 @@
-# Agent Note: Atomic Web image admission
+# Agent Note: Web 图片准入的原子性
 
 Status: implemented
 
-English | [中文](2026-07-29-atomic-web-image-admission.zh.md)
+## 问题
 
-## Problem
+包含图片的提示词准入与 `session.selectModel` 都会跨越异步模型查询和附件查询。没有统一的排序点时，包含图片的提示词可能在支持图片的目标上通过校验，并发选择却设置了纯文本目标。选择也可能在准入已经开始、持久消息事件尚未发布时改变路由。
 
-Image prompt admission and `session.selectModel` each cross asynchronous model and attachment lookups. Without one ordering point, an image prompt could validate an image-capable target while a concurrent selection installed a text-only target. Selection could also change the route after admission had begun but before the durable message event was published.
+## 决策
 
-## Decision
+每个活跃 Web agent（智能体）都有一条私有 promise 链，由包含图片的提示词准入与模型选择共享。操作失败会照常传递给调用方，且不会使该链失效。纯文本提示词绕过该链，因为它们不会产生这类排序冲突。
 
-Each live Web agent has one private promise chain shared by image-bearing prompt admission and model selection. A failed operation settles its caller normally and leaves the chain usable. Text-only prompts bypass the chain because they cannot create this ordering conflict.
+该链为两个操作提供确定顺序。模型选择先执行时，后续图片准入会看到已选模型，并在持久化之前拒绝不支持的图片。图片准入先执行时，附件和事件会在模型选择改变路由之前完成发布。之后，共享 LLM 运行时可以在纯文本请求中把持久图片块投影为确定的文本占位符，无需改写会话日志。steering 不进入排队 UI 镜像，但仍使用同一条准入链。
 
-The chain gives the two operations a deterministic order. When selection runs first, later image admission observes the selected model and refuses an unsupported image before persistence. When image admission runs first, its attachment and event publication complete before selection changes the route. The shared LLM runtime can then project durable image blocks to deterministic text placeholders for a text-only request without rewriting the session log. Steering uses the same admission chain even though it does not enter the queued UI mirror.
+提供方适配器仍是最终的强制检查边界。宿主的顺序控制仅用于避免其可变路由与待发布图片状态在请求组装前彼此矛盾。
 
-Provider adapters remain the final enforcement boundary. The host ordering only prevents its mutable route and pending image state from contradicting each other before request assembly.
+## 曾考虑的替代方案
 
-## Alternatives considered
+**选择前扫描持久历史或派生历史。** 这会在历史包含图片时阻止选择纯文本路由。请求期投影已经可以直接支持该路由，因此历史不再是选择约束。
 
-**Scan durable or derived history before selection.** This prevented a text-only route from being selected whenever history contained an image. Request-local projection now supports that route directly, so history is no longer a selection constraint.
+**单独跟踪待发布状态。** 排队条目可以从出队一直保留到匹配事件发布。promise 链已经让模型选择等待完整的准入操作，因此不需要第二套生命周期镜像。
 
-**Track pending publication separately.** A queued occurrence could be retained from dequeue through its matching event. The promise chain already keeps selection behind the complete admission operation, so a second lifecycle mirror is unnecessary.
+**序列化每个提示词和会话变更。** 纯文本提示词和无关的会话操作无法引入图片要求。更宽的锁会增加延迟与所有权复杂度，却不会再消除任何模态竞态。
 
-**Serialize every prompt and session mutation.** Text-only prompts and unrelated session operations cannot introduce an image requirement. A broader lock would add latency and ownership without closing another modality race.
+## 后果
 
-## Consequences
-
-An image prompt and a concurrent model selection have deterministic order. Selection may wait for in-flight image admission, while unrelated text prompts retain their existing concurrency. Text-only model selection remains available after images enter durable history because request assembly projects those images to placeholders.
+包含图片的提示词准入与并发模型选择之间具有确定顺序。模型选择可能等待正在进行的图片准入完成，无关的纯文本提示词仍按现有方式并发处理。图片进入持久历史后仍可选择纯文本模型，因为请求组装会把图片投影为占位符。

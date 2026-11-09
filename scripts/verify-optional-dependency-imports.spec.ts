@@ -16,7 +16,7 @@ import { TypeScriptProject } from './ts-project.ts'
 import { collectOptionalImportViolations } from './verify-optional-dependency-imports.ts'
 
 const FIXTURE: Record<string, string> = {
-  'tsconfig.host.json': JSON.stringify({
+  'config/typescript/tsconfig.host.json': JSON.stringify({
     compilerOptions: {
       target: 'es2022',
       module: 'esnext',
@@ -25,11 +25,11 @@ const FIXTURE: Record<string, string> = {
       skipLibCheck: true,
       types: [],
       paths: {
-        '@f/opt': ['./packages/f/opt/src/index.ts'],
-        '@f/hard': ['./packages/f/hard/src/index.ts'],
+        '@f/opt': ['../../packages/f/opt/src/index.ts'],
+        '@f/hard': ['../../packages/f/hard/src/index.ts'],
       },
     },
-    include: ['packages/**/*.ts'],
+    include: ['../../packages/**/*.ts'],
   }),
 
   'packages/f/opt/package.json': JSON.stringify({ name: '@f/opt', version: '0.0.1' }),

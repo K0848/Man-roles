@@ -1,32 +1,30 @@
-# Agent Note: A minimal read_image tool over existing seams
+# Agent Note: 基于既有 seam 的最小 read_image 工具
 
 Status: implemented
 
-English | [中文](2026-08-10-minimal-read-image-tool.zh.md)
+## 问题
 
-## Problem
+多模态附件工作为用户上传建立了完整的持久路径，但模型无法查看磁盘图片。`read` 按约定拒绝二进制内容，因此被问到截图或渲染图表的 agent 要么失败，要么使用有损的变通方法。PR #598 的独立尝试把工具与循环级路由作用域、按路由控制 schema 可见性和新的会话日志概念放在一起。这些能力不是发布一条带图片且已记录的工具结果所必需的。
 
-The multimodal attachment work gave user uploads a complete durable path, but the model itself had no way to inspect an image on disk. `read` rejects binary content by contract, so an agent asked about a screenshot or rendered chart either failed or used a lossy workaround. A standalone attempt in PR #598 combined the tool with loop-level route scoping, per-route schema visibility, and new session-log concepts. Those features were not required to publish a logged image tool result.
+## 决定
 
-## Decision
+两个图片读取操作都放在 `dsh-tool-fs`，通过现有扩展点发布普通的持久工具结果。
 
-Both image-reading operations live in `dsh-tool-fs` and publish ordinary logged tool results over existing extension points.
+- **`read_image` 读取文件系统路径。** 扩展名选择声明的 PNG/JPEG/WebP/GIF 媒体类型，附件存储的魔数与像素校验保持权威。字节沿 `ctx.fs.stat` → 有界 `ctx.fs.readBytes` → `ctx.attachments.saveImage` → `fs/observed` 流动。工具结果包含元数据和一个 `ImageBlock`。
+- **`FileSystem.readBytes(target, signal, maxBytes)`** 是新的必备提供方原语：字节上限放在 seam 上，任何后端都无法无界缓冲文件；stat 大小先短路，随后的流最多多读一个字节以防 stat 之后的增长（`FS_TOO_LARGE`）。
+- **注册随组合条件挂载，执行按路由门禁。** 工具只在 `ctx.inject(['attachments'], …)` 作用域内注册。执行时在 I/O 之前通过 `ctx.llm.resolveModelInfo` 解析调用路由，并要求 `inputModalities` 包含 `image`；能力未知即拒绝。纯文本路由仍可使用此前的持久图片，因为共享 LLM 运行时会在请求组装时把图片投影为占位符。
+- **Code Mode 以带外方式转发图像**：嵌套分派返回规范值（仅限本次执行，不含图像块），并延迟提交一条携带信封和图像的 `user` 角色上下文消息，图片仍会到达下一次请求。
+- **llm-replay 模型可以声明 `inputModalities`**，因此 keyless ACP 快照可以覆盖支持图片的结果和纯文本拒绝。
 
-- **`read_image` reads a filesystem path.** Extension selects the declared PNG/JPEG/WebP/GIF media type; the attachment store's magic-byte and pixel validation stays authoritative. Bytes travel `ctx.fs.stat` → bounded `ctx.fs.readBytes` → `ctx.attachments.saveImage` → `fs/observed`. The tool result contains metadata and an `ImageBlock`.
-- **`FileSystem.readBytes(target, signal, maxBytes)`** is a new required provider primitive: the byte bound lives at the seam so no backend can buffer an unbounded file, with the stat-size short-circuit and a one-byte-past-cap stream guard against post-stat growth (`FS_TOO_LARGE`).
-- **Registration is composition-conditional, execution is route-gated.** The tools register only under `ctx.inject(['attachments'], …)`. Before I/O, the strict gate resolves the calling route through `ctx.llm.resolveModelInfo` and requires `image` in `inputModalities`; unknown capability refuses. A text-only route can still consume prior durable images because the shared LLM runtime projects them to placeholders at request assembly.
-- **Code Mode forwards the image out-of-band**: a nested dispatch returns the canonical value (execution-local, no image block) and defers a `user`-role context message carrying the envelope and image, so the picture still reaches the next request.
-- **llm-replay models may declare `inputModalities`**, which lets keyless ACP snapshots cover the image-capable result and the text-only refusal.
+## 考虑过的替代方案
 
-## Alternatives considered
+- **PR #598 的路由作用域设计**使用 request-ready 扩展点、按路由控制 schema 可见性、可逆投影和三个持久概念。共享 LLM 请求投影现在可以处理纯文本路由，无需把工具注册或会话格式放进 agent-loop。
+- **用 `agent.inject()` 代替带图像的工具结果**——把图像绕过工具结果，作为单独注入的用户消息。拒绝：图像就是工具的结果；拆开只会多一条无收益的日志消息，而工具结果路径本就端到端可用。
+- **用魔数嗅探代替扩展名声明**——嗅探重复了附件存储已拥有的检测（基于 sharp，权威）。扩展名只是声明；不匹配时按改名修复提示失败关闭，而不是被静默接受，这也让模型对文件名与内容的对应保持诚实。
+- **无条件注册、缺存储时执行报错**——拒绝；没有附件存储的部署永远无法满足该工具，其 schema 会是常态谎言。相反，路由门禁是逐调用状态，正确的位置就是执行边界。
 
-- **PR #598's route-scoped design** used a request-ready extension point, per-route schema visibility, reversible projection, and three durable concepts. Shared LLM request projection now handles text-only routes without putting tool registration or session formats into agent-loop.
-- **`agent.inject()` instead of the image-bearing tool result** — routes the image around the tool result as a separate injected user message. Rejected: the image *is* the tool's result; splitting them adds a second logged message with no gain, and the tool-result path already works end to end.
-- **Magic-byte sniffing instead of extension declaration** — sniffing duplicates detection the attachment store already owns (sharp-backed, authoritative). The extension is only a *declaration*; a mismatch fails closed with a rename remedy rather than being silently accepted, which also keeps the model's mental map (file name ↔ content) honest.
-- **Registering unconditionally and failing on a missing store** — rejected; a deployment without an attachment store cannot ever satisfy the tool, so its schema would be a standing lie. The route gate, by contrast, is per-call state and correctly lives at the execution boundary.
+## 后果
 
-## Consequences
-
-- The tools refuse execution on a text-only route, while existing images in session history are represented by request-local placeholders.
-- Repeated image results accumulate request cost until request projection or compaction removes them; content addressing deduplicates durable bytes.
-- The tool-result card renders the durable reference, not pixels; inline preview is deferred to the UI packages.
+- 工具在纯文本路由上拒绝执行，而会话历史中已经存在的图片会由请求期占位符表示。
+- 重复的图片结果会累积请求成本，直到请求投影或压缩将其移除；内容寻址只去重持久字节。
+- 工具结果卡片渲染持久引用而非像素；内嵌预览延后到 UI 包处理。

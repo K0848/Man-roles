@@ -13,7 +13,7 @@ import { collectPackageSources, EventRelationCollector } from './gen-doc-graphs.
 import { TypeScriptProject } from './ts-project.ts'
 
 const FIXTURE: Record<string, string> = {
-  'tsconfig.host.json': JSON.stringify({
+  'config/typescript/tsconfig.host.json': JSON.stringify({
     compilerOptions: {
       target: 'es2022',
       module: 'esnext',
@@ -23,7 +23,7 @@ const FIXTURE: Record<string, string> = {
       skipLibCheck: true,
       types: [],
     },
-    include: ['vendor/**/*.ts', 'packages/**/*.ts'],
+    include: ['../../vendor/**/*.ts', '../../packages/**/*.ts'],
   }),
   'vendor/cordis/src/context.ts': 'export class Context { private brand!: void }\n',
   'vendor/cordis/src/events.ts': [

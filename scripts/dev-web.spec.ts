@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { expect, it } from 'vitest'
 import type { TsdownBundle } from 'tsdown'
 import { discoverLibraryDirs, discoverPluginDirs, watchClientPlugins } from './dev-web.ts'
+import { removeFixtureSafely } from './test-fixture-cleanup.ts'
 
 it('discovers dsh.client packages with sibling roles', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-dev-web-discovery-'))
@@ -53,9 +54,10 @@ it('rebuilds a client-plugin bundle after its source changes', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-dev-web-watch-'))
   let bundles: TsdownBundle[] = []
   try {
-    await symlink(join(import.meta.dirname, '..', 'node_modules'), join(root, 'node_modules'), 'dir')
+    await symlink(join(import.meta.dirname, '..', 'node_modules'), join(root, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir')
     await writeFile(join(root, 'package.json'), JSON.stringify({ name: '@dsh-test/dev-web-watch', private: true, type: 'module' }))
-    await writeFile(join(root, 'tsdown.config.ts'), `
+    await mkdir(join(root, 'config/build'), { recursive: true })
+    await writeFile(join(root, 'config/build/tsdown.config.ts'), `
 import { defineConfig } from 'tsdown'
 export default defineConfig({
   entry: { client: 'src.ts' }, outDir: 'lib', format: 'cjs', platform: 'browser', dts: false, clean: false,
@@ -75,6 +77,6 @@ export default defineConfig({
     }).toBe(true)
   } finally {
     for (const bundle of bundles) await bundle[Symbol.asyncDispose]()
-    await rm(root, { recursive: true, force: true })
+    removeFixtureSafely(root)
   }
 }, 20_000)

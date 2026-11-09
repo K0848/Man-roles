@@ -2,26 +2,24 @@
 
 Status: implemented
 
-English | [中文](2026-10-24-man-roles-workspace-root.zh.md)
-
 ## Problem
 
-A nested source checkout separates the product's Git entry from its workspace and build entry, obscures product ownership, and makes local dependency links depend on a second directory layout.
+嵌套源码目录使产品 Git 入口与 workspace、构建入口分离，产品归属不清，并让本机依赖链接依赖另一套目录布局。
 
 ## Decision
 
-The repository root owns the pnpm workspace, build configuration, product launchers and research files. The existing package groups retain their relative layout and dependency identities. The three product packages identify the Man-roles repository in their metadata. Upstream attribution remains in [SOURCE.md](../../../../SOURCE.md) and retained licenses.
+仓库根拥有 pnpm workspace、构建配置、产品启动器和人物资料。现有包分组保留相对布局与依赖身份。三个产品包在元信息中指向 Man-roles 仓库。上游归属记录在 [SOURCE.md](../../../../SOURCE.md) 和保留的许可证中。
 
-The root ignore file excludes local credentials, runtime state, private working material and generated outputs. It permits environment templates, source, lockfiles, required regression fixtures and product assets. [The ignore check](../../../../scripts/verify-publish-ignore.mjs) verifies representative excluded and included paths and detects ignored files already in the index. Content review remains necessary because ignore rules do not redact files or Git history.
+根忽略文件排除本机凭据、运行状态、私有工作材料及生成产物，允许环境模板、源码、锁文件、必要回归样本与产品素材。[忽略检查](../../../../scripts/verify-publish-ignore.mjs) 验证代表性的排除及保留路径，并检测已经进入索引却被忽略的文件。仍需审查内容，因为忽略规则不能脱敏文件或 Git 历史。
 
 ## Alternatives considered
 
-Keeping a nested source copy preserves the original checkout layout but requires separate build navigation and ongoing synchronization. Moving individual business packages outside the workspace would also require dependency and compiler changes unrelated to the repository entry problem. A single workspace root preserves package relationships without either cost.
+保留嵌套源码副本可以延续原目录，但需要分别定位构建入口并持续同步。把业务包单独移出 workspace 又会引入与仓库入口问题无关的依赖和编译修改。统一 workspace 根可以保留包之间的关系，避免这两种成本。
 
 ## Consequences
 
-Install, build, test and commit from the same root. The public launcher resolves persona assets within this repository and stores new runtime state under the ignored `.local/` directory. No existing user data is moved. Package renaming and dependency upgrades are outside this layout change.
+安装、构建、测试和提交在同一根目录执行。公开启动器在仓库内解析人物素材，并将新运行状态放在被忽略的 `.local/` 目录。现有用户数据不迁移。包重命名与依赖升级不属于本次布局修改。
 
 ## Testing
 
-Verify file preservation during relocation, package metadata, bilingual entry documentation, ignore behavior against the final index, the standard build, focused product regressions and an empty-profile browser launch with five persona cards. No live model request is required for the layout check.
+验证迁移中的文件保留、包归属信息、双语入口文档、最终索引的忽略行为、标准构建、产品定向回归，以及含五张人物卡的空数据浏览器启动。布局检查不需要真实模型请求。

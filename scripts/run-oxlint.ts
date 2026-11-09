@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const oxlintCli = fileURLToPath(new URL('../node_modules/oxlint/bin/oxlint', import.meta.url))
+const defaultConfig = fileURLToPath(new URL('../.oxlintrc.json', import.meta.url))
 const MAX_CAPTURED_OUTPUT_BYTES = 64 * 1024 * 1024
 const FIX_FLAGS = new Set(['--fix', '--fix-dangerously', '--fix-suggestions'])
 
@@ -32,6 +33,10 @@ export interface OxlintInvocation {
  */
 export function resolveOxlintInvocation(args: readonly string[], env: NodeJS.ProcessEnv): OxlintInvocation {
   const resolvedArgs = [...args]
+  // 配置集中后显式绑定默认规则，避免工具从工作目录静默回退到内置规则。
+  if (!args.some(arg => arg === '--config' || arg === '-c' || arg.startsWith('--config=') || arg.startsWith('-c='))) {
+    resolvedArgs.push('--config', defaultConfig)
+  }
   if (env.CI === 'true' && !hasOutputFormat(args)) resolvedArgs.push('--format=unix')
   const raw = env.DSH_OXLINT_THREADS
   if (raw === undefined || raw === '') return { args: resolvedArgs, env: { ...env } }

@@ -1,0 +1,20 @@
+{
+  "folders": [
+    {
+      "name": "向古人问惑 · 统一工程",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/lib": true,
+      "**/dist": true,
+      "**/*.tsbuildinfo": true,
+      ".dsh-build": true,
+      "website/.generated": true,
+      "website/.cache": true,
+      "website/.dist": true
+    }
+  }
+}

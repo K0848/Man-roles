@@ -1,3 +1,3 @@
-# AGENTS.md — Repository scripts
+# 仓库脚本规则
 
-Gate scripts invoke pnpm shell-free, normalize repository-relative glob paths to `/` at ingestion, and keep platform adaptation in the gate that needs it instead of a shared platform layer.
+检查脚本调用 pnpm 时不经过 shell；读入仓库相对 glob 时统一为 `/`。平台差异放在真正需要它的脚本中，不建立无当前需求的共享平台层。脚本引用目录以当前 `config/` 和 [文档导航](../docs/README.md) 为准。

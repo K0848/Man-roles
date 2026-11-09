@@ -1,32 +1,29 @@
-# Agent Note: Product turn stop checkpoints, context replacement, and finite budgets
+# Agent Note: 产品回合停稳检查点、上下文替换与有限预算
 
 Status: implemented
 
-English | [中文](2026-09-27-turn-stop-context-budget.zh.md)
-
 ## Problem
 
-The product had a single turn result status and appended shared context injections directly to each persona Session. A cancel request could therefore race a persona switch, withdrawn state could remain in the model-facing surface, and repeated invalid tool feedback had no product-owned request or no-progress limit.
+产品过去只记录回合结果状态，并在每次人物请求时直接向人物 Session 追加共享上下文。取消请求可能与人物切换竞态，撤回的状态可能继续留在模型可见 surface，重复的无效工具反馈也没有产品侧的请求数或无进展上限。
 
 ## Decision
 
-Product events now record `turn-execution` separately from the user-visible turn result. The states `running`, `waiting-user`, `stopping`, `stopped`, `stop-failed`, and `unknown` are read by Host and Remote together. Switching rejects while any turn execution is unresolved; cancellation persists `stopping`, requests Agent cancellation, waits for the lease to settle within the configured stop timeout, and records a failed or unknown stop when quiescence is not confirmed.
+产品事件现在把 `turn-execution` 与用户可见的回合结果分开记录。`running`、`waiting-user`、`stopping`、`stopped`、`stop-failed` 和 `unknown` 由 Host 与 Remote 共同读取。只要存在未解决的回合执行，切换就会拒绝；取消先持久化 `stopping`，请求 Agent 取消，在配置的停稳等待时间内等待 lease 结算，无法确认停稳时记录失败或未知停稳状态。
 
-The Host rebuilds one persona's effective shared context from durable product events before each product step. It writes a fingerprinted `context-projection` and replaces the previous product context messages on the DSH Session surface, retaining raw audit events while preventing withdrawn or superseded context from remaining model-visible. The projection includes the source ids, fingerprint, and encoded model-input byte count used for the step.
+Host 在每个产品 step 前从持久化产品事件重建当前人物有效共享上下文。它写入带指纹的 `context-projection`，并替换 DSH Session surface 上上一份产品上下文消息；原始审计事件仍保留，但撤回或被替代的上下文不会继续进入模型输入。投影记录来源 id、指纹和本 step 使用的模型输入字节数。
 
-Each persona turn owns an explicit finite budget for model requests, tool calls, active time, request timeout, and repeated no-progress fingerprints. The Host observes the existing Agent and tool extension points, cancels the Agent when a limit is reached, and records a `turn-budget` checkpoint with counts and terminal budget status. The default product profile uses eight model requests, twelve tool calls, a 120-second active limit, a 60-second request timeout, and a two-repeat no-progress limit; deployments can provide another finite configuration.
+每个人物回合拥有模型请求数、工具调用数、主动执行时间、请求超时和重复无进展指纹等有限预算。Host 通过既有 Agent 与工具扩展点观测请求，在达到限制时取消 Agent，并以 `turn-budget` 检查点记录计数和预算终态。产品 profile 默认允许八次模型请求、十二次工具调用、120 秒主动执行、60 秒请求超时和两次重复无进展；部署可以提供其他有限配置。
 
 ## Alternatives considered
 
-**Treat a cancelled turn as immediately stopped.** This would expose a switch path before DSH `whenIdle()` confirms that the driver and maintenance work have quiesced.
+**把收到取消请求当作已停稳。** 这样会在 DSH `whenIdle()` 确认 driver 与维护任务静止前暴露切换路径。
 
-**Keep appending shared context injections.** This would preserve stale state and duplicate the same shared source in later model requests after a withdrawal or update.
+**继续追加共享上下文注入。** 撤回或更新后旧状态会留在后续模型输入中，并逐轮重复同一共享来源。
 
-**Ask the model to stop through an instruction.** A prompt cannot enforce a request or tool budget when the model, provider, or retry path ignores it, so the Host owns cancellation at runtime extension points.
+**通过提示词要求模型停止。** 当模型、Provider 或重试路径忽略提示时，提示词不能强制执行请求或工具预算，因此运行时取消由 Host 在扩展点执行。
 
-**Use an unbounded default and rely on deployment discipline.** An omitted limit would make the product's stop and cost behavior undefined, so the profile supplies finite defaults and validates overrides.
+**使用无限默认值并依赖部署自律。** 缺少限制会使产品的停止和成本行为不确定，因此 profile 提供有限默认值并校验覆盖配置。
 
 ## Consequences
 
-The browser can keep a turn in a stopping or unknown state and cannot switch personas until the Host has a durable stopped checkpoint. Session logs remain append-only, while the model-facing surface can be rebuilt from the current allowed set. Product event volume increases for execution and budget checkpoints, and context replacement must continue to preserve DSH tool-pairing rules. Usage and monetary cost remain provider-dependent; this slice records bounded request/tool counts and input bytes, while real quality, latency, and cost still require the later product acceptance batch.
-
+浏览器可以显示停止中或未知状态，只有 Host 持久化 `stopped` 后才能切换人物。Session 日志仍然只追加，模型可见 surface 可以依据当前允许集合重建。执行和预算检查点会增加产品事件数量，上下文替换必须持续遵守 DSH 工具配对规则。实际 Token、延迟和费用仍受 Provider 影响；本批记录有界请求/工具计数和输入字节数，真实质量、延迟和费用留给后续产品验收批次。

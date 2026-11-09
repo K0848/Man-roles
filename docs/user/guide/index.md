@@ -1,30 +1,15 @@
-# Use the Web UI
+# 向古人问惑快速开始
 
-English | [中文](index.zh.md)
+当前产品的安装、构建、启动参数和数据位置统一维护在 [产品 README](../../../README.md#run-from-source)。在仓库根安装锁定依赖并完整构建，设置自己的 API key 后运行 `start-man-roles.ps1`，默认浏览器地址为 `http://127.0.0.1:3085/`。
 
-Start the Web UI through the [root README](../../../README.md#run); the command prints its URL. This guide begins after that server is running. The `dsh` process uses its invoking directory as the default filesystem location, but a fresh Web UI has no selected workspace until you add one.
+## 开始一份困惑
 
-## Configure a model
+新建困惑，选择人物，输入问题并发送。模型回答由人物资料和 preset 约束，不是历史人物原话。对话会发送给配置的模型服务，请使用自己的账户，不输入不应提供给该服务的敏感内容。
 
-Open **Settings → Models**, enter a [DeepSeek API key](https://platform.deepseek.com/), and save it. The model route becomes usable immediately without restarting the server.
+## 保存与更新
 
-The [model configuration guide](./providers.md) covers other providers and custom OpenAI-compatible endpoints.
+数据默认保存在被 Git 忽略的 `.local/dsh-home/`；换用自定义目录时也须排除版本控制。更新代码后按 [README 的启动说明](../../../README.md#run) 完整构建并重启原产品实例。不要复制作者本机配置、凭据或旧数据库来满足启动条件。
 
-## Choose a workspace
+## 底座参考
 
-Click **Choose workspace**, add the project directory where you started `dsh`, and select it. The session composer remains unavailable until a workspace is selected.
-
-## Run a task
-
-Start a session and send:
-
-> Summarize this repository and identify its main packages.
-
-The agent can read and edit workspace files, run commands, delegate work, and maintain a plan. The Web UI asks before operations that require approval under the active permission policy.
-
-## Continue
-
-- [Configure models](./providers.md)
-- [Use the Python SDK](./python-sdk.md)
-- [Use other CLI modes](../../../apps/cli/README.md)
-- [Develop a plugin](../develop/basic/index.md)
+[DSH 通用 Web UI 指南](../../reference/dsh/web-ui.md) 解释通用编程工作区、模型设置和任务执行，适用于自行装配普通 DSH profile；这些界面不是人物产品的必要前置步骤。提供方与自定义端点可查 [模型配置参考](providers.md)。

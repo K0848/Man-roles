@@ -4,7 +4,7 @@
  * example's `*.snapshot.ts` names its own agent-under-test paths.
  *
  * It boots the REAL agent bin subprocess via the cordis Loader (so the
- * export-shape bug class stays guarded — see docs/postmortem/0001), drives it
+ * export-shape bug class stays guarded — see docs/reference/postmortem/0001), drives it
  * over real ACP JSON-RPC stdio with a deterministic input script, tees raw
  * stdout (for the expected-output and purity checks) into an SDK `ClientSideConnection`,
  * and — in record mode — harvests the persisted session JSONL after a graceful

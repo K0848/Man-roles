@@ -1,35 +1,33 @@
-# Agent Note: Advice answers require a usefulness floor
+# Agent Note: 建议型回答必须满足最低有用性
 
 Status: implemented
 
-English | [中文](2026-09-13-advice-answer-usefulness-floor.zh.md)
-
 ## Problem
 
-The accepted-only gate proved that an answer's claims were structurally valid and supported by compatible evidence, but it did not prove that the answer addressed the user's request. In a real Zhuangzi run, repeated incompatible claim attempts ended with one valid 35-character historical attribution. The Host accepted that sentence as the complete answer even though the user had asked how to decide and act.
+accepted-only 门能够证明回答的 Claim 结构合法且使用了兼容证据，但不能证明回答真正回应了用户请求。一次真实庄子回合在多次不兼容 Claim 尝试后，只提交了一条 35 字的合法史料归属说明。用户问的是如何判断并行动，Host 却把这一句当成完整回答接受。
 
 ## Decision
 
-The Host applies a narrow deterministic usefulness floor when the current user message contains explicit advice wording such as “how,” “what should I do,” or “should I.” The submitted answer must contain at least 80 non-whitespace Unicode graphemes and at least one `modern-inference` claim segment with no evidence IDs. That guidance segment must share a non-generic topic term with the user's message. Historical and quotation segments retain their existing provenance validation, but cannot complete an advice turn by themselves.
+当当前用户消息明确包含“如何”“怎样”“怎么办”“我该”或“该不该”等建议意图时，Host 执行窄范围的确定性最低有用性门。最终提交必须至少包含 80 个非空白 Unicode 字素，并至少包含一个不携带 evidence ID 的 `modern-inference` Claim segment；该建议段还必须与用户消息共享至少一个非通用主题词。史实和引文段继续接受原有来源校验，但不能单独完成建议型回合。
 
-The numeric threshold is an internal floor and is not exposed in the model-facing policy or repair error. Submissions containing validation-oriented filler such as “placeholder,” “submission pipeline,” or “pass the character limit” are rejected before completion.
+数字阈值属于内部底线，不进入模型可见策略或修复错误。提交中若出现“校验占位”“提交链路”或“通过字符下限”等面向验证规则的填充文字，会在完成前被拒绝。
 
-Identity questions, low-information openings, and factual questions keep their existing specialized behavior. The minimum is enforced after the ordinary segment and evidence checks, inside the same live turn submission lease, so an invalid attempt remains private and the model can correct it without creating another product turn.
+身份短问、低信息开场和事实问答继续使用各自已有规则。最低门在普通 segment 与证据校验之后、同一个活动人物 turn lease 内执行，因此无效尝试仍留在私有分支，模型可以修正，而不会创建新的产品回合。
 
-The model-facing submission description also states the mapping from research provenance to Claim kinds. Reliable first-person authorial text can use `reliable-quote`; reliable historical accounts can use `historical-fact`; textual parables, disciple records, other speakers, later evaluations, variants, and contested attributions use `attribution`; modern advice uses `modern-inference` without evidence IDs.
+模型可见的提交说明同时明确研究来源到 Claim kind 的映射：可靠且允许第一人称的作者原文使用 `reliable-quote`；可靠史传使用 `historical-fact`；文本寓言、门人记录、他人语、后世评价、异文和归属存疑使用 `attribution`；现代建议使用不带 evidence ID 的 `modern-inference`。
 
 ## Alternatives considered
 
-**Prompt-only guidance.** The failed real run already had instructions to submit a complete answer. A probabilistic instruction could not protect a deterministic product completion state.
+**只依赖 Prompt。** 失败的真实回合已经收到“提交完整回答”的指令。概率性指令不能保护确定性的产品完成状态。
 
-**Apply one minimum length to every turn.** This would force greetings, identity replies, and concise factual answers to become padded prose, reducing usefulness instead of protecting it.
+**对所有回合应用统一最短长度。** 这会迫使寒暄、身份回答和简洁事实回答填充冗余文字，反而降低有用性。
 
-**Use length alone for advice turns.** A real regression immediately produced explicit validation filler to reach the disclosed threshold. Length remains one private signal, paired with topic overlap and a ban on validation-oriented prose.
+**建议型回合只检查长度。** 一个真实回归立即生成了明确的校验填充文字来达到已暴露阈值。因此长度只保留为内部信号，并与主题词交集和禁止校验元话语同时使用。
 
-**Use another model to score answer relevance.** A semantic judge would add latency, cost, and a second probabilistic completion gate. The observed failure has a smaller deterministic signature that the Host can verify.
+**再调用一个模型判断回答相关性。** 语义裁判会增加延迟、成本和第二个概率性完成门。已观察到的故障具有更小且可由 Host 验证的确定性特征。
 
 ## Consequences
 
-An advice turn can no longer complete with only a short citation or historical aside. Failed submissions remain available to the same model turn as repair feedback, preserving the existing accepted-only and idempotency boundaries.
+建议型回合不能再用一条短引文或史料旁白完成。失败提交仍作为修复反馈留在同一个模型回合中，保留现有 accepted-only 与幂等边界。
 
-The trigger is intentionally conservative and will miss some implicitly advice-seeking messages. Topic overlap can prove connection, not sound judgment, and the private 80-character threshold is still only a floor. Real-persona evaluation remains responsible for judging tone, relevance, distinctiveness, latency, and value.
+触发器被刻意设为保守，因此可能漏掉隐含的求建议表达。主题词交集只能证明关联，不能证明判断正确；内部 80 字阈值也仍只是最低门。真实人物验收仍需判断口吻、相关性、区分度、延迟与用户价值。

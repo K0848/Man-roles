@@ -5,8 +5,8 @@ import { personaDefinition } from './types.ts'
 import { z } from 'zod'
 
 /** One Claim vocabulary is shared by the model-facing tool and Host parser. */
-export const CLAIM_KINDS = ['reliable-quote', 'historical-fact', 'attribution', 'modern-inference', 'insufficient-evidence'] as const
-export const claimSidecarSchema = z.object({
+const CLAIM_KINDS = ['reliable-quote', 'historical-fact', 'attribution', 'modern-inference', 'insufficient-evidence'] as const
+const claimSidecarSchema = z.object({
   textRange: z.object({ start: z.number().int().nonnegative(), end: z.number().int().positive() }).strict(),
   kind: z.enum(CLAIM_KINDS),
   evidenceIds: z.array(z.string().trim().min(1)),
@@ -15,7 +15,7 @@ export const claimSidecarArraySchema = z.array(claimSidecarSchema).min(1)
 
 /** Model-facing answer segment. Host concatenates these strings and owns the
  * exact UTF-16 ranges so the model never has to count offsets. */
-export const claimSegmentSchema = z.object({
+const claimSegmentSchema = z.object({
   text: z.string().min(1),
   kind: z.enum(CLAIM_KINDS),
   evidenceIds: z.array(z.string().trim().min(1)),
@@ -51,13 +51,17 @@ export const claimSidecarValueSchema = {
   },
 } as const
 
-export const RESEARCH_EVIDENCE_KINDS = [
+const RESEARCH_EVIDENCE_KINDS = [
   'authorial-text', 'disciple-record', 'historical-account', 'textual-parable',
   'quoted-other-speaker', 'later-evaluation', 'variant-reading', 'contested-attribution',
   'modern-interpretation', 'quote', 'historical-fact', 'attribution',
 ] as const
+/** 正式研究资料的来源分类，由公开证据字段与 Cordis 类型目录共同使用。
+ * @public
+ */
 export type ResearchEvidenceKind = typeof RESEARCH_EVIDENCE_KINDS[number]
 
+/** One parsed, persona-bound research entry with stable provenance and claim/voice permissions. */
 export interface ResearchEvidence {
   readonly id: string
   readonly persona: PersonaId
@@ -69,13 +73,20 @@ export interface ResearchEvidence {
   readonly firstPersonAllowed: boolean
 }
 
+/** UTF-16 range and evidence references for one segment of the complete accepted answer. */
 export interface ClaimSidecarInput {
   readonly textRange: { readonly start: number; readonly end: number }
   readonly kind: 'reliable-quote' | 'historical-fact' | 'attribution' | 'modern-inference' | 'insufficient-evidence'
   readonly evidenceIds: readonly string[]
 }
 
-/** Validate a complete Claim[] partition against the private assistant text and current tool results. */
+/**
+ * Validate a complete Claim[] partition against the private assistant text and current tool results.
+ * @param text - Complete private assistant answer whose UTF-16 positions are checked.
+ * @param claims - Ordered nonempty ranges partitioning the answer, with evidence requirements determined by claim kind.
+ * @param returnedEvidenceIds - Evidence ids actually returned to this turn and currently allowed.
+ * @returns Whether all ranges partition the answer and every claim uses permitted evidence references.
+ */
 export function validateClaimSidecar(
   text: string,
   claims: readonly ClaimSidecarInput[],
@@ -123,7 +134,12 @@ function researchPersonaMarkers(markdown: string): readonly string[] {
   return [...markdown.matchAll(/persona_id：`([^`]+)`/gu)].map(match => match[1] ?? '')
 }
 
-/** Parse numbered cards and quote rows from any registered audited persona document. */
+/**
+ * Parse numbered cards and quote rows from any registered audited persona document.
+ * @param markdown - Audited research Markdown with exactly one matching persona marker.
+ * @param persona - Registered owner of the requested research file.
+ * @returns Admitted numbered cards and quote rows; persona-marker mismatch or duplicate stable ids returns an empty list.
+ */
 export function parseResearchEvidence(markdown: string, persona: PersonaId): readonly ResearchEvidence[] {
   const definition = personaDefinition(persona)
   const markers = researchPersonaMarkers(markdown)

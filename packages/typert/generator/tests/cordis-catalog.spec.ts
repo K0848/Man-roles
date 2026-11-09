@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { relocateGeneratedDocument } from '../../../../scripts/documentation-paths.ts'
 import {
   projectCordisCatalog,
   renderInheritedPage,
@@ -51,8 +52,8 @@ describe('Typert-backed Cordis catalog', () => {
     }], SOURCE_LINK_POLICY)
     const inherited = renderInheritedPage(SOURCE_LINK_POLICY)
 
-    expect(page).toContain('Source: [`packages/fixture/events.ts`](../../packages/fixture/events.ts)')
-    expect(page).toContain('Source: [`packages/fixture/service.ts`](../../packages/fixture/service.ts)')
+    expect(page).toContain('源码：[`packages/fixture/events.ts`](../../packages/fixture/events.ts)')
+    expect(page).toContain('源码：[`packages/fixture/service.ts`](../../packages/fixture/service.ts)')
     expect(inherited).toContain('([`vendor/cordis/src/events.ts:9`](../../vendor/cordis/src/events.ts))')
     expect(inherited).toContain('([`vendor/cordis/src/context.ts:12`](../../vendor/cordis/src/context.ts))')
   })
@@ -61,7 +62,7 @@ describe('Typert-backed Cordis catalog', () => {
     const { projector, model } = projection()
     const expected = (path: string): string => readFileSync(join(workspaceRoot, path), 'utf8')
 
-    expect(renderInheritedPage(CORDIS_CATALOG_POLICY)).toBe(expected('docs/cordis-api/inherited.md'))
+    expect(relocateGeneratedDocument(renderInheritedPage(CORDIS_CATALOG_POLICY), 'docs/reference/cordis-api/inherited.md')).toBe(expected('docs/reference/cordis-api/inherited.md'))
     for (const page of [...new Set([...Object.values(SERVICE_PAGE), ...Object.values(EVENT_SCOPE_PAGE)])].sort()) {
       const region = renderPageRegion(
         page,
@@ -69,16 +70,14 @@ describe('Typert-backed Cordis catalog', () => {
         [...model.events].filter(e => EVENT_SCOPE_PAGE[e.scope] === page),
         CORDIS_CATALOG_POLICY,
       )
-      for (const side of [page, page.replace(/\.md$/, '.zh.md')]) {
-        const rel = `docs/subsystems/${side}`
-        const committed = expected(rel)
-        const begin = committed.indexOf(REGION_BEGIN)
-        const end = committed.indexOf(REGION_END)
-        expect(begin, `${rel} carries the region`).toBeGreaterThanOrEqual(0)
-        expect(committed.slice(begin, end + REGION_END.length)).toBe(
-          localizePageRegion(region, rel, workspaceRoot),
-        )
-      }
+      const rel = `docs/reference/subsystems/${page}`
+      const committed = expected(rel)
+      const begin = committed.indexOf(REGION_BEGIN)
+      const end = committed.indexOf(REGION_END)
+      expect(begin, `${rel} carries the region`).toBeGreaterThanOrEqual(0)
+      expect(committed.slice(begin, end + REGION_END.length)).toBe(
+        localizePageRegion(region, `docs/subsystems/${page}`),
+      )
     }
     expect(projector.renderRuntimeApi(model)).toBe(
       expected('packages/extensions/tool-cordis/src/api-catalog.ts'),

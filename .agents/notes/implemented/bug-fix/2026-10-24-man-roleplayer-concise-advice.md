@@ -1,23 +1,21 @@
-# Agent Note: Concise advice has no fixed minimum length
+# Agent Note: 简短建议不设固定最低字数
 
 Status: implemented
 
-English | [中文](2026-10-24-man-roleplayer-concise-advice.zh.md)
-
 ## Problem
 
-A fictional classroom exercise requests one opening within thirty characters. The persona submitted an opening, but Host rejected it twice because advice required eighty characters. The model then appended advice and an unwanted historical example to pass admission. Length measured padding rather than whether the requested output was useful.
+虚构课堂练习要求一句三十字以内的开场白。人物提交开场白后，Host 因建议至少需要八十字而连续拒绝两次。模型随后追加建议和用户未要求的历史例子以通过提交检查。长度衡量了补字数，而非所需输出是否有用。
 
 ## Decision
 
-Advice submission has no fixed minimum character count. The Host retains identity checks, nonempty segmented text, validation-filler rejection, modern-inference guidance, topic overlap, and all evidence constraints. The [per-turn communication policy](2026-10-24-man-roleplayer-turn-communication.md) guides requested brevity; Host does not parse arbitrary natural-language length limits.
+建议提交不设固定最低字数。Host 保留身份检查、分段正文非空、校验占位拒绝、modern-inference 建议、主题词重合以及全部证据约束。[逐轮沟通规则](2026-10-24-man-roleplayer-turn-communication.md)指导用户要求的简短回应；Host 不解析任意自然语言字数上限。
 
 ## Alternatives considered
 
-**Keep eighty characters except for parsed limits.** Parsing unrestricted requests creates another incomplete intent classifier and leaves listening or compact formats in conflict with a numeric floor.
+**保留八十字并解析例外上限。** 解析任意请求会增加一个不完备的意图分类器，倾听或紧凑格式仍可能与数字下限冲突。
 
-**Remove all quality checks.** The observed defect is caused by length. Removing unrelated protections would admit uncited history, filler, and off-topic answers without addressing another reproduced failure.
+**移除所有质量检查。** 本次观察到的缺陷由长度导致。删除其他保护会放行无来源历史、占位和离题答复，却没有对应的真实失败依据。
 
 ## Consequences
 
-A Loader regression with synthetic classroom text admits a concise relevant opening. The same execution rejects bare historical content without guidance, unrelated advice, and validation filler; existing evidence and identity regressions remain applicable. Topic overlap and Claim categories are structural admission checks, not precise semantic quality judgments. Real model review remains necessary for usefulness and compliance with requested length.
+使用合成课堂文本的 Loader 回归接纳简短且相关的开场白。同一执行仍拒绝没有现实承接的纯历史内容、离题建议与校验占位；既有证据及身份回归仍适用。主题词重合与 Claim 类型是结构接纳检查，不能精确判断语义质量。建议效用及字数要求是否遵从，仍需真实模型验收。

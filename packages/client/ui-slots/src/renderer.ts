@@ -71,7 +71,7 @@ export interface SessionMaybeProvideInfo {
   props: Record<string, unknown>
   /**
    * Key-addressed projection value sources (the useProjection framework seat;
-   * session-projection subsystem page: docs/subsystems/session-projection.md).
+   * session-projection subsystem page: docs/reference/subsystems/session-projection.md).
    * Unlike `hooks`, the key space is open — values
    * arrive from host-computed push frames — so the render side binds per
    * resolved key instead of per static roster member. Faces are always

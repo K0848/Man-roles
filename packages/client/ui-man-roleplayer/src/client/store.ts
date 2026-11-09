@@ -13,6 +13,7 @@ import type {
 } from '@deepseek-ai/dsh-man-roleplayer/types'
 import type { ExecutionState } from '@deepseek-ai/dsh-man-roleplayer/product'
 
+/** Product RPC methods returning transport results that contain Host-owned business results. */
 export interface RoleplayerRemote {
   list: (request: { version: number; includeArchived?: boolean }) => Promise<RemoteResult<RoleplayerListResult>>
   listPersonas?: (request: { version: number }) => Promise<RemoteResult<RoleplayerResult<readonly RoleplayerPersonaOption[]>>>
@@ -42,8 +43,10 @@ export interface RoleplayerRemote {
   retryState?: (request: RoleplayerStateRetryRequest) => Promise<RemoteResult<RoleplayerProjectionResult>>
 }
 
+/** Projection bootstrap/readiness state; transport connectivity is tracked separately. */
 export type RoleplayerStoreStatus = 'cold' | 'loading' | 'ready' | 'error'
 
+/** Immutable published client snapshot of Host projections, selection and per-dilemma activity. */
 export interface RoleplayerStoreView {
   readonly status: RoleplayerStoreStatus
   readonly connected?: boolean
@@ -70,6 +73,7 @@ function withoutPending(source: PendingByHandle, handle: DilemmaHandle): Pending
   return Object.fromEntries(Object.entries(source).filter(([key]) => key !== handle))
 }
 
+/** Sidebar projection with active/archived rows and a single-persona creation callback. */
 export interface RoleplayerSidebarSelector {
   readonly status: RoleplayerStoreStatus
   readonly items: readonly RoleplayerProjection[]
@@ -78,6 +82,7 @@ export interface RoleplayerSidebarSelector {
   readonly create: (personas: readonly PersonaId[]) => Promise<boolean>
 }
 
+/** Selected conversation projection and Host-routed submission, switching and cancellation actions. */
 export interface RoleplayerConversationSelector {
   readonly projection: RoleplayerProjection | undefined
   readonly submit: (text: string, replyToTimelineEventId?: string) => Promise<boolean>
@@ -89,6 +94,7 @@ export interface RoleplayerConversationSelector {
   ) => Promise<boolean>
 }
 
+/** Detail projection and authoritative Host mutations; unsuccessful actions publish an error. */
 export interface RoleplayerDetailsSelector {
   readonly projection: RoleplayerProjection | undefined
   readonly error: string | null
@@ -155,7 +161,10 @@ export class RoleplayerProjectionStore {
     this.view = { ...initialView, selected: selection?.read() ?? null }
   }
 
-  /** Consume the existing transport's generation state; a reconnect always reloads Host facts. */
+  /**
+   * Consume transport generation changes and reload Host facts on reconnect.
+   * @param connected - Whether the existing Remote transport is available.
+   */
   setConnected(connected: boolean): void {
     if (this.view.connected === connected) return
     this.connectionGeneration += 1
@@ -193,13 +202,20 @@ export class RoleplayerProjectionStore {
     this.publish({ ...withoutPending, pendingByHandle, ...(selectedPending === undefined ? {} : { pending: selectedPending }) })
   }
 
+  /** Read the current snapshot, retaining its identity until the next publication. */
   getSnapshot = (): RoleplayerStoreView => this.view
 
+  /**
+   * Observe snapshot publications.
+   * @param listener - Callback notified after the store replaces its snapshot.
+   * @returns A disposer that removes this subscription.
+   */
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
     return () => { this.listeners.delete(listener) }
   }
 
+  /** Select sidebar rows and actions from the current immutable projection. */
   sidebar = (): RoleplayerSidebarSelector => ({
     status: this.view.status,
     items: this.view.dilemmas.filter(item => item.archived !== true),
@@ -208,6 +224,7 @@ export class RoleplayerProjectionStore {
     create: personas => this.create(personas),
   })
 
+  /** Select the current conversation and actions bound to its projection. */
   conversation = (): RoleplayerConversationSelector => {
     const projection = this.selectedProjection()
     return {
@@ -218,6 +235,7 @@ export class RoleplayerProjectionStore {
     }
   }
 
+  /** Select details and Host-routed lifecycle, state, evidence and choice actions. */
   details = (): RoleplayerDetailsSelector => ({
     projection: this.selectedProjection(), error: this.view.error,
     archive: () => this.archive(), restore: () => this.restore(), delete: operation => this.delete(operation),
@@ -238,6 +256,11 @@ export class RoleplayerProjectionStore {
     cancelChoice: choiceOperationId => this.cancelChoice(choiceOperationId),
   })
 
+  /**
+   * Reload the Host list and roster, rejecting stale connection or mutation results.
+   * @param includeArchived - Whether the list request includes archived dilemmas.
+   * @returns Whether the refresh succeeded; false leaves the failure in the snapshot.
+   */
   refresh(includeArchived = true): Promise<boolean> {
     if (this.view.connected === false || this.disposed) return Promise.resolve(false)
     if (this.loading !== undefined) return this.loading
@@ -291,6 +314,10 @@ export class RoleplayerProjectionStore {
     return pending
   }
 
+  /**
+   * Select an existing dilemma locally while preserving activity owned by other dilemmas.
+   * @param handle - Existing dilemma identity, or null to clear selection.
+   */
   select(handle: DilemmaHandle | null): void {
     const pendingByHandle = { ...(this.view.pendingByHandle ?? {}) }
     if (handle !== null && pendingByHandle[handle] === undefined) {

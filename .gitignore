@@ -13,6 +13,7 @@ auth.json
 .storages/
 
 # Private working materials and acceptance captures.
+.private/
 .claude/
 .validation/
 .delivery/
@@ -20,6 +21,8 @@ auth.json
 /design-demos/
 /experiments/
 /面试准备文档.md
+/需求文档.md
+/MVP需求*.md
 /packages/extensions/man-roleplayer/h3/
 /man-roleplayer/
 

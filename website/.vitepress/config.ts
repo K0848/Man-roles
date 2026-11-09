@@ -64,8 +64,8 @@ const guideModules = {
   },
   en: {
     guide: localeCollections.en[0],
-    develop: { label: 'Development', collection: localeCollections.en[1] },
-    reference: { label: 'Reference', collection: localeCollections.en[2] },
+    develop: { label: '开发', collection: localeCollections.en[1] },
+    reference: { label: '参考', collection: localeCollections.en[2] },
   },
 } satisfies Record<DocsLocale, GuideModules>
 
@@ -155,46 +155,47 @@ function escapeVueInterpolation(html: string): string {
   return html.replaceAll('{{', '&#123;&#123;').replaceAll('}}', '&#125;&#125;')
 }
 
+const chineseSearchTranslations = {
+  button: {
+    buttonText: '搜索文档',
+    buttonAriaLabel: '搜索文档',
+  },
+  modal: {
+    displayDetails: '显示详细列表',
+    resetButtonTitle: '清除搜索',
+    backButtonTitle: '关闭搜索',
+    noResultsText: '未找到相关结果',
+    footer: {
+      selectText: '选择',
+      selectKeyAriaLabel: '回车键',
+      navigateText: '切换',
+      navigateUpKeyAriaLabel: '上方向键',
+      navigateDownKeyAriaLabel: '下方向键',
+      closeText: '关闭',
+      closeKeyAriaLabel: 'Esc 键',
+    },
+  },
+}
+
 const sharedTheme: Pick<DefaultTheme.Config, 'search' | 'socialLinks' | 'editLink'> = {
   search: {
     provider: 'local',
     options: {
       locales: {
-        root: {
-          translations: {
-            button: {
-              buttonText: '搜索文档',
-              buttonAriaLabel: '搜索文档',
-            },
-            modal: {
-              displayDetails: '显示详细列表',
-              resetButtonTitle: '清除搜索',
-              backButtonTitle: '关闭搜索',
-              noResultsText: '未找到相关结果',
-              footer: {
-                selectText: '选择',
-                selectKeyAriaLabel: '回车键',
-                navigateText: '切换',
-                navigateUpKeyAriaLabel: '上方向键',
-                navigateDownKeyAriaLabel: '下方向键',
-                closeText: '关闭',
-                closeKeyAriaLabel: 'Esc 键',
-              },
-            },
-          },
-        },
+        root: { translations: chineseSearchTranslations },
+        en: { translations: chineseSearchTranslations },
       },
     },
   },
   socialLinks: [
-    { icon: 'github', link: 'https://github.com/deepseek-ai/deepseek-harness' },
+    { icon: 'github', link: 'https://github.com/K0848/Man-roles' },
   ],
   editLink: {
     pattern: ({ frontmatter }: PageData) => {
       const data: unknown = frontmatter
-      const editSource: unknown = typeof data === 'object' && data !== null ? Reflect.get(data, 'editSource') : undefined
-      if (typeof editSource !== 'string') throw new Error('Projected documentation page has no editSource frontmatter.')
-      return `https://github.com/deepseek-ai/deepseek-harness/edit/master/${editSource}`
+      const editUrl: unknown = typeof data === 'object' && data !== null ? Reflect.get(data, 'editUrl') : undefined
+      if (typeof editUrl !== 'string') throw new Error('Projected documentation page has no editUrl frontmatter.')
+      return editUrl
     },
     text: '在 GitHub 上编辑此页',
   },
@@ -333,18 +334,18 @@ export default withMermaid({
         darkModeSwitchTitle: '切换到深色主题',
         sidebarMenuLabel: '菜单',
         returnToTopLabel: '返回顶部',
-        langMenuLabel: '切换语言',
+        langMenuLabel: '切换入口',
         skipToContentLabel: '跳至内容',
       },
     },
     en: {
-      label: 'English',
-      lang: 'en-US',
+      label: '兼容入口',
+      lang: 'zh-CN',
       link: '/en/',
       themeConfig: {
-        siteTitle: siteTitle('Preview'),
+        siteTitle: siteTitle('兼容入口'),
         nav: [
-          { text: 'Guide', link: landingLink('en', guideModules.en.guide), activeMatch: '^/en/guide/' },
+          { text: '入门', link: landingLink('en', guideModules.en.guide), activeMatch: '^/en/guide/' },
           ...moduleNav('en'),
         ],
         sidebar: {
@@ -355,14 +356,21 @@ export default withMermaid({
         editLink: {
           pattern: ({ frontmatter }: PageData) => {
             const data: unknown = frontmatter
-            const editSource: unknown = typeof data === 'object' && data !== null ? Reflect.get(data, 'editSource') : undefined
-            if (typeof editSource !== 'string') throw new Error('Projected documentation page has no editSource frontmatter.')
-            return `https://github.com/deepseek-ai/deepseek-harness/edit/master/${editSource}`
+            const editUrl: unknown = typeof data === 'object' && data !== null ? Reflect.get(data, 'editUrl') : undefined
+            if (typeof editUrl !== 'string') throw new Error('Projected documentation page has no editUrl frontmatter.')
+            return editUrl
           },
-          text: 'Edit this page on GitHub',
+          text: '在 GitHub 编辑本页',
         },
-        outline: { label: 'On this page' },
-        docFooter: { prev: 'Previous', next: 'Next' },
+        outline: { label: '本页目录' },
+        docFooter: { prev: '上一篇', next: '下一篇' },
+        darkModeSwitchLabel: '外观',
+        lightModeSwitchTitle: '切换到浅色主题',
+        darkModeSwitchTitle: '切换到深色主题',
+        sidebarMenuLabel: '菜单',
+        returnToTopLabel: '返回顶部',
+        langMenuLabel: '切换入口',
+        skipToContentLabel: '跳至内容',
       },
     },
   },

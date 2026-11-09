@@ -8,6 +8,7 @@
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, extname, join, relative, resolve, sep } from 'node:path'
 import ts from 'typescript'
+import { workspaceFaceConfig } from './workspace-config.ts'
 import type {
   CrossFaceLink,
   DocumentationModel,
@@ -275,8 +276,8 @@ export class WorkspaceAnalyzer {
   constructor(options: WorkspaceAnalyzerOptions) {
     this.options = {
       root: realPath(options.root),
-      hostConfig: options.hostConfig ?? 'tsconfig.host.json',
-      clientConfig: options.clientConfig ?? 'tsconfig.client.json',
+      hostConfig: options.hostConfig ?? workspaceFaceConfig(options.root, 'host'),
+      clientConfig: options.clientConfig ?? workspaceFaceConfig(options.root, 'client'),
       faces: options.faces ?? ['host', 'client'],
       checkDiagnostics: options.checkDiagnostics ?? true,
       mode: options.mode ?? 'check',

@@ -1,41 +1,39 @@
-# Agent Note: Publish the documentation site from a release tag
+# Agent Note：文档站从发布 tag 发布
 
 Status: implemented
 
-English | [中文](2026-08-21-documentation-site-tag-release.zh.md)
-
 ## Problem
 
-Every other public surface of this project advances only at a release tag. The npm sequence publishes from a `dsh-v*` tag through a reviewed manual dispatch, the Python wheels from a `python-v*` tag behind a publisher-repository check and two protected environments, and the public source repository advances only to each release commit. The documentation website deployed on every master push touching `docs/`, `website/`, the projector, or the lockfile, with no reviewer and no version check. That site is reachable without authentication even though the repository is private, so a merge published documentation to the internet within minutes — including pages describing work that no released artifact contained, and reference material generated from a source tree ahead of everything readers could obtain.
+本项目对外的每一个面都只在发布 tag 上前进。npm 序列从 `dsh-v*` tag 经人工审阅的手动 dispatch 发布，Python wheel 从 `python-v*` tag 发布，背后有发布仓库校验和两个受保护环境，公开源码仓库也只推进到每个发布 commit。文档网站却在每次触及 `docs/`、`website/`、投影器或锁文件的 master 推送上部署，既没有审阅人也没有版本校验。尽管仓库是私有的，该站点无需认证即可访问，因此一次合并会在几分钟内把文档发布到公网：其中包含描述尚无任何已发布产物承载的工作的页面，以及从领先于读者所能获取的一切的源码树生成的参考资料。
 
 ## Decision
 
-`docs-pages.yml` declares `workflow_dispatch` alone and publishes from a `dsh-v*` tag, which is the structure `release-publish.yml` already uses for npm: publication is an explicit act from a release tag and never appears as a pull-request check.
+`docs-pages.yml` 只声明 `workflow_dispatch`，并从 `dsh-v*` tag 发布，这正是 `release-publish.yml` 为 npm 采用的结构：发布是从发布 tag 出发的显式动作，绝不作为拉取请求检查出现。
 
-The build job runs `release:verify --family dsh` with `RELEASE_PUBLISH=true` before it builds anything. That is the gate npm publication runs, so the site and the npm sequence share one definition of a released version rather than each carrying its own: the run must come from a `refs/tags/` ref, the tag must carry the family prefix, and the tag must name a version the working tree actually carries. Checkout takes complete history because the release scripts read tags.
+build 作业在构建任何东西之前先以 `RELEASE_PUBLISH=true` 运行 `release:verify --family dsh`。这就是 npm 发布所用的门禁，因此站点和 npm 序列共用同一个「已发布版本」的定义，而不是各自携带一份：运行必须来自 `refs/tags/` ref，tag 必须带有该家族前缀，且 tag 必须命名工作树确实携带的版本。checkout 取完整历史，因为发布脚本要读 tag。
 
-The `github-pages` environment carries a `dsh-v*` deployment tag policy and required reviewers, matching `npm-publish`. The two layers answer different failures: the script gate rejects a dispatch from the wrong ref, and the environment policy still rejects the deployment if a later workflow edit stops asking.
+`github-pages` 环境携带 `dsh-v*` 部署 tag 策略和必需审阅人，与 `npm-publish` 一致。两层应对的是不同的失效：脚本门禁拒绝从错误 ref 发起的 dispatch，而当日后某次工作流编辑不再校验时，环境策略仍会拒绝该次部署。
 
-`DOCS_REPOSITORY_REF` stays `master`, so projected source links continue to target the public repository's default branch rather than the dispatched tag. That repository advances only to each release commit, so its master never carries unreleased work and the published tag adds no exposure control. It also retains only its most recent tags, so following the dispatched tag would leave every projected source link on a deploy from an older tag unresolvable.
+`DOCS_REPOSITORY_REF` 保持 `master`，因此投影出的源码链接继续指向公开仓库的默认分支，而不是被 dispatch 的 tag。该仓库只推进到每个发布 commit，所以它的 master 从不携带未发布的工作，被发布的 tag 在暴露控制上没有任何增益。它还只保留最近的若干 tag，因此跟随被 dispatch 的 tag 会让从较旧 tag 部署的站点上每一条投影源码链接都无法解析。
 
-Build coverage does not depend on this workflow. `check:ci:static` builds the production site on every pull request through `docs:build:mpa`, and `ci-master.yml` builds it again on master; [the projection Agent Note](2026-07-13-documentation-site-projection.md) rejected moving that build into a deployment workflow for exactly this reason, and tag-gated publication is what makes that separation load-bearing.
+构建覆盖不依赖本工作流。`check:ci:static` 在每个拉取请求上通过 `docs:build:mpa` 构建生产站点，`ci-master.yml` 在 master 上再构建一次；[投影 Agent Note](2026-07-13-documentation-site-projection.md) 正是出于这个理由否决了把该构建挪进部署工作流，而 tag 门禁化的发布让这条分离真正承重。
 
-`ci-workflow.spec.ts` pins the shape beside the npm and Python release assertions: `on` carries `workflow_dispatch` alone, the build job runs the tag verification with `RELEASE_PUBLISH`, checkout takes complete history, `DOCS_REPOSITORY_REF` reads `master`, and the deploy job keeps the `github-pages` environment.
+`ci-workflow.spec.ts` 在 npm 与 Python 发布断言旁钉住这个形状：`on` 只携带 `workflow_dispatch`，build 作业以 `RELEASE_PUBLISH` 运行 tag 校验，checkout 取完整历史，`DOCS_REPOSITORY_REF` 读作 `master`，deploy 作业保留 `github-pages` 环境。
 
 ## Alternatives considered
 
-**Keep the master push and add required reviewers to the environment.** This puts a human in the loop for one workflow change and no repository-settings coordination. It fails on what the reviewer is asked: an approval prompt on every documentation merge is a prompt reviewers learn to clear without reading, and nothing connects the approved content to a version anyone can install. The reviewer would be answering "does this page look publishable" when the question is "is this released".
+**保留 master 推送，只给环境加必需审阅人。** 这只需改一处工作流，且不必协调仓库设置，就能把人放进回路。它败在审阅人被问的问题上：每次文档合并都弹出的审批提示，是审阅人会学会不读就放行的提示，而且没有任何东西把被批准的内容与任何人可安装的版本联系起来。审阅人回答的是「这页看着能发吗」，而问题是「这是已发布的吗」。
 
-**Follow the dispatched tag in `DOCS_REPOSITORY_REF`.** A page from a tagged snapshot linking to that snapshot's source is more precise than linking to a branch. It costs more than it buys here: the public repository keeps only its most recent tags, so a deploy from an older tag — the natural response to a bad release — breaks every projected source link at once, while its master cannot expose unreleased work in the first place.
+**让 `DOCS_REPOSITORY_REF` 跟随被 dispatch 的 tag。** 让来自某个 tag 快照的页面链接到该快照的源码，比链接到一个分支更精确。但在这里代价大于收益：公开仓库只保留最近的若干 tag，因此从较旧 tag 部署（正是一次糟糕发布的自然应对）会让全部投影源码链接一次性失效，而它的 master 本就不可能暴露未发布的工作。
 
-**Publish a separate public site and keep an internal site on master.** An internal site following master preserves same-day preview for contributors while the public site tracks releases. GitHub serves one Pages site per repository, so this needs a second repository, and the public organization does not currently run checked-in CI workflows. Deferred rather than rejected: this decision does not foreclose it, since a second destination consumes the same `website/.dist` this workflow already builds.
+**发布一个独立的公开站点，内部站点继续跟随 master。** 内部站点跟随 master 能为贡献者保留当天预览，同时公开站点跟随发布。GitHub 每个仓库只提供一个 Pages 站点，因此这需要第二个仓库，而公开组织目前不运行签入的 CI 工作流。这是押后而非否决：本决策没有堵死它，因为第二个目的地消费的正是本工作流已经构建出的 `website/.dist`。
 
-**Make the Pages site private.** Switching Pages visibility to organization members is one repository setting and instant, and this organization's plan supports it. It answers a different question — it hides the site from readers who are meant to have it — while leaving documentation publication unlinked from release state. Tag-gated publication makes the site's content equal to what the public repository already carries, so restricting visibility buys nothing.
+**把 Pages 站点改为私有。** 把 Pages 可见性切到组织成员只需一处仓库设置且即时生效，本组织的套餐也支持。它回答的是另一个问题：它把站点从本应看到它的读者面前藏起来，同时并未把文档发布与发布状态挂钩。tag 门禁化的发布让站点内容等同于公开仓库已经承载的内容，因此限制可见性没有任何增益。
 
 ## Consequences
 
-Documentation, npm packages, Python wheels, and the public source repository now advance together at each release tag, and no merge reaches a public reader on its own. Publishing costs one dispatch per release, and documentation fixes between releases stay unpublished until the next tag — which is the same latency the other three surfaces carry. A dispatch from a branch, or from a tag whose version the tree does not carry, fails at the verification step before the build runs.
+文档、npm 包、Python wheel 和公开源码仓库现在在每个发布 tag 上一同前进，没有哪次合并能独自抵达公开读者。发布的代价是每次发布一次 dispatch，而两次发布之间的文档修复要等到下一个 tag 才会公开：这与另外三个面承担的延迟相同。从分支发起的 dispatch，或从一个工作树并不携带其版本的 tag 发起的 dispatch，会在构建运行之前于校验步骤失败。
 
-The workflow no longer proves that the Pages-flavored build works on each merge, because it no longer runs on merges; `check:ci:static` and `ci-master.yml` cover the production build, and the base-path configuration this workflow adds on top is exercised only at publication time.
+本工作流不再于每次合并证明 Pages 风味的构建可用，因为它不再在合并上运行；`check:ci:static` 和 `ci-master.yml` 覆盖生产构建，而本工作流在其之上追加的 base 路径配置只在发布时被执行到。
 
-A site already deployed from a master push keeps serving that content until the first tagged dispatch replaces it. Dispatching an existing tag runs the workflow file as it exists at that tag, so a tag predating this change deploys through the previous workflow definition.
+已经从 master 推送部署出去的站点会继续提供那份内容，直到第一次 tag dispatch 替换它。对一个既有 tag 发起 dispatch 会运行该 tag 上的工作流文件，因此对早于本次改动的 tag 发起 dispatch 会走此前的工作流定义。

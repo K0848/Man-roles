@@ -1,50 +1,48 @@
-# Agent Note: High cache-hit decimal display
+# Agent Note: 高缓存命中率的小数显示
 
 Status: implemented
 
-English | [中文](2026-08-19-high-cache-hit-decimal-display.zh.md)
+## 问题
 
-## Problem
+Web 会话统计行会把所有非空缓存命中率舍入为整数。真实比率超过 99% 后，显示会隐藏后续提升；比率达到 99.5% 时，即使仍有未缓存输入或缓存写入，也会显示为 100%。
 
-The Web conversation stats line rounded every non-empty cache-hit ratio to an integer. Once the actual ratio passed 99%, the display hid further progress, and a ratio of at least 99.5% appeared as 100% even while uncached input or cache writes remained.
+用户因此无法区分接近完整的缓存命中与真实满命中。
 
-Users therefore could not distinguish a nearly complete cache hit from a true full hit.
+## 决策
 
-## Decision
+`StatsLine` 继续从 `@deepseek-ai/dsh-token-meter` 所拥有的完整会话 `tokenUsage` 投影派生比率；该投影仍是未缓存输入、缓存读取、缓存写入与输出计数的唯一所有方（[投影决策](../architecture/2026-07-29-projected-token-usage-and-request-context.md)）。展示层只改变插入现有 `stats.cacheHit` locale 模板的文本。
 
-`StatsLine` continues to derive the ratio from the whole-session `tokenUsage` projection owned by `@deepseek-ai/dsh-token-meter`; the projection remains the only owner of the uncached-input, cache-read, cache-write, and output counts ([projection decision](../architecture/2026-07-29-projected-token-usage-and-request-context.md)). The presentation layer changes only the text inserted into the existing `stats.cacheHit` locale template.
-
-| Actual ratio | Display |
+| 真实比率 | 显示结果 |
 |---|---|
-| No billed input | Cache-hit group omitted |
-| Integer rounding is below 100% | Rounded integer |
-| Non-full ratio whose current rounding is 100% | Minimum decimal precision whose rounded result is below 100% |
+| 没有计费输入 | 省略缓存命中分组 |
+| 整数舍入结果低于 100% | 舍入后的整数 |
+| 当前舍入结果为 100% 的非满命中 | 舍入结果低于 100% 所需的最少小数位 |
 | 100% | `100%` |
 
-Every non-empty ratio starts at zero decimal places. A non-full ratio increases precision one place at a time only while rounding would produce 100%, so `99.1%` and `99.49%` remain `99%`, while `99.5%`, `99.95%`, and `99.995%` retain one, two, and three decimal places respectively. `StatsLine` uses exact small-factor comparisons over the safe-integer token counts, then scales the near-full gap only while the intermediate remains within that range. This avoids floating-point tie errors without imposing a precision cap or substitute label. A full hit does not carry a redundant decimal. The same derived string feeds the inline row and its overflow tooltip.
+所有非空比率都从零位小数开始。非满命中只有在舍入结果会成为 100% 时才逐位增加精度，因此 `99.1%` 与 `99.49%` 仍显示为 `99%`，而 `99.5%`、`99.95%` 与 `99.995%` 分别保留一位、两位与三位小数。`StatsLine` 对安全整数 token 计数执行精确的小因子比较，并且只在中间值仍处于该范围内时缩放接近满命中的差值。该算法既避开浮点临界值误差，也不设置精度上限或替代文案。真实满命中不会携带多余的小数。同一份派生字符串同时用于行内统计与溢出 tooltip。
 
-## Ownership and lifecycle
+## 归属与生命周期
 
-Token-meter continues to fold usage from the complete durable session log. `StatsLine` performs a synchronous display derivation whenever the standard projection value changes. It introduces no setting, stored percentage, event, wire field, client state, or recovery path.
+token-meter 继续从完整持久会话日志折叠用量。标准投影值变化时，`StatsLine` 同步派生显示文本。本决策不引入设置、持久百分比、事件、协议字段、客户端状态或恢复路径。
 
-Live updates, reload replay, and reconnect recovery all restore the same `tokenUsage` counts and run the same display function. A missing projection still omits every token group, and a zero input denominator still omits only the cache-hit group.
+实时更新、刷新回放与重连恢复都会还原同一组 `tokenUsage` 计数，并运行同一个显示函数。投影缺失时仍会省略全部 token 分组；输入分母为零时仍只省略缓存命中分组。
 
-## Verification
+## 验证
 
-The component spec pins the zero denominator, ordinary integer rounding, half-step rounding at several decimal precisions, each precision boundary through three decimal places, a near-full cumulative sample that needs fourteen decimal places, the true `100%` result, both locales, and equality between inline and tooltip values. The assembled `lifecycle-chrome` replay sidecar selects `9,950 / 10,000 = 99.5%` as a deterministic ratio that integer rounding would misreport as 100% while the base session fixture remains recordable; the live assertion and post-reload browser snapshot both display `99.5%` without another model call.
+组件测试固定了零分母、普通整数舍入、多个小数精度上的半步舍入、直至三位小数的各个精度边界、需要十四位小数的近满累计样本、真实 `100%`、两种 locale，以及行内值与 tooltip 值的一致性。组装后的 `lifecycle-chrome` replay sidecar 将 `9,950 / 10,000 = 99.5%` 选作确定性测试输入；该比率按整数舍入会误报为 100%，同时基础会话 fixture 仍可重录。活跃页面断言与刷新后的浏览器快照都会显示 `99.5%`，且不会产生额外模型调用。
 
-## Alternatives considered
+## 备选方案
 
-**Keep integer rounding for every ratio.** Rejected because it hides all movement above 99% and still reports some non-full hits as 100%.
+**对所有比率继续使用整数舍入。** 不予采纳，因为它会隐藏 99% 以上的全部变化，并继续把部分非满命中显示为 100%。
 
-**Truncate the high band to one decimal.** Rejected because `99.95%`, `99.995%`, and still closer ratios all collapse to `99.9%` instead of retaining the minimum precision that distinguishes them from a full hit.
+**把高位区间向下截取到一位小数。** 不予采纳，因为 `99.95%`、`99.995%` 以及更接近满命中的比率都会坍缩为 `99.9%`，无法保留区分真实满命中所需的最少精度。
 
-**Cap precision and use a substitute such as `<100%`.** Rejected because the exact cumulative counts can produce the required numeric result, and a cap would make display behavior depend on an arbitrary presentation limit.
+**限制精度并使用 `<100%` 等替代文案。** 不予采纳，因为精确累计计数能够产生所需的数值结果，而精度上限会让显示行为依赖任意的展示限制。
 
-**Show one decimal at every ratio.** Rejected because the additional low-band motion adds noise and changes the established display where integer precision is sufficient.
+**所有比率都显示一位小数。** 不予采纳，因为低位区间的额外变化会增加无效抖动，并改变整数精度已经足够的既有显示。
 
-**Persist a display percentage in token-meter.** Rejected because the projection already carries the exact counts, while presentation precision belongs to the Web stats line. A second stored value would duplicate derivable state and expand replay and wire responsibilities.
+**在 token-meter 中持久化显示百分比。** 不予采纳，因为投影已经携带精确计数，而展示精度属于 Web 统计行。第二个持久值会复制可派生状态，并扩大回放与协议职责。
 
-## Consequences
+## 后果
 
-High cache-hit sessions remain visually stable until integer rounding would falsely report a full hit, then expose only the decimal places needed to preserve that distinction. Extremely close non-full ratios can therefore produce long decimal strings; this is the accepted cost of having no arbitrary precision cap or nonnumeric fallback. Every delivery and recovery path stays on the existing durable projection lifecycle.
+高缓存命中率会保持稳定的整数显示，直到整数舍入会错误地报告满命中；此时界面只展示维持区分所需的小数位。极接近满命中的非满比率可能因此产生较长的小数字符串，这是不设置任意精度上限或非数值回退所接受的代价。所有交付与恢复路径继续沿用既有持久投影生命周期。

@@ -28,7 +28,7 @@ function hardenEvidenceCount(tool: ToolDefinition): ToolDefinition {
 }
 
 /** Build the two tools only after a product Agent has been created. */
-export function productTools(product: ManRoleplayer): readonly ToolDefinition[] {
+function productTools(product: ManRoleplayer): readonly ToolDefinition[] {
   const submit = requireSegmentArrayMinimum(defineTool({
     name: 'persona_turn_submit',
     description: 'Submit the complete final answer as ordered segments. Each segment supplies its own text, Claim kind, and evidenceIds; the Host concatenates segments and computes exact ranges. Never provide textRange or count characters. Use reliable-quote only for reliable authorial-text/quote evidence with firstPersonAllowed=true; use historical-fact only for reliable historical-account/historical-fact evidence; use attribution for textual-parable, disciple-record, another speaker, later evaluation, variants, or contested attribution. If returned evidence has firstPersonAllowed=false, describe it in third person and never rewrite it as “I/我/吾/余” lived experience. Modern advice uses modern-inference with no evidenceIds, but any biographical experience must remain in a separately cited evidence segment rather than being relabeled as modern inference. After any successful lookup, cite at least one compatible returned id instead of labeling all researched content as modern inference.',
