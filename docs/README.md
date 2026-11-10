@@ -11,4 +11,4 @@
 | 文档语言及维护边界 | [语言维护](development/language/README.md)、[文档规则](AGENTS.md) |
 | 查询 DSH 运行时、Cordis 和生成 API | [底座参考](reference/README.md) |
 
-源码与本地修补见 [SOURCE](../SOURCE.md)。内部台账、验收原始数据与作者机器配置不属于公开使用文档。
+源码与本地修补见 [SOURCE](reference/upstream/SOURCE.md)。内部台账、验收原始数据与作者机器配置不属于公开使用文档。

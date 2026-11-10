@@ -1,6 +1,6 @@
 # 测试策略
 
-本页保留上游 DeepSeek Harness 的测试与 CI 政策。[Man-roles 源码交付](../../SOURCE.md)不包含 CI 工作流；下文 CI 引用不代表本地已执行。适用测试须在本地运行并记录结果。
+本页保留上游 DeepSeek Harness 的测试与 CI 政策。[Man-roles 源码交付](../reference/upstream/SOURCE.md)不包含 CI 工作流；下文 CI 引用不代表本地已执行。适用测试须在本地运行并记录结果。
 
 本页说明测试层级与规则。命令见根目录 [AGENTS.md](../../AGENTS.md)，依据见链接的 Agent Note。
 

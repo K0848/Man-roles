@@ -115,5 +115,5 @@ def test_stage_runtime_copies_platform_payload(
     ).read_bytes()
     assert (destination / "LICENSE").read_bytes() == (ROOT / "LICENSE").read_bytes()
     assert (destination / "THIRD_PARTY_NOTICES.md").read_bytes() == (
-        ROOT / "THIRD_PARTY_NOTICES.md"
+        ROOT / "docs" / "legal" / "THIRD_PARTY_NOTICES.md"
     ).read_bytes()

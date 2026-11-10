@@ -3,15 +3,15 @@
 
 # 第三方软件声明
 
-DeepSeek Harness 使用 [MIT](LICENSE) 许可证，并依赖下列第三方软件。各项目继续适用其自身许可证，本文件不改变任何许可条款。
+DeepSeek Harness 使用 [MIT](../../LICENSE) 许可证，并依赖下列第三方软件。各项目继续适用其自身许可证，本文件不改变任何许可条款。
 
 本文件列出工作区声明的**直接依赖**和已明确披露的官方 Claude Code 平台载荷闭包，由 `scripts/gen-third-party-notices.ts` 根据工作区清单生成。pre-commit hook 在输入文件发生暂存变更时更新本页；测试断言提交内容与生成结果一致。清单删除不会触发该 hook，由测试断言兜底；独立检查命令为 `pnpm run verify-third-party-notices`。
 
-完整 npm 传递依赖闭包（包括 Landlock launcher 工作区）及精确版本记录在 [`pnpm-lock.yaml`](pnpm-lock.yaml)，可运行 `pnpm licenses list` 查看。Python 闭包单独记录在 [`python/sdk/uv.lock`](python/sdk/uv.lock)。
+完整 npm 传递依赖闭包（包括 Landlock launcher 工作区）及精确版本记录在 [`pnpm-lock.yaml`](../../pnpm-lock.yaml)，可运行 `pnpm licenses list` 查看。Python 闭包单独记录在 [`python/sdk/uv.lock`](../../python/sdk/uv.lock)。
 
 ## 内置上游源码（`vendor/`）
 
-Cordis 框架及基础库以源码形式纳入本仓库，并使用 `@deepseek-ai` scope 发布。这些库均使用 MIT 许可证，每个目录保留上游 `LICENSE`。具体上游提交和本地修改见 [`vendor/README.md`](vendor/README.md)。
+Cordis 框架及基础库以源码形式纳入本仓库，并使用 `@deepseek-ai` scope 发布。这些库均使用 MIT 许可证，每个目录保留上游 `LICENSE`。具体上游提交和本地修改见 [`vendor/README.md`](../../vendor/README.md)。
 
 | 包 | 上游名称 | 上游仓库 | 许可证 |
 | --- | --- | --- | --- |
@@ -95,7 +95,7 @@ Cordis 框架及基础库以源码形式纳入本仓库，并使用 `@deepseek-a
 
 pnpm 在安装时对下列包应用本地补丁，交付产物因此包含修改后的副本；每个补丁文件记录完整修改：
 
-- `node-pty@1.2.0-beta.15` — [`patches/node-pty@1.2.0-beta.15.patch`](patches/node-pty@1.2.0-beta.15.patch)
+- `node-pty@1.2.0-beta.15` — [`patches/node-pty@1.2.0-beta.15.patch`](../../patches/node-pty@1.2.0-beta.15.patch)
 
 ## 官方 Claude Code 平台载荷
 

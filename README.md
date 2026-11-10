@@ -17,7 +17,7 @@
 | [packages/bundle/man-roleplayer-app/](packages/bundle/man-roleplayer-app/) | 产品 profile 与模块装配 |
 | [research/](research/) | 五位人物的正式运行资料 |
 | `apps/`、其他 `packages/`、`scripts/` | 共用的 DSH 底座、工具与测试 |
-| `start-man-roles.ps1` / `.cmd` | Windows 本地启动入口 |
+| [start-man-roles.cmd](start-man-roles.cmd) | Windows 本地启动入口，实现位于 [scripts/start-man-roles.ps1](scripts/start-man-roles.ps1) |
 
 <a id="run-from-source"></a>
 
@@ -54,7 +54,7 @@ $env:DEEPSEEK_API_KEY = '<YOUR_DEEPSEEK_API_KEY>'
 .\start-man-roles.cmd
 ```
 
-默认使用 `start-man-roles.cmd` 作为 Windows 入口，参数会传给同目录的 PowerShell 启动器。不要提交真实密钥。默认 Provider 为 `deepseek-official`，模型为 `deepseek-v4-flash`；账户须支持所选模型，API 调用可能产生费用。可通过 `-Model` 选择其他受支持模型，底座适配器还读取可选的 `DEEPSEEK_BASE_URL`。
+默认使用 `start-man-roles.cmd` 作为 Windows 入口，参数会传给 `scripts/start-man-roles.ps1`。不要提交真实密钥。默认 Provider 为 `deepseek-official`，模型为 `deepseek-v4-flash`；账户须支持所选模型，API 调用可能产生费用。可通过 `-Model` 选择其他受支持模型，底座适配器还读取可选的 `DEEPSEEK_BASE_URL`。
 
 启动器绑定 `http://127.0.0.1:3085/`，前台运行，按 Ctrl+C 停止。普通启动复用已核验的同产品服务；其他进程占用端口时会报错。`-Update` 先构建，成功后再次核验并仅重启原产品进程；构建失败时保留正在运行的服务。
 
@@ -92,4 +92,4 @@ $env:DEEPSEEK_API_KEY = '<YOUR_DEEPSEEK_API_KEY>'
 
 修改仓库布局或 `.gitignore` 后，提交前运行 `node scripts/verify-publish-ignore.mjs`。它检查应排除和应提交的路径，并报告与忽略规则冲突的已跟踪文件；实际暂存内容仍需单独审查私人信息。
 
-底座来自 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，来源与维护边界见 [SOURCE.md](SOURCE.md)。原版权声明、[MIT 许可证](LICENSE)、[vendor 声明](vendor/README.md)及适用的第三方许可证均保留。人物资料为项目整理材料，引用内容的权利仍归原权利人。
+底座来自 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，来源与维护边界见[源码来源](docs/reference/upstream/SOURCE.md)。原版权声明、[MIT 许可证](LICENSE)、[第三方声明](docs/legal/THIRD_PARTY_NOTICES.md)、[vendor 声明](vendor/README.md)及适用的第三方许可证均保留。人物资料为项目整理材料，引用内容的权利仍归原权利人。

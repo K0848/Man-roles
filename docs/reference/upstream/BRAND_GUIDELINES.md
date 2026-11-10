@@ -1,6 +1,6 @@
 # DeepSeek Harness 品牌素材使用规范
 
-> 本文件保留上游 DeepSeek Harness 的品牌说明，适用于理解底座标识来源，不代表 Man-roles 是 DeepSeek 官方产品或获得其背书。Man-roles 产品入口见 [README](../../../README.md)，来源与许可见 [SOURCE](../../../SOURCE.md)。英文与中文材料可独立保留，不作为持续配对维护要求。
+> 本文件保留上游 DeepSeek Harness 的品牌说明，适用于理解底座标识来源，不代表 Man-roles 是 DeepSeek 官方产品或获得其背书。Man-roles 产品入口见 [README](../../../README.md)，来源与许可见 [SOURCE](SOURCE.md)。英文与中文材料可独立保留，不作为持续配对维护要求。
 
 为了维护 DeepSeek Harness 生态的长期健康发展，避免用户混淆，方便用户对相关资源进行检索和识别，我们特别制定本规范，希望大家共同遵守：
 

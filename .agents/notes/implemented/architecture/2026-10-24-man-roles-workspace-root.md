@@ -8,7 +8,7 @@ Status: implemented
 
 ## Decision
 
-仓库根拥有 pnpm workspace、构建配置、产品启动器和人物资料。现有包分组保留相对布局与依赖身份。三个产品包在元信息中指向 Man-roles 仓库。上游归属记录在 [SOURCE.md](../../../../SOURCE.md) 和保留的许可证中。
+仓库根拥有 pnpm workspace、构建配置、产品启动器和人物资料。现有包分组保留相对布局与依赖身份。三个产品包在元信息中指向 Man-roles 仓库。上游归属记录在 [SOURCE.md](../../../../docs/reference/upstream/SOURCE.md) 和保留的许可证中。
 
 根忽略文件排除本机凭据、运行状态、私有工作材料及生成产物，允许环境模板、源码、锁文件、必要回归样本与产品素材。[忽略检查](../../../../scripts/verify-publish-ignore.mjs) 验证代表性的排除及保留路径，并检测已经进入索引却被忽略的文件。仍需审查内容，因为忽略规则不能脱敏文件或 Git 历史。
 

@@ -22,7 +22,7 @@ description: 在已获授权的 Man-roles 提交或推送前，按实际改动�
 
 ## 提交与交付
 
-布局或忽略规则变更执行 `node scripts/verify-publish-ignore.mjs`，另审暂存内容中的私人数据；保留 [来源与许可](../../../SOURCE.md)。已授权提交后检查 hook 产生的改动；已授权推送后核对远端 ref。合并与发布另按明确授权执行。
+布局或忽略规则变更执行 `node scripts/verify-publish-ignore.mjs`，另审暂存内容中的私人数据；保留 [来源与许可](../../../docs/reference/upstream/SOURCE.md)。已授权提交后检查 hook 产生的改动；已授权推送后核对远端 ref。合并与发布另按明确授权执行。
 
 本仓库没有启用上游 CI 矩阵；有远端检查才报告其实际状态。Git hooks 的当前实现见 [开发说明](../../../docs/development/README.md#git-integrations)，不把 hook 成功当作产品验收。
 

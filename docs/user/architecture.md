@@ -8,7 +8,7 @@
 | 浏览器界面 | `packages/client/ui-man-roleplayer/`：用户操作、状态展示与产品 Remote 调用 |
 | 产品装配 | `packages/bundle/man-roleplayer-app/`：将领域、界面和所需底座能力组合到产品 profile |
 | 人物资料 | 根 `research/` 的五份正式文件：随产品使用的人物资料来源 |
-| 本地入口 | 根 `start-man-roles.ps1` / `.cmd`：读取仓库内资源及使用者自己的设置，启动或更新已核验的产品实例 |
+| 本地入口 | 根 `start-man-roles.cmd` 调用 `scripts/start-man-roles.ps1`：读取仓库内资源及使用者自己的设置，启动或更新已核验的产品实例 |
 
 启动器从工程根定位源码、preset 和人物资料，运行时在自己的数据目录生成 profile、设置和会话。界面经产品 Remote 接口调用领域能力，领域模块使用底座会话、模型和持久化能力；源码目录与使用者数据目录分别管理。
 

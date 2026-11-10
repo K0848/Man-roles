@@ -1,6 +1,6 @@
 # 向古人问惑快速开始
 
-当前产品的安装、构建、启动参数和数据位置统一维护在 [产品 README](../../../README.md#run-from-source)。在仓库根安装锁定依赖并完整构建，设置自己的 API key 后运行 `start-man-roles.ps1`，默认浏览器地址为 `http://127.0.0.1:3085/`。
+当前产品的安装、构建、启动参数和数据位置统一维护在 [产品 README](../../../README.md#run-from-source)。在仓库根安装锁定依赖并完整构建，设置自己的 API key 后运行 `start-man-roles.cmd`，默认浏览器地址为 `http://127.0.0.1:3085/`。
 
 ## 开始一份困惑
 
