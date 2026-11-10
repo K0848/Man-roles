@@ -12,12 +12,11 @@ const GENERATED = new Set([
 const REFERENCE_TREES = new Set(['cookbook', 'cordis-api', 'cordis-tutorial', 'subsystems', 'postmortem'])
 
 /**
- * 返回单份正文的规范路径；历史封存文件不参与迁移。
+ * 返回单份正文的规范路径。
  * @param path - 仓库相对路径。
  * @returns 当前文档目录中的规范路径。
  */
 export function documentationPath(path: string): string {
-  if (path.startsWith('.agents/notes/archived/')) return path
   const canonical = path.replace(/\.zh\.md$/, '.md')
   if (canonical === 'CONTRIBUTING.md') return '.github/CONTRIBUTING.md'
   if (canonical === 'BRAND_GUIDELINES.md' || canonical === 'BENCHMARK.md') return `docs/reference/upstream/${canonical}`

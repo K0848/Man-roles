@@ -13,7 +13,7 @@ description: 维护 Man-roles 文档的归属、教程顺序、文字密度、�
 2. 检查相邻文档与入链，保留当前事实、必要契约及有维护价值的原因，合并重复规则。
 3. 生成区域改拥有它的源码或生成器；类型围栏按 [开发说明](../../../docs/development/README.md#documenting-types-verbatim-ts-type-equiv) 维护。
 4. 普通编辑只更新拥有者，不创建镜像、不维护 sidecar、不执行翻译回录。语言文件缺失不是文档完整性错误。
-5. 非琐碎决策按 [Agent Note 规则](../../notes/README.md) 记录；冻结历史不进入编辑范围。
+5. 非琐碎决策按 [Agent Note 规则](../../notes/README.md) 记录；历史材料按准确授权整理，保留仍有效的事实与独有理由，并修复入链。
 
 ## 定向验证
 

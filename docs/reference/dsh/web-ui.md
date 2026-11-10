@@ -12,7 +12,7 @@
 
 ## 配置模型
 
-通用界面的 Settings → Models 可录入自己的模型账户，模型路由生效无需重启服务。其他提供方和自定义 OpenAI 兼容端点见 [模型配置](../../user/guide/providers.md)。
+通用界面的 Settings → Models 可录入自己的模型账户，模型路由生效无需重启服务。其他提供方和自定义 OpenAI 兼容端点见 [模型配置](guide/providers.md)。
 
 <a id="choose-a-workspace"></a>
 

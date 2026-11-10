@@ -113,7 +113,7 @@ describe('gate graph validation', () => {
 
     expect(gates.some(subject => subject.args.some(arg => arg.startsWith('verify-translation-')))).toBe(false)
     expect(gates.map(subject => subject.id)).toEqual(expect.arrayContaining([
-      'markdown-links', 'doc-refs', 'doc-budgets', 'archived-agent-notes',
+      'markdown-links', 'doc-refs', 'doc-budgets',
     ]))
   })
 

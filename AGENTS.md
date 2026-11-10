@@ -34,7 +34,7 @@
 - 在配置、持久化、模型或工具 JSON、队列、进程及网络入口验证外部数据；不为同进程已受类型保证的调用重复添加防御。配置缺失及失败及时报错；空 catch 解释具体吞掉的错误和范围。部署可变参数归属配置，不硬编码业务选择。
 - 运行不变量检查事件或可变状态之间的真实关系；服务存在、方法存在或固定示例不替代关系检查。没有合理关系时保留说明明确的空 companion，避免发明验收条件。
 - 公共行为变更同步所属 README 与 JSDoc；类型变更更新所属子系统及类型等价清单。模型或用户可见变化保留真实装配的 keyless 快照；SDK、持久化或协议变化检查其受影响消费方。测试策略见 [testing](docs/development/testing.md)。
-- 活动文档统一为一份中文 canonical `.md`，不保留英文镜像或 `.zh.md` 跳转；代码、API 标识、源码 JSDoc、必要许可与冻结历史保持相应边界。遵守 [文档规则](docs/AGENTS.md) 与 [语言政策](docs/development/language/README.md)。非琐碎决策新增或更新一份 [Agent Note](.agents/notes/README.md)，冻结归档不得编辑。
+- 活动文档统一为一份中文 canonical `.md`，不保留英文镜像或 `.zh.md` 跳转；代码、API 标识、源码 JSDoc 与必要许可保留相应边界。遵守 [文档规则](docs/AGENTS.md) 与 [语言政策](docs/development/language/README.md)。非琐碎决策新增或更新一份 [Agent Note](.agents/notes/README.md)；历史材料按仍有效的事实与准确授权范围整理。
 
 <a id="pre-release-stance-foundation-over-blast-radius"></a>
 

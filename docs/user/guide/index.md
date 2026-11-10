@@ -12,4 +12,4 @@
 
 ## 底座参考
 
-[DSH 通用 Web UI 指南](../../reference/dsh/web-ui.md) 解释通用编程工作区、模型设置和任务执行，适用于自行装配普通 DSH profile；这些界面不是人物产品的必要前置步骤。提供方与自定义端点可查 [模型配置参考](providers.md)。
+[DSH 通用 Web UI 指南](../../reference/dsh/web-ui.md) 解释通用编程工作区、模型设置和任务执行，适用于自行装配普通 DSH profile；这些界面不是人物产品的必要前置步骤。提供方与自定义端点可查 [模型配置参考](../../reference/dsh/guide/providers.md)。

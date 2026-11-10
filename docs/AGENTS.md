@@ -25,7 +25,7 @@
 - 每个自然段保持一个物理行，使用编辑器软换行。链接使用可检查的相对 Markdown 路径，修改标题或移动文件时修复入链与锚点。
 - 说明当前行为、错误、时序、所有权和限制；删去代码复述、推理过程、评审对话及无用历史。保留理解或维护所必需的原因，编辑判断见 [文字标准](../.agents/skills/dsh-prose-standard/SKILL.md)。
 - `ts` 代码围栏必须能通过对应代码检查。粘贴源码类型和 JSDoc 使用 `ts type-equiv`；公开类投影用 `ts public-api`，按 [开发说明](development/README.md#documenting-types-verbatim-ts-type-equiv) 登记。保留代码、类型与链接正确性，不以取消双语为由跳过检查。
-- 非琐碎维护决策新增或更新一份 Agent Note；正文可只用中文，机器识别的 header 与标准小标题保留。归档文件永久冻结；旧活动决策被取代时交叉链接到当前说明，删除或归档另按授权范围执行。
+- 非琐碎维护决策新增或更新一份 Agent Note；正文可只用中文，机器识别的 header 与标准小标题保留。旧活动决策被取代时交叉链接到当前说明；历史材料删除或移动按准确授权范围执行，并修复入链、保留仍有效的事实。
 
 ## Wordcount Budgets
 
@@ -33,7 +33,7 @@
 
 ## The slop checklist
 
-检查重复规则、过期路径、无来源状态或 CI 承诺、把生成结果手写成清单、无用过程描述及一次承载过多规则的段落。不要因年代、长度或语言而删去仍约束当前行为的决策；不修改 `.agents/notes/archived/`。
+检查重复规则、过期路径、无来源状态或 CI 承诺、把生成结果手写成清单、无用过程描述及一次承载过多规则的段落。不要因年代、长度或语言而删去仍约束当前行为的决策；历史材料按用途与授权整理。
 
 ## Cross-reference with machine-checkable links, never free prose
 

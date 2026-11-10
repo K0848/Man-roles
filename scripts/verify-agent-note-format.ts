@@ -122,7 +122,7 @@ export function agentNoteFormatProblems(note: AgentNote, content: string): strin
   return errors
 }
 
-/** 校验活动决策记录，不修改封存的历史文件。 */
+/** 校验现存决策记录的结构。 */
 function main(): void {
   const { notes, errors } = walkAgentNoteTree()
   for (const note of notes) {
