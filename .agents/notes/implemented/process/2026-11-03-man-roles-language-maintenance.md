@@ -14,15 +14,15 @@ Man-roles 的公开目录承接 DeepSeek Harness 的完整工作区与文档工�
 
 编译、测试、构建和分析的14份配置集中到 `config/`，同步真实消费者和路径。根 TypeScript solution 与默认 Vitest 转发入口负责工具发现；两份 Oxlint 实际规则保留在根，因为其 glob 以配置物理目录为基准且禁止父目录模式。Vitest 使用已安装 Vite 的原生 TypeScript 路径解析，移除失去消费者的开发插件，Host 与 Client 仍是独立编译面。
 
-配对校验、翻译 prompt 和 Git 自动回录退出活动维护链；既有本机 Git 配置不被静默删除。代码围栏、类型等价、链接、生成内容与 Agent Note 结构继续按实际职责验证。冻结归档保留现有封存证据，不修改任何历史正文或 sidecar。
+配对校验、翻译 prompt 和 Git 自动回录退出活动维护链；既有本机 Git 配置不被静默删除。代码围栏、类型等价、链接、生成内容与 Agent Note 结构继续按实际职责验证。历史材料按[留存规则](../../README.md#retention-and-deletion)和准确授权整理，保留仍有效的事实与独有理由，不要求永久封存或保留 sidecar。
 
-本决定在 Man-roles 中取代 [强制配对](2026-07-02-bilingual-docs-and-pairing-gate.md)、[翻译 prompt](2026-07-23-translation-prompt-v4-contract.md)、[最小翻译 brief](2026-07-26-briefed-minimal-translation-updates.md)、[自动配对合并](2026-08-08-automatic-translation-pairing-merges.md) 和 [常规翻译](2026-08-08-lightweight-routine-documentation-translation.md) 的持续维护要求；这些记录中的原设计理由作为底座参考保留，不把所有英文资料一并删除。
+本决定在 Man-roles 中取代强制配对、翻译 prompt、最小翻译 brief、自动配对合并、常规翻译及双语链接同步的持续维护要求。历史记录按用途与授权整理；必要许可、代码和仍有效的底座约束继续保留。
 
 ## 备选方案
 
 **保留英中同步并放宽检查。** 仍要求人补写无当前读者需求的镜像，且容易用失真的配对记录表示一致性，不能减少真实维护成本。
 
-**按是否英文直接删除内容。** 会误删许可、代码和封存历史。活动正文按用途合并为中文，保留必要原文与实际入链，并同步生成及类型消费者。
+**按是否英文直接删除内容。** 会误删许可、代码和仍有决策价值的说明。活动正文按用途合并为中文，保留必要原文与实际入链，并同步生成及类型消费者。
 
 **只改 README、保留活动规则。** 后续 Agent 仍会重新补翻译、配对或触发已退役工具，无法形成稳定维护方式。
 
@@ -36,4 +36,4 @@ Man-roles 的公开目录承接 DeepSeek Harness 的完整工作区与文档工�
 
 [安装器用例](../../../../scripts/install-lefthook.spec.ts)覆盖无翻译工具依赖的钩子安装，以及已有驱动配置的保留；[门禁用例](../../../../scripts/run-gates.spec.ts)覆盖配对退出后的检查组合。[生成器用例](../../../../scripts/gen-cordis-catalog-record.spec.ts)、[决策记录用例](../../../../scripts/agent-note-tree.spec.ts)和[围栏用例](../../../../scripts/paired-markdown-derivatives.spec.ts)覆盖仅一种语言、无一致性记录的正常输入，以及缺少决策字段、生成标记损坏或代码错误时的拒绝。
 
-[站点用例](../../../../scripts/project-doc-site.spec.ts)检查现存路由使用同一份中文正文以及真实文档链接；[路径用例](../../../../scripts/documentation-paths.spec.ts)检查迁移后链接和局部锚点。活动记录与专用工具退役后，完整构建、类型、lint、文档门禁及公开文件排除规则继续用于验证工程可维护性；封存历史维持独立校验。
+[站点用例](../../../../scripts/project-doc-site.spec.ts)检查现存路由使用同一份中文正文以及真实文档链接；[路径用例](../../../../scripts/documentation-paths.spec.ts)检查迁移后链接和局部锚点。历史材料及专用工具退役后，构建、类型、lint、文档门禁及公开文件排除规则继续按实际影响用于验证工程可维护性。

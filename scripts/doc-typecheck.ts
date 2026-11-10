@@ -12,7 +12,6 @@ import ts from 'typescript'
 import { builtDeclarationPath } from './doc-typecheck-paths.ts'
 import { markdownFences } from './markdown.ts'
 import { partitionPairedMarkdownDerivatives } from './paired-markdown-derivatives.ts'
-import { isArchivedAgentNotePath } from './repo-files.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
@@ -209,7 +208,7 @@ function main(): void {
   const files: string[] = []
   for (const pattern of markdownGlobs) {
     for (const match of globSync(pattern, { cwd: root })) {
-      if (!isArchivedAgentNotePath(match)) files.push(resolve(root, match))
+      files.push(resolve(root, match))
     }
   }
   files.sort()

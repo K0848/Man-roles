@@ -128,7 +128,7 @@ const homeAndGuide = canonicalPages([
     sourceAliases: ['docs/user/guide'],
   },
   {
-    source: 'docs/user/guide/providers.md',
+    source: 'docs/reference/dsh/guide/providers.md',
     route: 'guide/providers.md',
     label: { root: '配置模型', en: 'Configure models' },
     sidebar: { root: 'zh-guide', en: 'en-guide' },
@@ -136,7 +136,7 @@ const homeAndGuide = canonicalPages([
     order: 2,
   },
   {
-    source: 'docs/user/guide/python-sdk.md',
+    source: 'docs/reference/dsh/python-sdk.md',
     route: 'guide/python-sdk.md',
     label: { root: 'Python', en: 'Python' },
     sidebar: { root: 'zh-guide', en: 'en-guide' },
@@ -147,16 +147,16 @@ const homeAndGuide = canonicalPages([
 
 const develop = canonicalPages([
   {
-    source: 'docs/user/develop/basic/index.md',
+    source: 'docs/reference/dsh/develop/basic/index.md',
     route: 'develop/basic/index.md',
     label: { root: '第一个 Harness 插件', en: 'Your first Harness plugin' },
     sidebar: { root: 'zh-develop', en: 'en-develop' },
     section: { root: '基础', en: 'Basics' },
     order: 1,
-    sourceAliases: ['docs/user/develop/basic'],
+    sourceAliases: ['docs/reference/dsh/develop/basic'],
   },
   {
-    source: 'docs/user/develop/basic/tool.md',
+    source: 'docs/reference/dsh/develop/basic/tool.md',
     route: 'develop/basic/tool.md',
     label: { root: '开发一个 Tool', en: 'Build a tool' },
     sidebar: { root: 'zh-develop', en: 'en-develop' },
@@ -164,7 +164,7 @@ const develop = canonicalPages([
     order: 2,
   },
   {
-    source: 'docs/user/develop/basic/config.md',
+    source: 'docs/reference/dsh/develop/basic/config.md',
     route: 'develop/basic/config.md',
     label: { root: '插件配置', en: 'Plugin configuration' },
     sidebar: { root: 'zh-develop', en: 'en-develop' },
@@ -172,7 +172,7 @@ const develop = canonicalPages([
     order: 3,
   },
   {
-    source: 'docs/user/develop/basic/publish.md',
+    source: 'docs/reference/dsh/develop/basic/publish.md',
     route: 'develop/basic/publish.md',
     label: { root: '打包与安装插件', en: 'Package and install' },
     sidebar: { root: 'zh-develop', en: 'en-develop' },
@@ -180,16 +180,16 @@ const develop = canonicalPages([
     order: 4,
   },
   {
-    source: 'docs/user/develop/framework/index.md',
+    source: 'docs/reference/dsh/develop/framework/index.md',
     route: 'develop/framework/index.md',
     label: { root: '插件与生命周期', en: 'Plugin lifecycle' },
     sidebar: { root: 'zh-develop', en: 'en-develop' },
     section: { root: '框架能力', en: 'Framework' },
     order: 1,
-    sourceAliases: ['docs/user/develop/framework'],
+    sourceAliases: ['docs/reference/dsh/develop/framework'],
   },
   {
-    source: 'docs/user/develop/framework/service.md',
+    source: 'docs/reference/dsh/develop/framework/service.md',
     route: 'develop/framework/service.md',
     label: { root: '服务与依赖', en: 'Services and dependencies' },
     sidebar: { root: 'zh-develop', en: 'en-develop' },
@@ -197,7 +197,7 @@ const develop = canonicalPages([
     order: 2,
   },
   {
-    source: 'docs/user/develop/framework/events.md',
+    source: 'docs/reference/dsh/develop/framework/events.md',
     route: 'develop/framework/events.md',
     label: { root: '事件系统', en: 'Event system' },
     sidebar: { root: 'zh-develop', en: 'en-develop' },
@@ -205,16 +205,16 @@ const develop = canonicalPages([
     order: 3,
   },
   {
-    source: 'docs/user/develop/practice/index.md',
+    source: 'docs/reference/dsh/develop/practice/index.md',
     route: 'develop/practice/index.md',
     label: { root: '能力的三层拆分', en: 'Capability layering' },
     sidebar: { root: 'zh-develop', en: 'en-develop' },
     section: { root: '实战', en: 'Practice' },
     order: 1,
-    sourceAliases: ['docs/user/develop/practice'],
+    sourceAliases: ['docs/reference/dsh/develop/practice'],
   },
   {
-    source: 'docs/user/develop/practice/llm-adapter.md',
+    source: 'docs/reference/dsh/develop/practice/llm-adapter.md',
     route: 'develop/practice/llm-adapter.md',
     label: { root: 'LLM 适配器', en: 'LLM adapter' },
     sidebar: { root: 'zh-develop', en: 'en-develop' },

@@ -12,10 +12,10 @@
 
 | 路径 | 职责 |
 | --- | --- |
-| `packages/extensions/man-roleplayer/` | 产品领域、会话生命周期和人物 preset |
-| `packages/client/ui-man-roleplayer/` | 浏览器界面与交互控制 |
-| `packages/bundle/man-roleplayer-app/` | 产品 profile 与模块装配 |
-| `research/调研成果-*.md` | 五位人物的资料 |
+| [packages/extensions/man-roleplayer/](packages/extensions/man-roleplayer/) | 产品领域、会话生命周期和人物 preset |
+| [packages/client/ui-man-roleplayer/](packages/client/ui-man-roleplayer/) | 浏览器界面与交互控制 |
+| [packages/bundle/man-roleplayer-app/](packages/bundle/man-roleplayer-app/) | 产品 profile 与模块装配 |
+| [research/](research/) | 五位人物的正式运行资料 |
 | `apps/`、其他 `packages/`、`scripts/` | 共用的 DSH 底座、工具与测试 |
 | `start-man-roles.ps1` / `.cmd` | Windows 本地启动入口 |
 

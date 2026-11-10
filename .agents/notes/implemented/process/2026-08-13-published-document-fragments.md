@@ -10,13 +10,13 @@ Status: implemented
 
 `docs:build` 及其 MPA 变体会在 VitePress 生成 `website/.dist` 后运行 `verify-doc-site-fragments`。该校验器解析每个生成的 HTML 页面，按照 VitePress clean URL 解析每个内部 fragment 链接，并在构建产物不存在、路由有歧义、href 格式错误、目标页面不存在或请求的 id 缺失时失败。单元测试覆盖这些失败，以及 clean URL、`.html` 别名、同页链接、编码和字面 id 与外部链接排除。
 
-任何 GitHub id 与 VitePress id 不同的 fragment 目标标题都会带有与 GitHub 兼容的显式别名。英文手写页面和翻译页面会在标题前添加别名；翻译页面使用双语对侧文件共享的英文 id。生成的配置、工具和持久化目录由所属生成器输出别名。源码 Markdown 校验保持独立，仍会拒绝在仓库渲染规则下无法解析的链接。
+GitHub id 与 VitePress id 不同且已有消费者的 fragment 目标保留与 GitHub 兼容的显式别名。生成的配置、工具和持久化目录由所属生成器输出必要别名。源码 Markdown 校验保持独立，仍会拒绝在仓库渲染规则下无法解析的链接。
 
-目标存在配对文件时，文件路径按照[双语文档链接本地化决策](2026-08-18-localized-bilingual-links.md)跟随源文档 locale；配对两侧仍使用完全相同的 query 与 fragment 后缀。
+当前文档路径和语言维护以[语言政策](../../../../docs/development/language/README.md)为准；文档站与生成器读取同一份 canonical 正文，目录迁移同步实际入链和仍有消费者的 fragment。
 
 ## Alternatives considered
 
-**使用各语言专属的 fragment。** 配对文件路径会跟随源文档 locale，但双语两侧仍刻意保留相同的 fragment 后缀。语言专属 fragment 会要求每个链接生成方都了解目标语言翻译后的标题。
+**使用各语言专属的 fragment。** 旧双语方案没有采用该方式，因为它要求每个链接生成方了解目标语言翻译后的标题。当前单中文维护不恢复语言配对。
 
 **依赖 VitePress 标题 id。** 这些 id 取决于渲染后的标点与本地化标题文本，无法保留仓库链接和生成引用已经使用的 GitHub id。
 

@@ -16,6 +16,6 @@
 
 ## 历史与原文边界
 
-[冻结归档](../../../.agents/notes/archived/AGENTS.md)、vendor 上游原文、许可及机器测试文本不参加人工正文归一。封存 sidecar 只保护历史，不要求活动文档继续建立配对。已有本机 Git 配置不因语言政策改变就被静默删除。
+vendor 上游原文、许可及机器测试文本不参加人工正文归一。历史材料按[决策记录留存规则](../../../.agents/notes/README.md#retention-and-deletion)和准确授权整理，不要求永久封存或重建语言配对。已有本机 Git 配置不因语言政策改变就被静默删除。
 
 历史翻译工具不属于活动维护链，取代关系见 [中文维护决策](../../../.agents/notes/implemented/process/2026-11-03-man-roles-language-maintenance.md)。翻译样例和术语只作特定参考，不反向规定日常维护流程。

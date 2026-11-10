@@ -6,6 +6,8 @@
 | --- | --- |
 | DSH 架构、术语及框架装配 | [架构](dsh/architecture.md)、[术语](dsh/glossary.md)、[Cordis 入门](dsh/cordis-primer.md) |
 | 通用编程 Web UI | [通用 Web 参考](dsh/web-ui.md) |
+| DSH 模型提供方与 Python SDK | [模型配置](dsh/guide/providers.md)、[Python SDK](dsh/python-sdk.md) |
+| DSH 插件开发 | [第一个插件](dsh/develop/basic/index.md)、[插件与生命周期](dsh/develop/framework/index.md)、[能力拆分](dsh/develop/practice/index.md) |
 | 包级类型和语义 | [子系统](subsystems/README.md) |
 | Cordis API 与教学 | [API](cordis-api/context.md)、[教程](cordis-tutorial/index.md) |
 | 增加包、工具及其他扩展 | [扩展操作](cookbook/extension-cookbook.md) |
