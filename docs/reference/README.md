@@ -15,4 +15,4 @@
 | 已知事故与设计边界 | [事故复盘](postmortem/README.md) |
 | 上游标识与独立评测参考 | [品牌说明](upstream/BRAND_GUIDELINES.md)、[基准测试](upstream/BENCHMARK.md) |
 
-生成区域由源码与生成器拥有。历史决策位于 [Agent Notes](../../.agents/notes/README.md)，冻结归档用于了解原设计，不替代当前工程规则。
+生成区域由源码与生成器拥有。当前决策依据位于 [Agent Notes](../../.agents/notes/README.md)，历史材料按实际用途与准确授权整理，不替代当前工程规则。

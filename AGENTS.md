@@ -2,7 +2,7 @@
 
 ## 工程与资料入口
 
-本目录是向古人问惑的 Git、pnpm workspace、开发和构建根。产品领域位于 `packages/extensions/man-roleplayer/`，界面位于 `packages/client/ui-man-roleplayer/`，装配位于 `packages/bundle/man-roleplayer-app/`；`research/` 的五份文件是正式人物资料。安装、构建和启动见 [README](README.md)，源码来源与补丁维护见 [SOURCE](SOURCE.md)。
+本目录是向古人问惑的 Git、pnpm workspace、开发和构建根。产品领域位于 `packages/extensions/man-roleplayer/`，界面位于 `packages/client/ui-man-roleplayer/`，装配位于 `packages/bundle/man-roleplayer-app/`；`research/` 的五份文件是正式人物资料。安装、构建和启动见 [README](README.md)，源码来源与补丁维护见 [SOURCE](docs/reference/upstream/SOURCE.md)。
 
 存在本地 `.claude/task_plan.md` 时先恢复计划、进度和发现。`.claude/`、`.private/`、`.validation/`、`.local/` 是私有材料，不进入源码交付；不提交凭据、用户对话、数据库、截图或机器专属配置。发布布局或忽略规则改动前运行 `node scripts/verify-publish-ignore.mjs`，另审实际暂存内容；忽略检查不能证明内容安全。
 
@@ -14,7 +14,7 @@
 | --- | --- |
 | 安装锁定依赖 | `pnpm install --frozen-lockfile` |
 | 完整构建 | `pnpm run build` |
-| 本地启动或更新 | `start-man-roles.ps1`、`start-man-roles.ps1 -Update` |
+| 本地启动或更新 | `start-man-roles.cmd`、`start-man-roles.cmd -Update`；实现位于 `scripts/start-man-roles.ps1` |
 | 单元测试 | `pnpm test`，按文件或用例缩小范围 |
 | 类型或 lint | `pnpm run typecheck`、`pnpm run lint` |
 | 文档检查 | 按受影响内容选择 [文档规则](docs/AGENTS.md) 中的检查 |

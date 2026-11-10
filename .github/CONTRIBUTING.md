@@ -18,4 +18,4 @@
 
 提交完整产品工程所需代码、锁文件、资源和公开说明；排除本地配置、凭据、数据库、台账与临时产物。布局或忽略规则变更后运行 `node scripts/verify-publish-ignore.mjs`，并检查实际暂存内容。推送、合并和发布按当前任务授权执行；本仓库不强制上游标签、官方堆叠 PR 或发布流水线。
 
-源码来源与本地修补维护见 [SOURCE](../SOURCE.md)，保留 [MIT 许可](../LICENSE) 和 [第三方声明](../THIRD_PARTY_NOTICES.md)。
+源码来源与本地修补维护见 [SOURCE](../docs/reference/upstream/SOURCE.md)，保留 [MIT 许可](../LICENSE) 和 [第三方声明](../docs/legal/THIRD_PARTY_NOTICES.md)。

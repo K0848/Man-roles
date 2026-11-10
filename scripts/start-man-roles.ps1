@@ -12,7 +12,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$projectRoot = [System.IO.Path]::GetFullPath($PSScriptRoot)
+# 启动实现位于 scripts，资源与本机设置始终相对统一工程根定位。
+$projectRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 
 # 本机路径集中在忽略的配置中；发布源码不携带个人数据目录或凭据位置。
 $settings = @{

@@ -19,7 +19,7 @@ import {
 
 const root = resolve(import.meta.dirname, '..')
 
-describe('THIRD_PARTY_NOTICES.md', () => {
+describe('docs/legal/THIRD_PARTY_NOTICES.md', () => {
   // Freshness lives here rather than in its own doc-sync gate: this spec file
   // already runs in the test lane, so the check costs no extra CI process.
   // Pre-commit regenerates the file whenever a manifest is staged, so reaching
@@ -27,7 +27,7 @@ describe('THIRD_PARTY_NOTICES.md', () => {
   it('matches what the generator produces from the current manifests', () => {
     const generated = render()
     expect(generated).toContain('并依赖下列第三方软件。')
-    expect(readFileSync(resolve(root, 'THIRD_PARTY_NOTICES.md'), 'utf8'), 'stale notices — run `pnpm run gen-third-party-notices`').toBe(generated)
+    expect(readFileSync(resolve(root, 'docs/legal/THIRD_PARTY_NOTICES.md'), 'utf8'), 'stale notices — run `pnpm run gen-third-party-notices`').toBe(generated)
   })
 })
 

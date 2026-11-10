@@ -27,6 +27,7 @@ test = ["pytest>=8.0"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+norecursedirs = ["node_modules", ".git", "dist-exe"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/deepseek_harness"]

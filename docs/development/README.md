@@ -174,4 +174,4 @@ pnpm run demo:acp
 
 ## 配置的默认入口
 
-根目录保留 package、锁文件、workspace、TypeScript solution、Lefthook、pytest、Git 与编辑器默认入口。14 份分类配置位于 config/typescript、config/vitest、config/build 和 config/analysis；根 vitest.config.ts 只是默认测试入口。Oxlint 的两份实际配置 `.oxlintrc.json` 与 `.oxlintrc.staged.json` 保留根目录，因为其 files/ignorePatterns 不支持此处需要的跨配置目录路径，不用降低 lint 规则换取目录外观。
+根目录保留 package、锁文件、workspace、TypeScript solution、Lefthook、Git、编辑器规则与单个产品启动入口。分类配置位于 `config/`，可选编辑器工作区位于 [config/editor/向古人问惑.code-workspace](../../config/editor/向古人问惑.code-workspace)，仍指向统一工程根。Python测试复用SDK的 [pyproject.toml](../../python/sdk/pyproject.toml)，使用[贡献者说明](../../python/development.md#验证-sdk)中的显式命令。根 `vitest.config.ts` 保留默认测试发现；Oxlint 的两份实际配置 `.oxlintrc.json` 与 `.oxlintrc.staged.json` 保留根目录，因为其 files/ignorePatterns 不支持此处需要的跨配置目录路径，不用降低 lint 规则换取目录外观。

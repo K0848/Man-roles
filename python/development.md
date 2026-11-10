@@ -20,8 +20,10 @@ pnpm exec tsx scripts/build-exe-for-python-sdk.ts
 ```sh
 export UV_PROJECT_ENVIRONMENT="$PWD/tmp/py-sdk-venv"
 uv sync --project python/sdk --group test
-uv run --project python/sdk pytest
+uv run --project python/sdk pytest -c python/sdk/pyproject.toml
 ```
+
+这是仓库根目录的官方测试入口；显式配置将收集范围限定为 SDK 的 `tests/`，避免递归收集其他目录。
 
 `python/sdk/tests/test_bundled_runtime.py` 会运行可用的内置载体；某个载体的产物尚未构建时，会跳过该载体。仓库级测试政策见 [测试](../docs/development/testing.md)。
 

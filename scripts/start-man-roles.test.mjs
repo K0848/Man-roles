@@ -6,7 +6,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
-const launcher = fileURLToPath(new URL('../start-man-roles.ps1', import.meta.url))
+const launcher = fileURLToPath(new URL('./start-man-roles.ps1', import.meta.url))
+const commandLauncher = fileURLToPath(new URL('../start-man-roles.cmd', import.meta.url))
 const names = ['王阳明', '曾国藩', '庄子', '苏轼', '朱熹']
 const quote = value => "'" + value.replaceAll("'", "''") + "'"
 
@@ -20,7 +21,8 @@ function run({ config, options = {}, scenario = 'idle', buildCode = 0 } = {}) {
     writeFileSync(path, '\ufeff' + content)
   }
   try {
-    copyFileSync(launcher, join(root, 'start-man-roles.ps1'))
+    mkdirSync(join(root, 'scripts'), { recursive: true })
+    copyFileSync(launcher, join(root, 'scripts/start-man-roles.ps1'))
     write('apps/cli/src/bin.ts', '')
     mkdirSync(join(root, 'packages/extensions/man-roleplayer/presets'), { recursive: true })
     mkdirSync(join(root, 'node_modules/tsx'), { recursive: true })
@@ -70,7 +72,7 @@ function run({ config, options = {}, scenario = 'idle', buildCode = 0 } = {}) {
       'function Stop-Process { [CmdletBinding()] param([object]$InputObject) if (-not [object]::ReferenceEquals($InputObject, $global:pinnedProcess) -or -not $InputObject.Pinned) { throw "Only the pinned process object may be stopped" }; $global:events += "stop"; $global:stopped = $true }',
       '$launchOptions = @{}',
       '(Get-Content -LiteralPath (Join-Path $global:fixture "options.json") -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $launchOptions[$_.Name] = $_.Value }',
-      'try { & (Join-Path $global:fixture "start-man-roles.ps1") @launchOptions }',
+      'try { & (Join-Path $global:fixture "scripts/start-man-roles.ps1") @launchOptions }',
       'finally { @{ Events = @($global:events); Captured = $global:captured; RestoredHome = $env:DSH_HOME } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $global:fixture "result.json") -Encoding UTF8 }',
     ].join('\n'))
     const child = spawnSync('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', join(root, 'harness.ps1')], {
@@ -90,6 +92,39 @@ function run({ config, options = {}, scenario = 'idle', buildCode = 0 } = {}) {
 }
 
 const windows = { skip: process.platform !== 'win32' }
+
+test('root command forwards options and exit status through a repository path with spaces', windows, () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'man-roles-command-'))
+  const root = join(scratch, '含 空格的工程')
+  const output = join(scratch, 'forwarded.json')
+  mkdirSync(join(root, 'scripts'), { recursive: true })
+  try {
+    copyFileSync(commandLauncher, join(root, 'start-man-roles.cmd'))
+    // 受控终端入口只回读参数，不加载凭据、模型、端口或真实运行数据。
+    writeFileSync(join(root, 'scripts/start-man-roles.ps1'), '\ufeff' + [
+      '[CmdletBinding()]',
+      'param([int]$Port, [string]$DshHome, [switch]$DumpConfig, [switch]$NoOpen)',
+      '@{ Port = $Port; Home = $DshHome; Dump = [bool]$DumpConfig; NoOpen = [bool]$NoOpen; ScriptRoot = $PSScriptRoot } | ConvertTo-Json | Set-Content -LiteralPath $env:MAN_ROLES_CMD_TEST_OUTPUT -Encoding UTF8',
+      'exit 23',
+    ].join('\n'))
+    const child = spawnSync('cmd.exe', [
+      '/d', '/c', 'call', join(root, 'start-man-roles.cmd'),
+      '-Port', '4012', '-DshHome', 'home with spaces', '-DumpConfig', '-NoOpen',
+    ], {
+      cwd: tmpdir(), encoding: 'utf8', timeout: 30_000,
+      env: { ...process.env, DEEPSEEK_API_KEY: '', MAN_ROLES_CMD_TEST_OUTPUT: output },
+    })
+    assert.equal(child.status, 23, child.stderr || child.stdout)
+    const state = JSON.parse(readFileSync(output, 'utf8').replace(/^\ufeff/, ''))
+    assert.deepEqual(state, {
+      Port: 4012, Home: 'home with spaces', Dump: true, NoOpen: true,
+      ScriptRoot: join(root, 'scripts'),
+    })
+  } finally {
+    // 仅清理本测试新建且不含目录链接的隔离目录。
+    rmSync(scratch, { recursive: true, force: true })
+  }
+})
 
 test('public launch uses isolated home, five root research files and inherited credential providers', windows, () => {
   const result = run({ options: { NoOpen: true } })

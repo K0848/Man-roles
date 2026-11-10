@@ -2,7 +2,7 @@
 
 Status: implemented
 
-本文保留上游 DeepSeek Harness 的工作流决策与验证依据；文中的 CI 作业、触发器、runner 和仓库设置均指上游，不表示 Man-roles 已配置或运行这些工作流。本源码交付不包含 CI 工作流，范围见 [SOURCE.md](../../../../SOURCE.md)。
+本文保留上游 DeepSeek Harness 的工作流决策与验证依据；文中的 CI 作业、触发器、runner 和仓库设置均指上游，不表示 Man-roles 已配置或运行这些工作流。本源码交付不包含 CI 工作流，范围见 [SOURCE.md](../../../../docs/reference/upstream/SOURCE.md)。
 
 ## 问题
 
